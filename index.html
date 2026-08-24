@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2E3A87">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Daftar">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<title>Daftar</title>
+<link rel="stylesheet" href="styles.css">
+<style id="printPageRule"></style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand" id="brandHome" role="button" tabindex="0" title="العودة للرئيسية">
+    <img class="brand-logo" src="icon.svg" alt="Daftar">
+    <div>
+      <h1 id="appTitle">Daftar</h1>
+      <div class="brand-tag" id="appTagline">جدول حضور وغياب</div>
+      <div class="month-title" id="monthSubtitle">…</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <div class="notif-wrap">
+      <button id="notifBtn" class="btn btn-ghost" title="جدول اليوم والتذكيرات">🔔<span id="notifDot" class="notif-dot" hidden></span></button>
+      <div id="notifPanel" class="notif-panel" hidden></div>
+    </div>
+    <button id="weeklyMsgBtn" class="btn btn-whatsapp">📨 الرسالة الأسبوعية</button>
+    <span id="autosaveBadge" class="autosave-status"></span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="lessons">📚 الدروس</button>
+  <button class="tab" data-tab="archive">📦 الأرشيف</button>
+  <button class="tab" data-tab="settings">⚙️ الإعدادات</button>
+</nav>
+
+<main>
+
+  <!-- ===================== الدروس ===================== -->
+  <section id="tab-lessons" class="tab-panel active">
+
+    <div id="lessonsHome">
+      <div id="incomeCard" class="income-card" hidden></div>
+      <div id="todayBanner" class="today-banner" hidden></div>
+      <div class="toolbar">
+        <button id="addLessonBtn" class="btn">➕ درس جديد</button>
+      </div>
+      <div class="search-box">
+        <input id="globalSearch" type="text" placeholder="🔍 بحث عن طالب في كل الدروس…">
+        <div id="globalSearchResults" class="search-results"></div>
+      </div>
+      <div id="lessonsList" class="lessons-list"></div>
+    </div>
+
+    <div id="lessonDetail" style="display:none">
+      <div class="detail-top">
+        <button id="backToListBtn" class="btn btn-outline btn-sm">→ رجوع للدروس</button>
+        <div class="lesson-head">
+          <h2 id="lessonTitle"></h2>
+          <div class="lesson-meta" id="lessonMeta"></div>
+          <div class="lesson-income" id="lessonIncome"></div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button id="addStudentBtn" class="btn btn-primary">➕ عضو جديد</button>
+        <button id="lessonReportBtn" class="btn btn-outline">📊 تقرير الشهر</button>
+        <button id="sortAttendanceBtn" class="btn btn-outline" title="ترتيب الطلاب حسب نسبة الحضور (الأعلى أولاً)">📈 ترتيب حسب الحضور</button>
+        <button id="addSessionBtn" class="btn btn-outline">➕ حصة</button>
+        <button id="moreActionsBtn" class="btn btn-outline">⋯ المزيد</button>
+      </div>
+      <div id="moreActions" class="toolbar toolbar-more" hidden>
+        <button id="regenSessionsBtn" class="btn btn-outline">🔄 توليد الحصص</button>
+        <button id="changeMonthBtn" class="btn btn-outline">🗓️ تغيير الشهر</button>
+        <button id="editLessonBtn" class="btn btn-outline">✏️ تعديل الدرس</button>
+        <button id="exportLessonBtn" class="btn btn-outline">⬇️ تصدير الدرس</button>
+        <button id="archiveLessonBtn" class="btn btn-danger">📦 أرشفة وإنهاء الشهر</button>
+      </div>
+      <div class="detail-filters">
+        <input id="lessonSearch" type="text" placeholder="🔍 بحث داخل هذا الدرس…" class="lesson-search">
+        <select id="groupFilter" class="group-filter" title="تصفية حسب المجموعة"></select>
+      </div>
+      <div class="table-wrap">
+        <table id="attendanceTable">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="legend" id="statusLegend"></div>
+      <p class="hint">💡 اضغط على خلية الحالة لاختيارها. زر 📝 يفتح ملاحظة لهذا اليوم تحديداً (مثل سبب الغياب). اسحب الجدول يمين/يسار بالماوس لعرض كل الأسابيع، واكتب رقم ترتيب الطالب في البحث للوصول إليه مباشرة.</p>
+    </div>
+
+  </section>
+
+  <!-- ===================== الأرشيف ===================== -->
+  <section id="tab-archive" class="tab-panel">
+    <div class="panel-head">
+      <h2>الأرشيف</h2>
+      <p class="muted">الشهور المؤرشفة لكل الدروس محفوظة هنا (كل شهر مستقل)، ويمكنك فتح أي شهر لمراجعته وتصدير تقريره.</p>
+    </div>
+    <div id="archiveList" class="archive-list"></div>
+    <div id="archiveDetail"></div>
+  </section>
+
+  <!-- ===================== الإعدادات ===================== -->
+  <section id="tab-settings" class="tab-panel">
+    <div class="panel-head">
+      <h2>الإعدادات</h2>
+      <p class="muted">حرّية كاملة في تعديل كل النصوص والعناوين والحالات.</p>
+    </div>
+
+    <div class="card">
+      <h3>العناوين</h3>
+      <div class="grid2">
+        <label>العنوان الفرعي (يظهر أسفل الاسم Daftar)
+          <input id="set_appTitle" type="text">
+        </label>
+        <label>قالب عنوان الشهر (استخدم {month} لرقم الشهر)
+          <input id="set_monthTitle" type="text" dir="rtl">
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>أسماء الأعمدة</h3>
+      <div class="grid2">
+        <label>عمود الطالب
+          <input id="set_studentLabel" type="text">
+        </label>
+        <label>عمود الملاحظات
+          <input id="set_notesLabel" type="text">
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>أعمدة إضافية</h3>
+      <p class="muted">أضف أعمدة مخصصة بجانب اسم الطالب (مثل: العمر، البريد، الدفعة…)، أو احذفها. قيمها تُحفظ مع كل طالب.</p>
+      <div id="customFieldsList" class="status-edit-list"></div>
+      <button id="addFieldBtn" class="btn btn-outline">➕ عمود جديد</button>
+    </div>
+
+    <div class="card">
+      <h3>الحالات</h3>
+      <p class="muted">أضف حالات جديدة، أو عدّل الاسم واللون، أو احذف.</p>
+      <div id="statusList" class="status-edit-list"></div>
+      <button id="addStatusBtn" class="btn btn-outline">➕ حالة جديدة</button>
+    </div>
+
+    <div class="card">
+      <h3>🔔 الإشعارات والتذكيرات</h3>
+      <p class="muted">عندما يأتي يوم الدرس، يذكّرك التطبيق بموعد كل مجموعة قبل الموعد بالمدة المحددة (نصف ساعة / ساعة / 3 ساعات / يوم).</p>
+      <div id="notifStatus" class="muted"></div>
+      <div class="row-actions">
+        <button id="enableNotifBtn" class="btn">🔔 تفعيل الإشعارات</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>الرسالة الأسبوعية</h3>
+      <div class="grid2">
+        <label>رقم الواتساب (بالصيغة الدولية)
+          <input id="set_whatsappNumber" type="text" dir="ltr">
+        </label>
+        <label>نوع الواتساب
+          <select id="set_whatsappType">
+            <option value="normal">واتساب عادي</option>
+            <option value="business">واتساب أعمال</option>
+          </select>
+        </label>
+      </div>
+      <label>نص الرسالة (استخدم {time} لوقت الحصة)
+        <textarea id="set_messageTemplate" rows="5" dir="rtl"></textarea>
+      </label>
+    </div>
+
+    <div class="card">
+      <h3>💾 الحفظ التلقائي في ملف</h3>
+      <p class="muted">اختر ملفاً على هاتفك مرة واحدة ومنح التطبيق الصلاحية، وسيُحفظ كل تغيير تلقائياً فيه دون أن تضغط أي زر. (يعمل على Chrome/Edge — أندرويد والكمبيوتر).</p>
+      <div id="autosaveStatus" class="muted"></div>
+      <div class="row-actions">
+        <button id="enableAutoSaveBtn" class="btn">🔗 تفعيل الحفظ التلقائي</button>
+        <button id="disableAutoSaveBtn" class="btn btn-outline">⏸️ إيقاف الحفظ التلقائي</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>ملف البيانات والنسخ الاحتياطي</h3>
+      <p class="muted">تُحفظ البيانات تلقائياً في المتصفح. ولضمان عدم ضياعها: احفظ ملف بيانات، أو صدّر نسخة (عادية أو مشفّرة بكلمة مرور).</p>
+      <div class="row-actions">
+        <button id="openFileBtn" class="btn">📂 فتح ملف بيانات</button>
+        <button id="saveFileBtn" class="btn">💾 حفظ إلى ملف</button>
+        <button id="exportBackupBtn" class="btn btn-outline">⬇️ تصدير نسخة</button>
+        <button id="importBackupBtn" class="btn btn-outline">⬆️ استيراد نسخة</button>
+        <button id="encryptExportBtn" class="btn btn-outline">🔒 تصدير مشفّر</button>
+        <button id="encryptImportBtn" class="btn btn-outline">🔓 فتح ملف مشفّر</button>
+        <button id="importLessonBtn" class="btn btn-outline">⬆️ استيراد درس (دمج)</button>
+        <input id="importFile" type="file" accept="application/json,.json" hidden>
+        <input id="encryptImportFile" type="file" accept="application/json,.json,.enc" hidden>
+        <input id="importLessonFile" type="file" accept="application/json,.json" hidden>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  <span id="footerOwner"></span>
+</footer>
+
+<div id="modalOverlay" class="modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle"></h3>
+      <button id="modalClose" class="icon-btn" aria-label="إغلاق">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
+<div id="toast" class="toast" hidden>
+  <div class="toast-body" id="toastBody"></div>
+  <div class="toast-actions">
+    <button id="toastDone" class="btn btn-sm">✅ تم</button>
+    <button id="toastDismiss" class="btn btn-sm btn-outline">✕</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
