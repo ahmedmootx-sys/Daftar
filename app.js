@@ -1967,7 +1967,7 @@ function sessionSummary(lesson, session, statuses){
   text = text.trim();
   const typeSel = '<select id="ss_type"><option value="normal">واتساب عادي</option><option value="business">واتساب أعمال</option></select>';
   openModal('📤 ملخص الحصة',
-    '<div class="form-row"><label>إرسال إلى (المشرف)<input id="ss_phone" type="text" dir="ltr" value="'+esc(sd.whatsappNumber)+'"></label></div>'
+    '<div class="form-row"><label>إرسال إلى (المشرف)<input id="ss_phone" type="text" dir="ltr" value="'+esc(state.settings.whatsappNumber)+'"></label></div>'
     + '<div class="form-row"><label>نوع الواتساب' + typeSel + '</label></div>'
     + '<div class="form-row"><label>نص الملخص<textarea id="ss_preview" rows="10" dir="rtl" readonly></textarea></label></div>'
     + '<div class="modal-actions"><a class="btn btn-whatsapp" id="ss_send" href="#" target="_blank" rel="noopener">📨 فتح واتساب</a><button class="btn btn-outline" id="ss_copy">📋 نسخ</button><button class="btn btn-outline" id="ss_close">إغلاق</button></div>');
