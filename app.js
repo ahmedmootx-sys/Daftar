@@ -33,8 +33,12 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v18';
+const APP_VERSION = 'v19';
 const CHANGELOG = {
+  v19: [
+    '📄 ورقة حضور فارغة جاهزة للطباعة: زر «ورقة حضور» يطلع ورقة A4 بأسماء الطلاب وأيام الحصص واسم الدرس والشهر — مربعات الحضور فارغة عشان تكتب فيها يدويًا بعد الطباعة',
+    '⬇️ خيار Excel (CSV) كمان للورقة الفارغة'
+  ],
   v18: [
     '📤/📥 تصدير واستيراد شهر مؤرشف منفصل (دمج بدون التأثير على الباقي)',
     '📚 تصدير الدرس يشمل شهوره المؤرشفة — والاستيراد يجلب كل بياناته',
@@ -1270,6 +1274,109 @@ function printReport(students, sessions, records, title, statuses){
   $('#printPageRule').textContent = '';
 }
 
+/* ---------- ورقة حضور فارغة جاهزة للطباعة ---------- */
+function showBlankSheetOptions(){
+  const L = curLesson();
+  if(!L) return;
+  const body = '<div style="text-align:center;padding:8px 0">'
+    + '<p style="margin-bottom:12px;font-size:14px">اختر صيغة ورقة الحضور الفارغة:</p>'
+    + '<div class="modal-actions" style="justify-content:center;gap:12px">'
+    + '<button class="btn btn-primary" id="blankPdfBtn">🖨️ طباعة / PDF (A4)</button>'
+    + '<button class="btn btn-outline" id="blankExcelBtn">⬇️ Excel (A4)</button>'
+    + '<button class="btn" id="blankCloseBtn">إغلاق</button>'
+    + '</div></div>';
+  openModal('📄 ورقة حضور فارغة', body);
+  $('#blankPdfBtn').onclick = () => { closeModal(); printBlankSheet(L); };
+  $('#blankExcelBtn').onclick = () => { closeModal(); exportBlankSheetExcel(L); };
+  $('#blankCloseBtn').onclick = closeModal;
+}
+
+function printBlankSheet(lesson){
+  const sd = state.settings;
+  const students = lesson.students || [];
+  const sessions = lesson.sessions || [];
+  const monthTitle = buildMonthTitle(lesson.monthNumber);
+  const yearLabel = lesson.year || '';
+  const scheduleStr = scheduleLabel(lesson);
+
+  let html = '<div class="report" dir="rtl">';
+  html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
+  html += '<div class="r-sub">' + esc(lesson.name) + ' — ' + esc(monthTitle) + (yearLabel ? ' ' + esc(String(yearLabel)) : '') + '</div>';
+  if(scheduleStr) html += '<div style="text-align:center;font-size:10px;color:#475569;margin-bottom:6px">' + esc(scheduleStr) + '</div>';
+
+  /* جدول الحضور الفارغ — رفيع */
+  html += '<table class="r-table blank-sheet"><thead><tr>';
+  html += '<th style="width:4%">#</th>';
+  html += '<th class="r-name">' + esc(sd.studentLabel) + '</th>';
+  sessions.forEach(s => {
+    const dayLabel = s.dateLabel || '';
+    html += '<th>' + esc(s.label);
+    if(dayLabel) html += '<br><span style="font-weight:400;font-size:7px">' + esc(dayLabel) + '</span>';
+    if(s.event) html += '<br><span style="color:#b45309;font-size:7px">📝 ' + esc(s.event) + '</span>';
+    html += '</th>';
+  });
+  html += '<th>' + esc(sd.notesLabel) + '</th>';
+  html += '</tr></thead><tbody>';
+
+  students.forEach((st, i) => {
+    html += '<tr>';
+    html += '<td>' + (i + 1) + '</td>';
+    html += '<td class="r-name">' + esc(st.name) + '<br><span style="font-weight:400;font-size:8px;color:#64748b">' + esc(st.phone || '') + '</span></td>';
+    sessions.forEach(() => {
+      html += '<td class="blank-cell"></td>';
+    });
+    html += '<td></td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  html += '<div class="r-foot">عدد الطلاب: ' + students.length + ' · عدد الحصص: ' + sessions.length + '</div>';
+  html += '</div>';
+
+  /* دائمًا أفقي (landscape) عشان صفحات أقل */
+  $('#printPageRule').textContent = '@page{size:A4 landscape;margin:6mm}';
+  $('#printArea').innerHTML = html;
+  window.print();
+  $('#printPageRule').textContent = '';
+}
+
+function exportBlankSheetExcel(lesson){
+  const sd = state.settings;
+  const students = lesson.students || [];
+  const sessions = lesson.sessions || [];
+  const monthTitle = buildMonthTitle(lesson.monthNumber);
+  const yearLabel = lesson.year || '';
+  const title = lesson.name + ' — ' + monthTitle + (yearLabel ? ' ' + yearLabel : '');
+
+  const lines = [];
+  /* صف العنوان */
+  const totalCols = 2 + sessions.length + 1;
+  lines.push('"' + title + '",'.repeat(totalCols - 1) + '""');
+  lines.push('');
+
+  /* رأس الجدول */
+  let head = ['#', 'اسم الطالب'];
+  sessions.forEach(s => {
+    let col = s.label;
+    if(s.dateLabel) col += ' (' + s.dateLabel + ')';
+    if(s.event) col += ' [' + s.event + ']';
+    head.push(col);
+  });
+  head.push(sd.notesLabel);
+  lines.push(head.join(','));
+
+  /* صفوف الطلاب — الحضور فارغ */
+  students.forEach((st, i) => {
+    const row = [i + 1, '"' + String(st.name).replace(/"/g,'""') + '\n' + String(st.phone || '').replace(/"/g,'""') + '"'];
+    sessions.forEach(() => row.push(''));
+    row.push('');
+    lines.push(row.join(','));
+  });
+
+  const csv = '\uFEFF' + lines.join('\r\n');
+  downloadBlob(csv, 'ورقة_حضور_' + title.replace(/[^\w\u0600-\u06FF ]/g,'') + '.csv', 'text/csv;charset=utf-8');
+}
+
 function buildReportHTML(students, sessions, records, rows, title, statuses){
   const sd = state.settings;
   const stList = statuses || state.settings.statuses;
@@ -1967,7 +2074,7 @@ function sessionSummary(lesson, session, statuses){
   text = text.trim();
   const typeSel = '<select id="ss_type"><option value="normal">واتساب عادي</option><option value="business">واتساب أعمال</option></select>';
   openModal('📤 ملخص الحصة',
-    '<div class="form-row"><label>إرسال إلى (المشرف)<input id="ss_phone" type="text" dir="ltr" value="'+esc(state.settings.whatsappNumber)+'"></label></div>'
+    '<div class="form-row"><label>إرسال إلى (المشرف)<input id="ss_phone" type="text" dir="ltr" value="'+esc(sd.whatsappNumber)+'"></label></div>'
     + '<div class="form-row"><label>نوع الواتساب' + typeSel + '</label></div>'
     + '<div class="form-row"><label>نص الملخص<textarea id="ss_preview" rows="10" dir="rtl" readonly></textarea></label></div>'
     + '<div class="modal-actions"><a class="btn btn-whatsapp" id="ss_send" href="#" target="_blank" rel="noopener">📨 فتح واتساب</a><button class="btn btn-outline" id="ss_copy">📋 نسخ</button><button class="btn btn-outline" id="ss_close">إغلاق</button></div>');
@@ -2307,6 +2414,7 @@ function bindEvents(){
 
   $('#weeklyMsgBtn').onclick = weeklyMessage;
   $('#monthlyMsgBtn').onclick = () => { const L = curLesson(); if(L) monthlyReportMessage(L); };
+  $('#blankSheetBtn').onclick = showBlankSheetOptions;
 
   $('#enableNotifBtn').onclick = requestNotifications;
   $('#notifBtn').onclick = (e) => { e.stopPropagation(); const p = $('#notifPanel'); renderNotifPanel(); p.hidden = !p.hidden; };

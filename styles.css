@@ -329,6 +329,11 @@ input[readonly],input:disabled{background:#f1f5f9;color:var(--muted);cursor:not-
 }
 .report table.r-table th{background:#e8ebfa;color:#1f2960;font-weight:800}
 .report table.r-table .r-name{text-align:right;font-weight:700;width:15%}
+/* Blank attendance sheet */
+.report table.r-table.blank-sheet{font-size:8px;line-height:1.2}
+.report table.r-table.blank-sheet th,.report table.r-table.blank-sheet td{padding:2px 3px}
+.report table.r-table.blank-sheet td.blank-cell{min-width:22px;min-height:18px;height:18px;background:#fff;border:1px solid #94a3b8}
+.report table.r-table.blank-sheet th{font-size:8px}
 
 /* ===== الحفظ التلقائي ===== */
 .autosave-status{
