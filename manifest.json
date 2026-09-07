@@ -1,0 +1,14 @@
+{
+  "name": "Daftar",
+  "short_name": "Daftar",
+  "description": "تطبيق متابعة حضور وغياب الدروس",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2E3A87",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
