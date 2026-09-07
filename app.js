@@ -33,8 +33,14 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v19';
+const APP_VERSION = 'v20';
 const CHANGELOG = {
+  v20: [
+    '👨‍👩‍👦 دروس الاشتراك الشهري: رقم للطالب + رقم لولي الأمر + أرقام إضافية للطالبين',
+    '📱 الدروس العادية: إضافة أكثر من رقم هاتف لنفس العضو',
+    '📖 زر «جهات الاتصال»: اختيار الرقم مباشرة من جهات اتصال الجهاز بدل النسخ واللصق (يعمل على Chrome بالموبايل)',
+    '🛠️ إصلاح زر «ملخص الحصة» الذي توقف عن العمل'
+  ],
   v19: [
     '📄 ورقة حضور فارغة جاهزة للطباعة: زر «ورقة حضور» يطلع ورقة A4 بأسماء الطلاب وأيام الحصص واسم الدرس والشهر — مربعات الحضور فارغة عشان تكتب فيها يدويًا بعد الطباعة',
     '⬇️ خيار Excel (CSV) كمان للورقة الفارغة'
@@ -220,7 +226,7 @@ function monthKey(year, month){ return year + '-' + String(month).padStart(2,'0'
 
 /* ---------- تحميل/تطبيع ---------- */
 function normalizeStudent(st){
-  return { id: st.id || uid('s'), name: st.name || '', phone: normalizePhone(st.phone), paid: !!st.paid, groupId: st.groupId || '', fields: (st.fields && typeof st.fields === 'object') ? st.fields : {} };
+  return { id: st.id || uid('s'), name: st.name || '', phone: normalizePhone(st.phone), guardianPhone: normalizePhone(st.guardianPhone || ''), extraPhones: Array.isArray(st.extraPhones) ? st.extraPhones.map(normalizePhone).filter(Boolean) : [], guardianExtraPhones: Array.isArray(st.guardianExtraPhones) ? st.guardianExtraPhones.map(normalizePhone).filter(Boolean) : [], paid: !!st.paid, groupId: st.groupId || '', fields: (st.fields && typeof st.fields === 'object') ? st.fields : {} };
 }
 function normalizeGroup(g){
   return {
@@ -580,7 +586,7 @@ function renderGlobalSearch(){
   const matches = [];
   state.lessons.forEach(L => {
     L.students.forEach((st, sidx) => {
-      if(normalizeForSearch(st.name).includes(qN) || (st.phone||'').includes(q) || (qN && String(sidx+1) === qN)){
+      if(normalizeForSearch(st.name).includes(qN) || (st.phone||'').includes(q) || (st.guardianPhone||'').includes(q) || (st.extraPhones||[]).some(p => p.includes(q)) || (st.guardianExtraPhones||[]).some(p => p.includes(q)) || (qN && String(sidx+1) === qN)){
         matches.push({ lesson: L, student: st });
       }
     });
@@ -675,7 +681,7 @@ function renderLessonDetail(){
     const isNum = !isNaN(numQ) && String(numQ) === fq;
     students = students.filter(st => {
       if(isNum && (L.students.findIndex(x => x.id === st.id) + 1) === numQ) return true;
-      return normalizeForSearch(st.name).includes(fqN) || (st.phone||'').includes(fq);
+      return normalizeForSearch(st.name).includes(fqN) || (st.phone||'').includes(fq) || (st.guardianPhone||'').includes(fq) || (st.extraPhones||[]).some(p => p.includes(fq)) || (st.guardianExtraPhones||[]).some(p => p.includes(fq));
     });
   }
 
@@ -687,6 +693,9 @@ function renderLessonDetail(){
        + '<td class="sticky-col student-cell">'
        +   '<div class="student-name"><input class="order-input" type="number" min="1" max="'+L.students.length+'" value="'+(realIdx+1)+'" data-act="order" data-id="'+st.id+'" title="اكتب رقم الترتيب الجديد ثم اضغط Enter"> ' + esc(st.name) + (g ? ' <span class="badge-group">'+esc(g.name)+'</span>' : '') + '</div>'
        +   '<div class="student-phone">' + esc(st.phone) + '</div>'
+       +   (L.subscription && st.guardianPhone ? '<div class="student-phone">👨 ولي الأمر: ' + esc(st.guardianPhone) + ' <a class="mini-btn mini-call" href="tel:'+esc(st.guardianPhone)+'">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(st.guardianPhone)+'">واتساب</button></div>' : '')
+       +   ((st.guardianExtraPhones||[]).map(p => '<div class="student-phone">👨 ' + esc(p) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(p)+'">واتساب</button></div>').join(''))
+       +   ((st.extraPhones||[]).map(p => '<div class="student-phone">📱 ' + esc(p) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(p)+'">واتساب</button></div>').join(''))
        +   '<div class="student-actions">'
        +     '<button class="mini-btn mini-move" data-act="move-student" data-id="'+st.id+'" data-dir="up"'+(realIdx===0?' disabled':'')+' title="تحريك لأعلى">▲</button>'
        +     '<button class="mini-btn mini-move" data-act="move-student" data-id="'+st.id+'" data-dir="down"'+(realIdx===L.students.length-1?' disabled':'')+' title="تحريك لأسفل">▼</button>'
@@ -2042,6 +2051,7 @@ function editSessionEvent(session, after){
 }
 
 function sessionSummary(lesson, session, statuses){
+  const sd = state.settings;
   const eff = statuses || state.settings.statuses;
   const labelOf = (id) => { const st = eff.find(x => x.id === id); return st ? st.label : id; };
   const groups = {};
@@ -2240,8 +2250,35 @@ function addEditingGroup(){
 }
 
 /* ---------- نماذج ---------- */
+/* ---------- اختيار رقم من جهات الاتصال (Contact Picker API) ---------- */
+const CONTACTS_API_SUPPORTED = ('contacts' in navigator) && typeof navigator.contacts.select === 'function';
+function contactPickerBtn(inputId){
+  if(!CONTACTS_API_SUPPORTED) return '';
+  return '<button type="button" class="btn btn-outline btn-picker" data-pick="'+inputId+'" title="اختيار رقم من جهات الاتصال">📖 جهات الاتصال</button>';
+}
+function bindContactPickers(){
+  if(!CONTACTS_API_SUPPORTED) return;
+  $$('#modalBody [data-pick]').forEach(btn => {
+    btn.onclick = async () => {
+      try{
+        const cs = await navigator.contacts.select(['tel'], { multiple:false });
+        if(cs && cs.length && cs[0].tel && cs[0].tel.length){
+          const inp = document.getElementById(btn.dataset.pick);
+          if(inp) inp.value = cs[0].tel[0];
+        }
+      }catch(err){ /* ألغى المستخدم الاختيار */ }
+    };
+  });
+}
+function phoneRow(labelText, inputId, value){
+  return '<div class="phone-row"><label style="flex:1;min-width:0">'+esc(labelText)
+    + '<input id="'+inputId+'" type="text" value="'+esc(value||'')+'" dir="ltr" placeholder="+20..."></label>'
+    + contactPickerBtn(inputId) + '</div>';
+}
+
 function studentForm(lesson, student){
   const isEdit = !!student;
+  const isSub = lesson ? !!lesson.subscription : false;
   let groupSel = '';
   if(lesson.groups && lesson.groups.length){
     groupSel = '<div class="form-row"><label>المجموعة<select id="f_group">'
@@ -2254,12 +2291,62 @@ function studentForm(lesson, student){
     fieldInputs += '<div class="form-row"><label>'+esc(f.label)+'<input type="text" class="f-field" data-fid="'+f.id+'" value="'+esc((student && student.fields && student.fields[f.id]) || '')+'"></label></div>';
   });
 
+  const guardianHTML = isSub
+    ? phoneRow('رقم ولي الأمر', 'f_guardian', student ? student.guardianPhone : '')
+      + '<div class="form-row"><label>أرقام إضافية لولي الأمر (اختياري)</label>'
+      + '<div id="guardianExtraWrap"></div>'
+      + '<button type="button" class="btn btn-outline" id="addGuardianExtra" style="margin-top:6px">➕ إضافة رقم آخر لولي الأمر</button>'
+      + '</div>'
+    : '';
+  const extrasHTML = '<div class="form-row"><label>أرقام إضافية للطالب (اختياري)</label>'
+      + '<div id="extraPhonesWrap"></div>'
+      + '<button type="button" class="btn btn-outline" id="addExtraPhone" style="margin-top:6px">➕ إضافة رقم آخر للطالب</button>'
+      + '</div>';
+
   openModal(isEdit ? 'تعديل عضو' : 'إضافة عضو جديد',
     '<div class="form-row"><label>الاسم<input id="f_name" type="text" value="'+esc(student?student.name:'')+'"></label></div>'
-    + '<div class="form-row"><label>رقم الهاتف<input id="f_phone" type="text" value="'+esc(student?student.phone:'')+'" dir="ltr" placeholder="+20..."></label></div>'
+    + phoneRow('رقم هاتف الطالب', 'f_phone', student ? student.phone : '')
+    + guardianHTML
+    + extrasHTML
     + groupSel
     + fieldInputs
     + '<div class="modal-actions"><button class="btn" id="f_save">حفظ</button><button class="btn btn-outline" id="f_cancel">إلغاء</button></div>');
+
+  let extraIdx = 0, gExtraIdx = 0;
+  function addExtraRow(val){
+    const wrap = $('#extraPhonesWrap');
+    if(!wrap) return;
+    const id = 'f_extra_' + (extraIdx++);
+    const row = document.createElement('div');
+    row.className = 'phone-row extra-phone-row';
+    row.innerHTML = '<input id="'+id+'" type="text" class="extra-phone-input" value="'+esc(val||'')+'" dir="ltr" placeholder="+20...">'
+      + '<button type="button" class="btn btn-danger btn-picker" data-del-row title="حذف الرقم">🗑️</button>'
+      + contactPickerBtn(id);
+    wrap.appendChild(row);
+    row.querySelector('[data-del-row]').onclick = () => row.remove();
+    bindContactPickers();
+  }
+  function addGuardianExtraRow(val){
+    const wrap = $('#guardianExtraWrap');
+    if(!wrap) return;
+    const id = 'f_gextra_' + (gExtraIdx++);
+    const row = document.createElement('div');
+    row.className = 'phone-row extra-phone-row';
+    row.innerHTML = '<input id="'+id+'" type="text" class="guardian-extra-input" value="'+esc(val||'')+'" dir="ltr" placeholder="+20...">'
+      + '<button type="button" class="btn btn-danger btn-picker" data-del-row title="حذف الرقم">🗑️</button>'
+      + contactPickerBtn(id);
+    wrap.appendChild(row);
+    row.querySelector('[data-del-row]').onclick = () => row.remove();
+    bindContactPickers();
+  }
+  ((student && student.extraPhones) || []).forEach(p => addExtraRow(p));
+  if($('#addExtraPhone')) $('#addExtraPhone').onclick = () => addExtraRow('');
+  if(isSub){
+    ((student && student.guardianExtraPhones) || []).forEach(p => addGuardianExtraRow(p));
+    if($('#addGuardianExtra')) $('#addGuardianExtra').onclick = () => addGuardianExtraRow('');
+  }
+  bindContactPickers();
+
   $('#f_save').onclick = () => {
     const nm = $('#f_name').value.trim();
     const ph = normalizePhone($('#f_phone').value);
@@ -2269,8 +2356,17 @@ function studentForm(lesson, student){
     if(!nm){ alert('اكتب الاسم.'); return; }
     const dup = lesson.students.some(x => x.id !== (student ? student.id : null) && normalizeForSearch(x.name) === normalizeForSearch(nm));
     if(dup){ alert('يوجد طالب بهذا الاسم بالفعل في هذا الدرس. (يمكن تكرار رقم الهاتف فقط).'); return; }
-    if(isEdit){ student.name = nm; if(ph) student.phone = ph; student.groupId = grp; student.fields = fields; }
-    else { lesson.students.push({ id: uid('s'), name: nm, phone: ph || '', paid: false, groupId: grp, fields }); }
+    if(isSub){
+      const gp = $('#f_guardian') ? normalizePhone($('#f_guardian').value) : '';
+      const gExtras = $$('#modalBody .guardian-extra-input').map(i => normalizePhone(i.value)).filter(Boolean);
+      const extras = $$('#modalBody .extra-phone-input').map(i => normalizePhone(i.value)).filter(Boolean);
+      if(isEdit){ student.name = nm; if(ph) student.phone = ph; student.guardianPhone = gp; student.guardianExtraPhones = gExtras; student.extraPhones = extras; student.groupId = grp; student.fields = fields; }
+      else { lesson.students.push({ id: uid('s'), name: nm, phone: ph || '', guardianPhone: gp, guardianExtraPhones: gExtras, extraPhones: extras, paid: false, groupId: grp, fields }); }
+    } else {
+      const extras = $$('#modalBody .extra-phone-input').map(i => normalizePhone(i.value)).filter(Boolean);
+      if(isEdit){ student.name = nm; if(ph) student.phone = ph; student.extraPhones = extras; student.groupId = grp; student.fields = fields; }
+      else { lesson.students.push({ id: uid('s'), name: nm, phone: ph || '', guardianPhone: '', extraPhones: extras, paid: false, groupId: grp, fields }); }
+    }
     saveState(); renderAll(); closeModal();
   };
   $('#f_cancel').onclick = closeModal;
@@ -2492,7 +2588,8 @@ function bindEvents(){
     else if(act === 'wa'){
       const L = curLesson();
       const st = L && L.students.find(x => x.id === id);
-      if(st && st.phone) openWhatsApp(st.phone, '', st.name);
+      const targetPhone = t.dataset.phone || (st && st.phone);
+      if(st && targetPhone) openWhatsApp(targetPhone, '', st.name);
     }
     else if(act === 'student-summary'){
       const L = curLesson();
