@@ -33,8 +33,11 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v20';
+const APP_VERSION = 'v21';
 const CHANGELOG = {
+  v21: [
+    '📁 عند التصدير: اختيار مكان حفظ الملف بنفسك بدل التنزيلات مباشرة (يعمل على Chrome وEdge)',
+  ],
   v20: [
     '👨‍👩‍👦 دروس الاشتراك الشهري: رقم للطالب + رقم لولي الأمر + أرقام إضافية للطالبين',
     '📱 الدروس العادية: إضافة أكثر من رقم هاتف لنفس العضو',
@@ -1426,7 +1429,24 @@ function buildReportHTML(students, sessions, records, rows, title, statuses){
   return html;
 }
 
-function downloadBlob(content, filename, mime){
+async function downloadBlob(content, filename, mime){
+  /* أولوية: File System Access API (يخلي المستخدم يختار المكان) */
+  if('showSaveFilePicker' in window){
+    try{
+      const ext = filename.includes('.') ? '.' + filename.split('.').pop() : '';
+      const types = ext ? [{ description: ext.toUpperCase().slice(1) + ' ملف', accept: { [mime]: [ext] } }] : [];
+      const handle = await window.showSaveFilePicker({ suggestedName: filename, types });
+      const writable = await handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      showToastMessage('✅ تم حفظ الملف: ' + filename);
+      return;
+    }catch(e){
+      if(e.name === 'AbortError') return; /* ألغى المستخدم */
+      /* فشل API → رجوع للطريقة العادية */
+    }
+  }
+  /* طريقة التنزيلات العادية (fallback) */
   const blob = new Blob([content], {type: mime});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
