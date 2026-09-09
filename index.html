@@ -73,23 +73,31 @@
       </div>
       <div class="toolbar">
         <button id="addStudentBtn" class="btn btn-primary">➕ عضو جديد</button>
-        <button id="lessonReportBtn" class="btn btn-outline">📊 تقرير الشهر</button>
-        <button id="monthlyMsgBtn" class="btn btn-outline" title="تقرير الشهر كرسالة واتساب للجروب">📨 تقرير كرسالة</button>
-        <button id="blankSheetBtn" class="btn btn-outline" title="ورقة حضور فارغة جاهزة للطباعة — مربعات الحضور فارغة عشان تكتب فيها يدويًا">📄 ورقة حضور</button>
-        <button id="sortAttendanceBtn" class="btn btn-outline" title="ترتيب الطلاب حسب نسبة الحضور (الأعلى أولاً)">📈 ترتيب حسب الحضور</button>
-        <button id="addSessionBtn" class="btn btn-outline">➕ حصة</button>
-        <button id="moreActionsBtn" class="btn btn-outline">⋯ المزيد</button>
-      </div>
-      <div id="moreActions" class="toolbar toolbar-more" hidden>
-        <button id="regenSessionsBtn" class="btn btn-outline">🔄 توليد الحصص</button>
-        <button id="changeMonthBtn" class="btn btn-outline">🗓️ تغيير الشهر</button>
-        <button id="editLessonBtn" class="btn btn-outline">✏️ تعديل الدرس</button>
-        <button id="lessonStatusesBtn" class="btn btn-outline">🏷️ حالات هذا الدرس</button>
-        <button id="exportLessonBtn" class="btn btn-outline">⬇️ تصدير الدرس</button>
-        <button id="compReportBtn" class="btn btn-outline" title="تقرير شامل: نسبة حضور كل طالب عبر كل الشهور المؤرشفة">📊 تقرير شامل (كل الشهور)</button>
-        <button id="archiveLessonBtn" class="btn btn-danger">📦 أرشفة وإنهاء الشهر</button>
+        <div class="toolbar-dropdown">
+          <button class="btn btn-outline" id="reportsMenuBtn">📊 التقارير ▾</button>
+          <div class="dropdown-menu" id="reportsMenu" hidden>
+            <button id="lessonReportBtn" class="dropdown-item">📊 تقرير الشهر</button>
+            <button id="monthlyMsgBtn" class="dropdown-item" title="تقرير الشهر كرسالة واتساب للجروب">📨 تقرير كرسالة</button>
+            <button id="compReportBtn" class="dropdown-item" title="تقرير شامل: نسبة حضور كل طالب عبر كل الشهور المؤرشفة">📊 تقرير شامل (كل الشهور)</button>
+            <button id="blankSheetBtn" class="dropdown-item" title="ورقة حضور فارغة جاهزة للطباعة">📄 ورقة حضور</button>
+          </div>
+        </div>
+        <div class="toolbar-dropdown">
+          <button class="btn btn-outline" id="manageMenuBtn">⚙️ إدارة ▾</button>
+          <div class="dropdown-menu" id="manageMenu" hidden>
+            <button id="addSessionBtn" class="dropdown-item">➕ حصة</button>
+            <button id="regenSessionsBtn"! class="dropdown-item">🔄 توليد الحصص</button>
+            <button id="changeMonthBtn" class="dropdown-item">🗓️ تغيير الشهر</button>
+            <button id="editLessonBtn" class="dropdown-item">✏️ تعديل الدرس</button>
+            <button id="lessonStatusesBtn" class="dropdown-item">🏷️ حالات هذا الدرس</button>
+            <button id="sortAttendanceBtn" class="dropdown-item" title="ترتيب الطلاب حسب نسبة الحضور">📈 ترتيب حسب الحضور</button>
+            <button id="exportLessonBtn" class="dropdown-item">⬇️ تصدير الدرس</button>
+            <button id="archiveLessonBtn" class="dropdown-item dropdown-danger">📦 أرشفة وإنهاء الشهر</button>
+          </div>
+        </div>
       </div>
       <div class="detail-filters">
+        <div id="exportReminder" class="export-reminder" hidden></div>
         <input id="lessonSearch" type="text" placeholder="🔍 بحث داخل هذا الدرس…" class="lesson-search">
         <select id="groupFilter" class="group-filter" title="تصفية حسب المجموعة"></select>
       </div>
@@ -159,6 +167,12 @@
       <p class="muted">أضف حالات جديدة، أو عدّل الاسم واللون، أو احذف.</p>
       <div id="statusList" class="status-edit-list"></div>
       <button id="addStatusBtn" class="btn btn-outline">➕ حالة جديدة</button>
+    </divF>
+
+    <div class="card">
+      <h3>⚠️ مؤشرات خطر الغياب</h3>
+      <p class="muted">مؤشرات تظهر بجانب اسم الطالب حسب نسبة حضوره. عدّل الاسم واللون والحد الأدنى لنسبة الحضور.</p>
+      <div id="indicatorList" class="status-edit-list"></div>
     </div>
 
     <div class="card">

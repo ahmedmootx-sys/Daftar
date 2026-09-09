@@ -1,7 +1,7 @@
 'use strict';
 
 /* =====================================================================
-   Daftar — متابعة حضور وغياب الدروس (متعدد الأقسام، كل درس شهره المستقل)
+   Daftar - متابعة حضور وغياب الدروس (متعدد الأقسام، كل درس شهره المستقل)
    مجموعات + ملاحظات يومية + تذكيرات + أعمدة إضافية + دخل + تصدير/استيراد دروس
    ===================================================================== */
 
@@ -33,32 +33,36 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v21';
+const APP_VERSION = 'v22';
 const CHANGELOG = {
-  v21: [
-    '📁 عند التصدير: اختيار مكان حفظ الملف بنفسك بدل التنزيلات مباشرة (يعمل على Chrome وEdge)',
+  v22: [
+    '⚠️ مؤشر خطر الغياب: كل طالب بيظهر بجانبه مؤشر ملون (مثالي/متابعة/إنقاذ) حسب نسبة حضوره — قابل للتخصيص من الإعدادات',
+    '📁 عند التصدير: اختيار مكان حفظ الملف بنفسك (Chrome/Edge)',
+    '💡 إشعار تذكير بالتصدير: لو سجّلت حضور/غياب ولم تصدّر، يظهر تنبيه صغير',
+    '🎯 تبسيط الأزرار: شريط أدوات نظيف بقوائم منسدلة بدل 14 زر مزدحم',
+    '📊 التقارير والمؤشرات تعتمد على الحصص اللي فاتت بس — مش كل الشهر (الحصص المستقبلية لا تحسب غياب)'
   ],
-  v20: [
+  v21: [
     '👨‍👩‍👦 دروس الاشتراك الشهري: رقم للطالب + رقم لولي الأمر + أرقام إضافية للطالبين',
     '📱 الدروس العادية: إضافة أكثر من رقم هاتف لنفس العضو',
     '📖 زر «جهات الاتصال»: اختيار الرقم مباشرة من جهات اتصال الجهاز بدل النسخ واللصق (يعمل على Chrome بالموبايل)',
     '🛠️ إصلاح زر «ملخص الحصة» الذي توقف عن العمل'
   ],
   v19: [
-    '📄 ورقة حضور فارغة جاهزة للطباعة: زر «ورقة حضور» يطلع ورقة A4 بأسماء الطلاب وأيام الحصص واسم الدرس والشهر — مربعات الحضور فارغة عشان تكتب فيها يدويًا بعد الطباعة',
+    '📄 ورقة حضور فارغة جاهزة للطباعة: زر «ورقة حضور» يطلع ورقة A4 بأسماء الطلاب وأيام الحصص واسم الدرس والشهر - مربعات الحضور فارغة عشان تكتب فيها يدويًا بعد الطباعة',
     '⬇️ خيار Excel (CSV) كمان للورقة الفارغة'
   ],
   v18: [
     '📤/📥 تصدير واستيراد شهر مؤرشف منفصل (دمج بدون التأثير على الباقي)',
-    '📚 تصدير الدرس يشمل شهوره المؤرشفة — والاستيراد يجلب كل بياناته',
+    '📚 تصدير الدرس يشمل شهوره المؤرشفة - والاستيراد يجلب كل بياناته',
     '🏷️ تسمية حالات درس معين فقط (مثل: تم → حضر) دون باقي الدروس',
-    '🛠️ صلاحيات كاملة للشهر المؤرشف: إضافة/حذف حصة، تعديل التاريخ والحدث، ملخص الحصة، وتقرير كرسالة — دون استبدال الشهر الحالي'
+    '🛠️ صلاحيات كاملة للشهر المؤرشف: إضافة/حذف حصة، تعديل التاريخ والحدث، ملخص الحصة، وتقرير كرسالة - دون استبدال الشهر الحالي'
   ],
   v17: [
     '♻️ استعادة شهر مؤرشف: يرجع للصفحة الرئيسية لتعديل ترتيب الطلاب/البيانات، ثم تعيد أرشفته'
   ],
   v16: [
-    '📨 تقرير الشهر كرسالة واتساب (نِسب كل الطلاب مرتبة) — للجروب أو أي رقم',
+    '📨 تقرير الشهر كرسالة واتساب (نِسب كل الطلاب مرتبة) - للجروب أو أي رقم',
     '✏️ تعديل الشهور المؤرشفة: الحالات والملاحظات والدفع تُحفظ في الأرشيف مباشرة'
   ],
   v15: [
@@ -67,7 +71,7 @@ const CHANGELOG = {
   ],
   v14: [
     '📝 إضافة حدث لحصة معينة (مثل: اختبار) ويظهر في تقرير الشهر/الطباعة',
-    '📤 زر ملخص الحصة: من حضر / لم يحضر / اعتذر — يُرسل للمشرف واتساب',
+    '📤 زر ملخص الحصة: من حضر / لم يحضر / اعتذر - يُرسل للمشرف واتساب',
     '📊 تحسين تصدير Excel: اسم الطالب ورقمه في خلية واحدة (الاسم فوق والرقم تحته)'
   ],
   v13: [
@@ -139,14 +143,14 @@ function reminderLabel(min){
 function reminderOptionsHTML(selected){
   const custom = !REMINDER_PRESETS.includes(selected);
   return REMINDERS.map(r => '<option value="'+r.value+'"'+(String(r.value)===String(selected)?' selected':'')+'>'+r.label+'</option>').join('')
-    + '<option value="custom"'+(custom?' selected':'')+'>مخصص…</option>';
+    + '<option value="custom"'+(custom?' selected':'')+'>مخصص...</option>';
 }
 function groupReminderHTML(g, gi){
   const val = g.reminderMinutes;
   const custom = !REMINDER_PRESETS.includes(val);
   return '<select class="g-rem" data-gi="'+gi+'" onchange="groupRemChanged('+gi+', this.value, this)">'
     + REMINDERS.map(r => '<option value="'+r.value+'"'+(String(r.value)===String(val)?' selected':'')+'>'+r.label+'</option>').join('')
-    + '<option value="custom"'+(custom?' selected':'')+'>مخصص…</option>'
+    + '<option value="custom"'+(custom?' selected':'')+'>مخصص...</option>'
     + '</select>'
     + '<input type="number" class="g-rem-custom" data-gi="'+gi+'" min="1" placeholder="دقائق" value="'+(custom?val:'')+'" style="display:'+(custom?'':'none')+'" oninput="editingGroups['+gi+'].reminderMinutes=parseInt(this.value,10)||0">';
 }
@@ -215,7 +219,12 @@ function defaultState(){
       whatsappType: 'normal',
       messageTemplate: 'السلام عليكم ورحمة الله وبركاته\n\nأخباركم إن شاء الله تكونو بخير\n\nبنأكد على معاد النهاردة الساعة {time} وجزاكم الله خيراً',
       ownerName: ADMIN_NAME,
-      ownerPhone: ADMIN_PHONE
+      ownerPhone: ADMIN_PHONE,
+      attendanceIndicators: [
+        { id: 'ideal', label: 'مثالي', color: '#15803d', minPct: 90 },
+        { id: 'watch', label: 'متابعة', color: '#b45309', minPct: 50 },
+        { id: 'rescue', label: 'إنقاذ', color: '#dc2626', minPct: 0 }
+      ]
     },
     moneyPasswordHash: '',
     moneySecurityQ: '',
@@ -252,6 +261,17 @@ function normalizeState(raw){
   settings.whatsappType = (settings.whatsappType === 'business') ? 'business' : 'normal';
   settings.ownerName = ADMIN_NAME;
   settings.ownerPhone = ADMIN_PHONE;
+  /* مؤشرات خطر الغياب */
+  if(!Array.isArray(settings.attendanceIndicators) || settings.attendanceIndicators.length < 3){
+    settings.attendanceIndicators = base.settings.attendanceIndicators;
+  } else {
+    settings.attendanceIndicators = settings.attendanceIndicators.map((ind, i) => ({
+      id: ind.id || base.settings.attendanceIndicators[i]?.id || ('ind_'+i),
+      label: ind.label || base.settings.attendanceIndicators[i]?.label || '',
+      color: ind.color || base.settings.attendanceIndicators[i]?.color || '#64748b',
+      minPct: (typeof ind.minPct === 'number') ? ind.minPct : (base.settings.attendanceIndicators[i]?.minPct || 0)
+    }));
+  }
 
   let lessons = [];
   if(Array.isArray(raw.lessons) && raw.lessons.length){
@@ -280,7 +300,8 @@ function normalizeState(raw){
         students: Array.isArray(L.students) ? L.students.map(normalizeStudent) : [],
         monthNumber, year,
         sessions: (Array.isArray(L.sessions) ? L.sessions : (Array.isArray(cur.sessions) ? cur.sessions : [])),
-        records: (L.records && typeof L.records === 'object') ? L.records : ((cur.records && typeof cur.records === 'object') ? cur.records : {})
+        records: (L.records && typeof L.records === 'object') ? L.records : ((cur.records && typeof cur.records === 'object') ? cur.records : {}),
+        lastExportAt: L.lastExportAt || null
       };
     });
   } else if(Array.isArray(raw.students)){
@@ -443,7 +464,7 @@ async function revealMoney(){
 async function setupMoneyPassword(){
   openModal('🔑 عيّن كلمة سر جديدة للدخل',
     '<div class="form-row"><label>كلمة السر<input id="mp_pwd" type="password" autocomplete="new-password"></label></div>'
-    + '<div class="form-row"><label>سؤال الأمان (اختياري — للاسترجاع لو نسيت)<input id="mp_q" type="text" placeholder="مثال: ما اسم أول مدرسة؟"></label></div>'
+    + '<div class="form-row"><label>سؤال الأمان (اختياري - للاسترجاع لو نسيت)<input id="mp_q" type="text" placeholder="مثال: ما اسم أول مدرسة؟"></label></div>'
     + '<div class="form-row"><label>إجابة سؤال الأمان<input id="mp_a" type="text"></label></div>'
     + '<div class="modal-actions"><button class="btn" id="mp_ok">حفظ</button><button class="btn btn-outline" id="mp_cancel">إلغاء</button></div>');
   const res = await new Promise(resolve => {
@@ -498,7 +519,7 @@ async function setNewMoneyPassword(){
 }
 
 function openWhatsApp(phone, text, label){
-  openModal('📱 اختر نوع الواتساب' + (label ? ' — ' + esc(label) : ''),
+  openModal('📱 اختر نوع الواتساب' + (label ? ' - ' + esc(label) : ''),
     '<p class="muted" style="margin-top:0">بأي تطبيق تريد فتح المحادثة؟</p>'
     + '<div class="modal-actions" style="flex-direction:column;align-items:stretch;gap:8px">'
     + '<a class="btn btn-whatsapp" href="' + waHrefNumber(phone, text, 'normal') + '" target="_blank" rel="noopener" data-waclose>واتساب عادي</a>'
@@ -561,7 +582,7 @@ function scheduleLabel(L){
 function renderLessonsHome(){
   const list = $('#lessonsList');
   if(state.lessons.length === 0){
-    list.innerHTML = '<div class="empty-state">لا توجد دروس بعد — اضغط «درس جديد» لإضافة أول درس.</div>';
+    list.innerHTML = '<div class="empty-state">لا توجد دروس بعد - اضغط «درس جديد» لإضافة أول درس.</div>';
     return;
   }
   list.innerHTML = state.lessons.map(L =>
@@ -692,9 +713,12 @@ function renderLessonDetail(){
   students.forEach(st => {
     const realIdx = L.students.findIndex(x => x.id === st.id);
     const g = (L.groups||[]).find(x => x.id === st.groupId);
+    const ps = pastSessions(L.sessions);
+    const stPct = ps.length ? Math.round(ps.filter(s => (L.records[st.id]||{})[s.id] && L.records[st.id][s.id].status === 'st_done').length / ps.length * 100) : 0;
+    const ind = ps.length > 0 ? attendanceIndicator(stPct) : null;
     b += '<tr class="student-row" draggable="true" data-drag-id="'+st.id+'">'
        + '<td class="sticky-col student-cell">'
-       +   '<div class="student-name"><input class="order-input" type="number" min="1" max="'+L.students.length+'" value="'+(realIdx+1)+'" data-act="order" data-id="'+st.id+'" title="اكتب رقم الترتيب الجديد ثم اضغط Enter"> ' + esc(st.name) + (g ? ' <span class="badge-group">'+esc(g.name)+'</span>' : '') + '</div>'
+       +   '<div class="student-name"><input class="order-input" type="number" min="1" max="'+L.students.length+'" value="'+(realIdx+1)+'" data-act="order" data-id="'+st.id+'" title="اكتب رقم الترتيب الجديد ثم اضغط Enter"> ' + esc(st.name) + (g ? ' <span class="badge-group">'+esc(g.name)+'</span>' : '') + (ind ? ' <span class="badge-indicator" style="background:'+ind.color+'" title="'+esc(ind.label)+' ('+stPct+'%)">'+esc(ind.label)+'</span>' : '') + '</div>'
        +   '<div class="student-phone">' + esc(st.phone) + '</div>'
        +   (L.subscription && st.guardianPhone ? '<div class="student-phone">👨 ولي الأمر: ' + esc(st.guardianPhone) + ' <a class="mini-btn mini-call" href="tel:'+esc(st.guardianPhone)+'">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(st.guardianPhone)+'">واتساب</button></div>' : '')
        +   ((st.guardianExtraPhones||[]).map(p => '<div class="student-phone">👨 ' + esc(p) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(p)+'">واتساب</button></div>').join(''))
@@ -712,7 +736,7 @@ function renderLessonDetail(){
        + '</td>';
 
     sd.customFields.forEach(f => {
-      b += '<td class="field-cell"><input type="text" class="field-input" data-act="field" data-id="'+st.id+'" data-fid="'+f.id+'" value="'+esc((st.fields||{})[f.id]||'')+'" placeholder="…"></td>';
+      b += '<td class="field-cell"><input type="text" class="field-input" data-act="field" data-id="'+st.id+'" data-fid="'+f.id+'" value="'+esc((st.fields||{})[f.id]||'')+'" placeholder="..."></td>';
     });
 
     L.sessions.forEach(s => {
@@ -724,11 +748,11 @@ function renderLessonDetail(){
     });
 
     const note = (L.records[st.id] && L.records[st.id]['__note__']) || '';
-    b += '<td><textarea class="note-input" data-act="note" data-id="'+st.id+'" placeholder="…">' + esc(note) + '</textarea></td></tr>';
+    b += '<td><textarea class="note-input" data-act="note" data-id="'+st.id+'" placeholder="...">' + esc(note) + '</textarea></td></tr>';
   });
 
   if(students.length === 0){
-    b = '<tr><td colspan="' + (L.sessions.length + 2 + sd.customFields.length) + '"><div class="empty-state">' + (fq ? 'لا نتائج مطابقة للبحث.' : 'لا يوجد أعضاء — اضغط «عضو جديد» لإضافة أول اسم.') + '</div></td></tr>';
+    b = '<tr><td colspan="' + (L.sessions.length + 2 + sd.customFields.length) + '"><div class="empty-state">' + (fq ? 'لا نتائج مطابقة للبحث.' : 'لا يوجد أعضاء - اضغط «عضو جديد» لإضافة أول اسم.') + '</div></td></tr>';
   }
   let tf = '<tr class="count-row"><td class="sticky-col">حضور الحصة</td>';
   sd.customFields.forEach(() => tf += '<td></td>');
@@ -748,6 +772,7 @@ function renderLessonDetail(){
   $('#statusLegend').innerHTML = eff.map(s =>
     '<span><span class="dot" style="background:'+esc(s.color)+'"></span>'+esc(s.label)+'</span>'
   ).join('');
+  updateExportReminder();
 }
 
 function statusSelectHTML(studentId, sessionId, current, archIdx, statuses){
@@ -759,7 +784,7 @@ function statusSelectHTML(studentId, sessionId, current, archIdx, statuses){
     else if(current === 'st_noanswer') cls = 'status-select s-noanswer';
     else cls = 'status-select s-custom';
   }
-  let opts = '<option value="">—</option>';
+  let opts = '<option value="">-</option>';
   sd.forEach(s => {
     opts += '<option value="'+esc(s.id)+'"' + (s.id===current?' selected':'') + '>'+esc(s.label)+'</option>';
   });
@@ -784,7 +809,7 @@ function renderArchive(){
       const idx = state.archive.indexOf(a);
       return '<div class="archive-card" data-act="open-archive" data-idx="'+idx+'">'
         + '<div class="m-title">'+esc(a.lessonName)+(a.subscription?' <span class="badge-sub">اشتراك</span>':'')+'</div>'
-        + '<div class="m-meta">' + esc(buildMonthTitle(a.monthNumber)) + ' — ' + a.monthNumber + '/' + a.year + ' · ' + a.sessions.length + ' حصة</div>'
+        + '<div class="m-meta">' + esc(buildMonthTitle(a.monthNumber)) + ' - ' + a.monthNumber + '/' + a.year + ' · ' + a.sessions.length + ' حصة</div>'
         + '</div>';
     }).join('');
   }
@@ -805,7 +830,7 @@ function renderArchiveDetail(idx){
   const container = $('#archiveDetail');
   container.innerHTML =
     '<div class="detail-card">'
-    + '<h3 style="margin-top:0">'+esc(a.lessonName)+' — '+esc(buildMonthTitle(a.monthNumber))+'</h3>'
+    + '<h3 style="margin-top:0">'+esc(a.lessonName)+' - '+esc(buildMonthTitle(a.monthNumber))+'</h3>'
     + '<p class="muted">'+a.monthNumber+'/'+a.year+' · '+a.sessions.length+' حصة · أُرشف في '+new Date(a.archivedAt).toLocaleString('ar-EG')+'</p>'
     + '<div class="detail-actions">'
     +   '<button class="btn" data-act="analytics" data-idx="'+idx+'">📊 التحليل والتقرير</button>'
@@ -817,7 +842,7 @@ function renderArchiveDetail(idx){
     +   '<button class="btn" data-act="restore-archive" data-idx="'+idx+'" title="إرجاع الشهر للصفحة الرئيسية للتعديل ثم أرشفته من جديد">♻️ استعادة الشهر</button>'
     +   '<button class="btn btn-danger" data-act="del-archive" data-idx="'+idx+'">🗑️ حذف</button>'
     + '</div>'
-    + '<p class="hint">💡 تعديل كامل: الحالات والملاحظات والدفع + إضافة/حذف حصة وتعديل تاريخها والحدث وملخص الحصة وتقرير كرسالة — يُحفظ في الأرشيف فوراً.</p>'
+    + '<p class="hint">💡 تعديل كامل: الحالات والملاحظات والدفع + إضافة/حذف حصة وتعديل تاريخها والحدث وملخص الحصة وتقرير كرسالة - يُحفظ في الأرشيف فوراً.</p>'
     + archiveTableHTML(a, idx, eff)
     + '</div>';
   container.scrollIntoView({behavior:'smooth'});
@@ -856,7 +881,7 @@ function archiveTableHTML(a, idx, statuses){
          + '</div></td>';
     });
     const note = (a.records[sid] && a.records[sid]['__note__']) || '';
-    h += '<td><textarea class="note-input" data-act="note" data-arch="'+idx+'" data-id="'+sid+'" placeholder="…">' + esc(note) + '</textarea></td>';
+    h += '<td><textarea class="note-input" data-act="note" data-arch="'+idx+'" data-id="'+sid+'" placeholder="...">' + esc(note) + '</textarea></td>';
     if(a.subscription) h += '<td><label class="paid-toggle"><input type="checkbox" data-act="paid" data-arch="'+idx+'" data-id="'+sid+'"'+(st && st.paid?' checked':'')+'> دفع</label></td>';
     h += '</tr>';
   });
@@ -899,6 +924,16 @@ function renderSettings(){
     + '<button class="del-status" data-act="del-status" data-id="'+s.id+'">حذف</button>'
     + '</div>'
   ).join('');
+
+  /* مؤشرات خطر الغياب */
+  const indicators = sd.attendanceIndicators || [];
+  $('#indicatorList').innerHTML = indicators.map(ind =>
+    '<div class="status-edit-row">'
+    + '<input type="color" value="'+esc(ind.color)+'" data-act="ind-color" data-id="'+ind.id+'">'
+    + '<input type="text" value="'+esc(ind.label)+'" data-act="ind-label" data-id="'+ind.id+'" style="width:90px">'
+    + '<input type="number" value="'+ind.minPct+'" data-act="ind-pct" data-id="'+ind.id+'" min="0" max="100" style="width:55px" title="الحد الأدنى لنسبة الحضور %">%'
+    + '</div>'
+  ).join('') || '<p class="muted">لا توجد مؤشرات.</p>';
 }
 
 /* ---------- الإشعارات والتذكيرات ---------- */
@@ -912,7 +947,7 @@ function updateNotifStatus(){
     return;
   }
   if(Notification.permission === 'granted'){
-    el.textContent = '✅ الإشعارات مفعّلة — سيصلك تذكير قبل موعد كل حصة حسب الإعداد.';
+    el.textContent = '✅ الإشعارات مفعّلة - سيصلك تذكير قبل موعد كل حصة حسب الإعداد.';
   } else if(Notification.permission === 'denied'){
     el.textContent = '⛔ تم حظر الإشعارات من المتصفح. فعّلها من إعدادات الموقع.';
   } else {
@@ -993,7 +1028,7 @@ function renderToday(){
   if(items.length){
     banner.hidden = false;
     banner.innerHTML = '<div class="tb-title">📅 جدول اليوم والتذكيرات</div>'
-      + items.map(it => '<div class="tb-item"><span>'+esc(it.lesson)+(it.group?' — '+esc(it.group):'')+'</span><span class="tb-time">🕐 '+formatTime12(it.time)+'</span>'+(it.reminderMinutes?'<span class="muted">('+reminderLabel(it.reminderMinutes)+')</span>':'')+'</div>').join('');
+      + items.map(it => '<div class="tb-item"><span>'+esc(it.lesson)+(it.group?' - '+esc(it.group):'')+'</span><span class="tb-time">🕐 '+formatTime12(it.time)+'</span>'+(it.reminderMinutes?'<span class="muted">('+reminderLabel(it.reminderMinutes)+')</span>':'')+'</div>').join('');
     if(dot) dot.hidden = false;
   } else {
     banner.hidden = true;
@@ -1010,7 +1045,7 @@ function renderNotifPanel(){
     html += '<p class="np-empty">لا توجد حصص اليوم.</p>';
   } else {
     items.forEach(it => {
-      html += '<div class="np-item">'+esc(it.lesson)+(it.group?' — '+esc(it.group):'')+'<br><span class="np-time">🕐 '+formatTime12(it.time)+'</span>'+(it.reminderMinutes?' · '+reminderLabel(it.reminderMinutes):'')+'</div>';
+      html += '<div class="np-item">'+esc(it.lesson)+(it.group?' - '+esc(it.group):'')+'<br><span class="np-time">🕐 '+formatTime12(it.time)+'</span>'+(it.reminderMinutes?' · '+reminderLabel(it.reminderMinutes):'')+'</div>';
     });
   }
   panel.innerHTML = html;
@@ -1045,7 +1080,7 @@ function scheduleReminders(){
     const fireAt = target.getTime() - it.reminderMinutes * 60000;
     const delay = fireAt - now.getTime();
     if(delay > 1000 && delay < 48*3600*1000){
-      const label = it.lesson + (it.group ? ' — ' + it.group : '');
+      const label = it.lesson + (it.group ? ' - ' + it.group : '');
       notifTimers.push(setTimeout(() => {
         notify('⏰ تذكير: ' + label, 'موعد الحصة اليوم الساعة ' + formatTime12(it.time));
         showReminderToast(label, it.time);
@@ -1106,6 +1141,60 @@ function computeStats(students, sessions, records, statuses){
   });
 }
 
+/* ---------- حصص سابقة (تاريخها <= النهاردة) ---------- */
+function pastSessions(sessions){
+  const today = new Date(); today.setHours(23,59,59,999);
+  const todayStr = today.toISOString().slice(0,10);
+  return sessions.filter(s => !s.date || s.date <= todayStr);
+}
+
+function attendanceIndicator(pct){
+  const indicators = state.settings.attendanceIndicators || [];
+  /* مرتبة من أعلى minPct لأقل */
+  const sorted = indicators.slice().sort((a,b) => b.minPct - a.minPct);
+  for(const ind of sorted){
+    if(pct >= ind.minPct) return ind;
+  }
+  return sorted[sorted.length - 1] || { id:'unknown', label:'', color:'#64748b', minPct:0 };
+}
+
+/* ---------- إشعار تذكير التصدير ---------- */
+function updateExportReminder(){
+  const el = $('#exportReminder');
+  if(!el) return;
+  const L = curLesson();
+  if(!L || !L.sessions.length){ el.hidden = true; return; }
+  /* هل في حصص مسجّلة بعد آخر تصدير؟ */
+  const lastExp = L.lastExportAt || 0;
+  let hasNewRecords = false;
+  L.students.forEach(st => {
+    L.sessions.forEach(s => {
+      const rec = (L.records[st.id] && L.records[st.id][s.id]) || {};
+      if(rec.status) hasNewRecords = true;
+    });
+  });
+  if(!hasNewRecords || lastExp > 0){
+    /* لو صدّر بعد ما سجّل، خفي الإشعار */
+    /* بس لو في تسجيلات جديدة بعد التصدير → أظهر */
+    if(lastExp > 0){
+      /* مفيش طريقة نعرف وقت التسجيل بالضبط - نبني الإشعار لو في أي بيانات وآخر تصدير قديم */
+      const daysSinceExport = (Date.now() - lastExp) / 86400000;
+      if(daysSinceExport > 1 && hasNewRecords){
+        el.hidden = false;
+        el.innerHTML = '⚠️ لم تصدّر هذا الدرس منذ أكثر من يوم. <button class="btn btn-outline" style="font-size:11px;padding:2px 8px" data-act="quick-export">⬇️ تصدير الآن</button>';
+        return;
+      }
+    }
+    /* أول مرة يسجّل ولم يصدّر أبداً */
+    if(hasNewRecords && lastExp === 0){
+      el.hidden = false;
+      el.innerHTML = '💡 لم تصدّر هذا الدرس بعد. <button class="btn btn-outline" style="font-size:11px;padding:2px 8px" data-act="quick-export">⬇️ تصدير الآن</button>';
+      return;
+    }
+  }
+  el.hidden = true;
+}
+
 function sortByAttendance(){
   const L = curLesson();
   if(!L) return;
@@ -1114,8 +1203,9 @@ function sortByAttendance(){
   L.students.forEach(st => {
     const recs = L.records[st.id] || {};
     let done = 0;
-    (L.sessions||[]).forEach(s => { if(recs[s.id] && recs[s.id].status === 'st_done') done++; });
-    pct[st.id] = L.sessions.length ? (done / L.sessions.length * 100) : 0;
+    const ps = pastSessions(L.sessions||[]);
+    ps.forEach(s => { if(recs[s.id] && recs[s.id].status === 'st_done') done++; });
+    pct[st.id] = ps.length ? (done / ps.length * 100) : 0;
   });
   L.students.sort((a,b) => (pct[b.id]||0) - (pct[a.id]||0));
   saveState();
@@ -1168,9 +1258,10 @@ function comprehensiveData(lesson){
     const st = studentMap[id];
     const per = months.map(a => {
       const recs = (a.records && a.records[st.id]) || {};
+      const ps = pastSessions(a.sessions||[]);
       let done = 0;
-      (a.sessions||[]).forEach(s => { if(recs[s.id] && recs[s.id].status === 'st_done') done++; });
-      return { done: done, total: (a.sessions||[]).length };
+      ps.forEach(s => { if(recs[s.id] && recs[s.id].status === 'st_done') done++; });
+      return { done: done, total: ps.length };
     });
     const tot = per.reduce((acc,p) => ({ done: acc.done + p.done, total: acc.total + p.total }), { done:0, total:0 });
     const pct = tot.total ? Math.round(tot.done / tot.total * 100) : 0;
@@ -1193,7 +1284,7 @@ function showComprehensiveReport(lesson){
     t += '<td><b>' + r.pct + '%</b></td></tr>';
   });
   t += '</tbody></table></div>';
-  openModal('📊 تقرير شامل — ' + esc(lesson.name), t);
+  openModal('📊 تقرير شامل - ' + esc(lesson.name), t);
   const actions = document.createElement('div');
   actions.className = 'modal-actions';
   actions.innerHTML = '<button class="btn btn-outline" id="compCsv">⬇️ Excel (CSV)</button><button class="btn btn-outline" id="compPdf">🖨️ PDF (A4)</button><button class="btn" id="compClose">إغلاق</button>';
@@ -1225,7 +1316,7 @@ function printComprehensiveReport(lesson, data){
   $('#printPageRule').textContent = '@page{size:A4 landscape;margin:10mm}';
   let html = '<div class="report" dir="rtl">';
   html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
-  html += '<div class="r-sub">تقرير شامل — ' + esc(lesson.name) + ' — نسبة الحضور عبر ' + months.length + ' شهر مؤرشف</div>';
+  html += '<div class="r-sub">تقرير شامل - ' + esc(lesson.name) + ' - نسبة الحضور عبر ' + months.length + ' شهر مؤرشف</div>';
   html += '<table class="r-table"><thead><tr><th class="r-name">الطالب</th>';
   months.forEach(a => html += '<th>شهر ' + a.monthNumber + '/' + a.year + '</th>');
   html += '<th>النسبة الكلية</th></tr></thead><tbody>';
@@ -1313,10 +1404,10 @@ function printBlankSheet(lesson){
 
   let html = '<div class="report" dir="rtl">';
   html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
-  html += '<div class="r-sub">' + esc(lesson.name) + ' — ' + esc(monthTitle) + (yearLabel ? ' ' + esc(String(yearLabel)) : '') + '</div>';
+  html += '<div class="r-sub">' + esc(lesson.name) + ' - ' + esc(monthTitle) + (yearLabel ? ' ' + esc(String(yearLabel)) : '') + '</div>';
   if(scheduleStr) html += '<div style="text-align:center;font-size:10px;color:#475569;margin-bottom:6px">' + esc(scheduleStr) + '</div>';
 
-  /* جدول الحضور الفارغ — رفيع */
+  /* جدول الحضور الفارغ - رفيع */
   html += '<table class="r-table blank-sheet"><thead><tr>';
   html += '<th style="width:4%">#</th>';
   html += '<th class="r-name">' + esc(sd.studentLabel) + '</th>';
@@ -1358,7 +1449,7 @@ function exportBlankSheetExcel(lesson){
   const sessions = lesson.sessions || [];
   const monthTitle = buildMonthTitle(lesson.monthNumber);
   const yearLabel = lesson.year || '';
-  const title = lesson.name + ' — ' + monthTitle + (yearLabel ? ' ' + yearLabel : '');
+  const title = lesson.name + ' - ' + monthTitle + (yearLabel ? ' ' + yearLabel : '');
 
   const lines = [];
   /* صف العنوان */
@@ -1377,7 +1468,7 @@ function exportBlankSheetExcel(lesson){
   head.push(sd.notesLabel);
   lines.push(head.join(','));
 
-  /* صفوف الطلاب — الحضور فارغ */
+  /* صفوف الطلاب - الحضور فارغ */
   students.forEach((st, i) => {
     const row = [i + 1, '"' + String(st.name).replace(/"/g,'""') + '\n' + String(st.phone || '').replace(/"/g,'""') + '"'];
     sessions.forEach(() => row.push(''));
@@ -1406,7 +1497,7 @@ function buildReportHTML(students, sessions, records, rows, title, statuses){
     sessions.forEach(s => {
       const rec = (records[st.id] && records[st.id][s.id]) || {};
       const lbl = rec.status ? (stList.find(x=>x.id===rec.status)||{}).label || '' : '';
-      html += '<td>'+esc(lbl||'—') + (rec.note ? '<br><span style="font-size:8px;color:#b45309">'+esc(rec.note)+'</span>' : '') + '</td>';
+      html += '<td>'+esc(lbl||'-') + (rec.note ? '<br><span style="font-size:8px;color:#b45309">'+esc(rec.note)+'</span>' : '') + '</td>';
     });
     const note = (records[st.id] && records[st.id]['__note__']) || '';
     html += '<td>'+esc(note)+'</td></tr>';
@@ -1518,7 +1609,7 @@ function importArchiveMonth(file){
       const norm = normalizeState({ settings: state.settings, lessons: [], archive: [A] }).archive[0];
       state.archive.push(norm);
       saveState(); renderAll();
-      alert('تم استيراد الشهر «' + norm.lessonName + ' — ' + norm.monthNumber + '/' + norm.year + '» بنجاح (دمج دون حذف الباقي).');
+      alert('تم استيراد الشهر «' + norm.lessonName + ' - ' + norm.monthNumber + '/' + norm.year + '» بنجاح (دمج دون حذف الباقي).');
     }catch(e){ alert('تعذّر قراءة الملف.'); }
   };
   reader.readAsText(file);
@@ -1530,6 +1621,8 @@ function exportArchiveMonth(a){
   const now = new Date();
   const stamp = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + '_' + String(now.getHours()).padStart(2,'0') + '-' + String(now.getMinutes()).padStart(2,'0');
   downloadBlob(JSON.stringify(payload, null, 2), 'شهر_' + safe + '_' + a.monthNumber + '-' + a.year + '_' + stamp + '.json', 'application/json');
+  const L = state.lessons.find(x => x.id === a.lessonId);
+  if(L){ L.lastExportAt = Date.now(); saveState(); updateExportReminder(); }
 }
 
 function importBackup(file){
@@ -1549,6 +1642,9 @@ function exportLesson(lesson){
   const now = new Date();
   const stamp = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + '_' + String(now.getHours()).padStart(2,'0') + '-' + String(now.getMinutes()).padStart(2,'0');
   downloadBlob(JSON.stringify(payload, null, 2), 'درس_' + safe + '_شهر' + lesson.monthNumber + '_' + lesson.year + '_' + stamp + '.json', 'application/json');
+  lesson.lastExportAt = Date.now();
+  saveState();
+  updateExportReminder();
 }
 function importLesson(file){
   const reader = new FileReader();
@@ -1606,7 +1702,7 @@ async function encryptExport(){
     const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(JSON.stringify(state)));
     const payload = { v:1, salt: b64(salt), iv: b64(iv), data: b64(ct) };
     downloadBlob(JSON.stringify(payload), 'نسخة_مشفرة_' + new Date().toISOString().slice(0,10) + '.json', 'application/json');
-    alert('تم إنشاء النسخة المشفّرة. احفظ كلمة المرور جيداً — لا يمكن الاسترجاع بدونها.');
+    alert('تم إنشاء النسخة المشفّرة. احفظ كلمة المرور جيداً - لا يمكن الاسترجاع بدونها.');
   }catch(e){
     alert('تعذّر التشفير: ' + e.message);
   }
@@ -1748,7 +1844,7 @@ function updateAutoSaveStatus(){
   } else if(fileHandle && autoSaveReady){
     badgeText = '💾 حفظ تلقائي: مفعّل';
     badgeCls = 'as-on';
-    html = '✅ الحفظ التلقائي مفعّل — كل تغيير يُحفظ تلقائياً في الملف الذي اخترته.';
+    html = '✅ الحفظ التلقائي مفعّل - كل تغيير يُحفظ تلقائياً في الملف الذي اخترته.';
   } else if(fileHandle && !autoSaveReady){
     badgeText = '🔗 اضغط لتفعيل الحفظ';
     badgeCls = 'as-off';
@@ -1868,7 +1964,7 @@ function restoreArchiveMonth(idx){
   saveState();
   renderAll();
   switchTab('lessons');
-  showToastMessage('♻️ تم استعادة الشهر ' + a.monthNumber + '/' + a.year + ' — عدّل الترتيب ثم أرشف من جديد.');
+  showToastMessage('♻️ تم استعادة الشهر ' + a.monthNumber + '/' + a.year + ' - عدّل الترتيب ثم أرشف من جديد.');
 }
 
 function changeMonth(lesson){
@@ -1899,7 +1995,7 @@ function waTargetOptions(){
   state.lessons.forEach(L => {
     if(L.waGroup) targets.push({ id: L.id, label: '💬 ' + L.name });
     (L.groups||[]).forEach(g => {
-      if(g.waGroup) targets.push({ id: 'group:' + L.id + ':' + g.id, label: '👥 ' + L.name + ' — ' + g.name });
+      if(g.waGroup) targets.push({ id: 'group:' + L.id + ':' + g.id, label: '👥 ' + L.name + ' - ' + g.name });
     });
   });
   return targets;
@@ -1976,7 +2072,7 @@ function weeklyMessage(){
     const t = buildTarget();
     if(t.isGroup){
       if(navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(t.text).then(() => showToastMessage('📋 تم نسخ الرسالة — افتح الجروب والصقها في صندوق الدردشة.')).catch(() => {});
+        navigator.clipboard.writeText(t.text).then(() => showToastMessage('📋 تم نسخ الرسالة - افتح الجروب والصقها في صندوق الدردشة.')).catch(() => {});
       } else {
         fallbackCopy(t.text);
       }
@@ -1993,22 +2089,23 @@ function waHrefNumber(phone, text, type){
 
 /* ---------- تقرير الشهر كرسالة واتساب ---------- */
 function buildMonthReportText(name, monthNumber, year, students, sessions, records, statuses){
-  const rows = computeStats(students, sessions, records, statuses).slice().sort((a,b) => b.pct - a.pct);
-  let text = '📊 تقرير شهر ' + monthNumber + '/' + year + ' — ' + name + '\n';
+  const ps = pastSessions(sessions);
+  const rows = computeStats(students, ps, records, statuses).slice().sort((a,b) => b.pct - a.pct);
+  let text = '📊 تقرير شهر ' + monthNumber + '/' + year + ' - ' + name + '\n';
   text += 'عدد الحصص: ' + sessions.length + ' · عدد الطلاب: ' + students.length + '\n';
   text += '\n📈 نسب الحضور:';
   rows.forEach((r, i) => {
-    text += '\n' + (i+1) + '. ' + r.st.name + ' — ' + r.pct + '% (' + r.done + '/' + r.total + ')';
+    text += '\n' + (i+1) + '. ' + r.st.name + ' - ' + r.pct + '% (' + r.done + '/' + r.total + ')';
   });
   const low = rows.filter(r => r.pct < 50);
   if(low.length){
     text += '\n\n⚠️ نسبة أقل من 50% (يحتاجون متابعة):';
-    low.forEach(r => { text += '\n• ' + r.st.name + ' — ' + r.pct + '%'; });
+    low.forEach(r => { text += '\n• ' + r.st.name + ' - ' + r.pct + '%'; });
   }
   const events = (sessions||[]).filter(s => s.event);
   if(events.length){
     text += '\n\n📝 أحداث الشهر:';
-    events.forEach(s => { text += '\n• ' + s.label + (s.dateLabel ? ' (' + s.dateLabel + ')' : '') + ': ' + s.event + (s.eventNote ? ' — ' + s.eventNote : ''); });
+    events.forEach(s => { text += '\n• ' + s.label + (s.dateLabel ? ' (' + s.dateLabel + ')' : '') + ': ' + s.event + (s.eventNote ? ' - ' + s.eventNote : ''); });
   }
   return text.trim();
 }
@@ -2085,7 +2182,7 @@ function sessionSummary(lesson, session, statuses){
   const iconMap = { st_done:'✅ ' + labelOf('st_done'), st_apology:'😢 ' + labelOf('st_apology'), st_noanswer:'❌ ' + labelOf('st_noanswer') };
   let text = '📋 ملخص حصة: ' + session.label + (session.dateLabel ? ' (' + session.dateLabel + ')' : '') + '\n';
   text += '📍 ' + lesson.name + '\n';
-  if(session.event) text += '📝 ' + session.event + (session.eventNote ? ' — ' + session.eventNote : '') + '\n';
+  if(session.event) text += '📝 ' + session.event + (session.eventNote ? ' - ' + session.eventNote : '') + '\n';
   const printed = {};
   orderKeys.forEach(k => {
     const list = groups[k] || [];
@@ -2135,10 +2232,10 @@ function buildStudentSummaryText(lesson, student, includeAll){
     state.archive.filter(a => a.lessonId === lesson.id)
       .sort((a,b) => (a.year - b.year) || (a.monthNumber - b.monthNumber))
       .forEach(a => {
-        months.push({ title: 'شهر ' + a.monthNumber + '/' + a.year, sessions: a.sessions, records: (a.records && a.records[student.id]) || {} });
+        months.push({ title: 'شهر ' + a.monthNumber + '/' + a.year, sessions: pastSessions(a.sessions), records: (a.records && a.records[student.id]) || {} });
       });
   }
-  months.push({ title: 'شهر ' + lesson.monthNumber + '/' + lesson.year, sessions: lesson.sessions, records: (lesson.records && lesson.records[student.id]) || {} });
+  months.push({ title: 'شهر ' + lesson.monthNumber + '/' + lesson.year, sessions: pastSessions(lesson.sessions), records: (lesson.records && lesson.records[student.id]) || {} });
   let text = '📋 ملخص حضور الطالب: ' + student.name + '\n';
   text += '📍 ' + lesson.name + '\n';
   let totalDone = 0, totalSessions = 0;
@@ -2178,7 +2275,7 @@ function studentSummary(lesson, student){
   const sd = state.settings;
   const scopeSel = '<select id="st_scope"><option value="month">هذا الشهر فقط</option><option value="all">كل الشهور (المؤرشفة + الحالي)</option></select>';
   const typeSel = '<select id="st_type"><option value="normal">واتساب عادي</option><option value="business">واتساب أعمال</option></select>';
-  openModal('📤 ملخص الطالب — ' + esc(student.name),
+  openModal('📤 ملخص الطالب - ' + esc(student.name),
     '<div class="form-row"><label>نطاق الملخص' + scopeSel + '</label></div>'
     + '<div class="form-row"><label>إرسال إلى<input id="st_phone" type="text" dir="ltr" value="'+esc(student.phone || sd.whatsappNumber)+'"></label></div>'
     + '<div class="form-row"><label>نوع الواتساب' + typeSel + '</label></div>'
@@ -2236,7 +2333,7 @@ function closeModal(){
 /* ---------- محرر المجموعات (مستوى الوحدة) ---------- */
 let editingGroups = [];
 function editingGroupsHTML(){
-  if(editingGroups.length === 0) return '<p class="muted" style="margin:4px 0 0">لا توجد مجموعات — الدرس كله مجموعة واحدة.</p>';
+  if(editingGroups.length === 0) return '<p class="muted" style="margin:4px 0 0">لا توجد مجموعات - الدرس كله مجموعة واحدة.</p>';
   return '<div class="groups-box">' + editingGroups.map((g, gi) =>
     '<div class="group-row">'
     + '<div class="g-line">'
@@ -2456,7 +2553,7 @@ function lessonForm(lesson){
       lesson.groups = cleanGroups;
     } else {
       const m = nowMonth();
-      const L = { id: uid('L'), name: nm, schedule: days, subscription: isSub, price: pr, waGroup: wg, time: t, reminderMinutes: rem, remindHeadOnly: headOnly, groups: cleanGroups, students: [], monthNumber: m.monthNumber, year: m.year, sessions: [], records: {} };
+      const L = { id: uid('L'), name: nm, schedule: days, subscription: isSub, price: pr, waGroup: wg, time: t, reminderMinutes: rem, remindHeadOnly: headOnly, groups: cleanGroups, students: [], monthNumber: m.monthNumber, year: m.year, sessions: [], records: {}, lastExportAt: null };
       state.lessons.push(L);
       fillSessions(L);
     }
@@ -2519,7 +2616,7 @@ function bindEvents(){
   $('#addStudentBtn').onclick = () => { const L = curLesson(); if(L) studentForm(L, null); };
   $('#addSessionBtn').onclick = () => { const L = curLesson(); if(L){ addSession(L); renderAll(); } };
   $('#regenSessionsBtn').onclick = () => { const L = curLesson(); if(L){ genSessions(L, true); renderAll(); } };
-  $('#lessonReportBtn').onclick = () => { const L = curLesson(); if(L) showAnalytics(L.students, L.sessions, L.records, L.name + ' — ' + buildMonthTitle(L.monthNumber), effectiveStatuses(L)); };
+  $('#lessonReportBtn').onclick = () => { const L = curLesson(); if(L) showAnalytics(L.students, pastSessions(L.sessions), L.records, L.name + ' - ' + buildMonthTitle(L.monthNumber), effectiveStatuses(L)); };
   $('#sortAttendanceBtn').onclick = () => sortByAttendance();
   $('#lessonStatusesBtn').onclick = () => { const L = curLesson(); if(L) lessonStatusesEditor(L); };
   $('#compReportBtn').onclick = () => { const L = curLesson(); if(L) showComprehensiveReport(L); };
@@ -2547,10 +2644,37 @@ function bindEvents(){
     state.settings.customFields.push({ id: uid('f'), label: 'عمود جديد' });
     saveState(); renderAll();
   };
-  $('#moreActionsBtn').onclick = () => {
-    const m = $('#moreActions');
-    if(m) m.hidden = !m.hidden;
-  };
+  /* القوائم المنسدلة */
+  function toggleDropdown(menuId, btnId){
+    const menu = document.getElementById(menuId);
+    const btn = document.getElementById(btnId);
+    if(!menu || !btn) return;
+    const wasOpen = !menu.hidden;
+    /* أغلق كل القوائم */
+    $$('.dropdown-menu').forEach(m => m.hidden = true);
+    if(!wasOpen){
+      /* حساب موقع الزر لوضع القائمة تحته */
+      const rect = btn.getBoundingClientRect();
+      menu.style.top = (rect.bottom + 4) + 'px';
+      menu.style.right = (window.innerWidth - rect.right) + 'px';
+      menu.style.left = 'auto';
+      menu.hidden = false;
+    }
+  }
+  $('#reportsMenuBtn').onclick = () => toggleDropdown('reportsMenu', 'reportsMenuBtn');
+  $('#manageMenuBtn').onclick = () => toggleDropdown('manageMenu', 'manageMenuBtn');
+  /* إغلاق عند الضغط خارج القائمة */
+  document.addEventListener('click', (e) => {
+    if(!e.target.closest('.toolbar-dropdown') && !e.target.closest('.dropdown-menu')){
+      $$('.dropdown-menu').forEach(m => m.hidden = true);
+    }
+  });
+  /* إغلاق بعد اختيار عنصر */
+  $$('.dropdown-item').forEach(item => {
+    item.addEventListener('click', () => {
+      $$('.dropdown-menu').forEach(m => m.hidden = true);
+    });
+  });
   $('#exportBackupBtn').onclick = exportBackup;
   $('#importBackupBtn').onclick = () => $('#importFile').click();
   $('#importLessonBtn').onclick = () => $('#importLessonFile').click();
@@ -2616,6 +2740,10 @@ function bindEvents(){
       const st = L && L.students.find(x => x.id === id);
       if(L && st) studentSummary(L, st);
     }
+    else if(act === 'quick-export'){
+      const L = curLesson();
+      if(L) exportLesson(L);
+    }
     else if(act === 'edit-student'){
       const L = curLesson();
       if(L) studentForm(L, L.students.find(x => x.id === id));
@@ -2660,8 +2788,8 @@ function bindEvents(){
       if(!st || !s) return;
       if(!container.records[st.id]) container.records[st.id] = {};
       const rec = container.records[st.id][s.id] || {};
-      openModal('ملاحظة يوم ' + (s.dateLabel || s.label) + ' — ' + st.name,
-        '<div class="form-row"><label>سبب الغياب / الملاحظة<textarea id="dn_text" rows="4" dir="rtl" placeholder="مثال: مريض / سفر / ظرف طارئ…">'+esc(rec.note||'')+'</textarea></label></div>'
+      openModal('ملاحظة يوم ' + (s.dateLabel || s.label) + ' - ' + st.name,
+        '<div class="form-row"><label>سبب الغياب / الملاحظة<textarea id="dn_text" rows="4" dir="rtl" placeholder="مثال: مريض / سفر / ظرف طارئ...">'+esc(rec.note||'')+'</textarea></label></div>'
         + '<div class="modal-actions"><button class="btn" id="dn_save">حفظ</button><button class="btn btn-outline" id="dn_clear">مسح</button><button class="btn btn-outline" id="dn_cancel">إلغاء</button></div>');
       $('#dn_save').onclick = () => {
         if(!container.records[st.id][s.id]) container.records[st.id][s.id] = {};
@@ -2756,7 +2884,7 @@ function bindEvents(){
     else if(act === 'analytics'){
       const a = state.archive[parseInt(idx,10)];
       const L = state.lessons.find(x => x.id === a.lessonId);
-      showAnalytics(archiveStudents(a), a.sessions, a.records, a.lessonName + ' — ' + buildMonthTitle(a.monthNumber), L ? effectiveStatuses(L) : null);
+      showAnalytics(archiveStudents(a), pastSessions(a.sessions), a.records, a.lessonName + ' - ' + buildMonthTitle(a.monthNumber), L ? effectiveStatuses(L) : null);
     }
     else if(act === 'csv'){
       const a = state.archive[parseInt(idx,10)];
@@ -2766,7 +2894,7 @@ function bindEvents(){
     else if(act === 'pdf'){
       const a = state.archive[parseInt(idx,10)];
       const L = state.lessons.find(x => x.id === a.lessonId);
-      printReport(archiveStudents(a), a.sessions, a.records, a.lessonName + ' — ' + buildMonthTitle(a.monthNumber), L ? effectiveStatuses(L) : null);
+      printReport(archiveStudents(a), a.sessions, a.records, a.lessonName + ' - ' + buildMonthTitle(a.monthNumber), L ? effectiveStatuses(L) : null);
     }
     else if(act === 'archive-report-msg'){
       const a = state.archive[parseInt(idx,10)];
@@ -2821,7 +2949,7 @@ function bindEvents(){
 
   document.addEventListener('input', (e) => {
     const t = e.target;
-    if(t.matches('[data-act="status-label"], [data-act="status-color"], [data-act="field-label"]')){
+    if(t.matches('[data-act="status-label"], [data-act="status-color"], [data-act="field-label"], [data-act="ind-label"], [data-act="ind-color"], [data-act="ind-pct"]')){
       if(t.dataset.act === 'status-label'){
         const s = state.settings.statuses.find(x => x.id === t.dataset.id);
         if(s){ s.label = t.value; saveState(); renderLessonDetail(); renderArchive(); }
@@ -2831,6 +2959,15 @@ function bindEvents(){
       } else if(t.dataset.act === 'field-label'){
         const f = state.settings.customFields.find(x => x.id === t.dataset.id);
         if(f){ f.label = t.value; saveState(); renderLessonDetail(); }
+      } else if(t.dataset.act === 'ind-label'){
+        const ind = (state.settings.attendanceIndicators||[]).find(x => x.id === t.dataset.id);
+        if(ind){ ind.label = t.value; saveState(); renderLessonDetail(); }
+      } else if(t.dataset.act === 'ind-color'){
+        const ind = (state.settings.attendanceIndicators||[]).find(x => x.id === t.dataset.id);
+        if(ind){ ind.color = t.value; saveState(); renderLessonDetail(); }
+      } else if(t.dataset.act === 'ind-pct'){
+        const ind = (state.settings.attendanceIndicators||[]).find(x => x.id === t.dataset.id);
+        if(ind){ ind.minPct = Math.max(0, Math.min(100, parseInt(t.value)||0)); saveState(); renderLessonDetail(); }
       }
       return;
     }
@@ -3002,7 +3139,7 @@ function autoScrollOnDrag(clientY){
 }
 
 function initDragReorder(){
-  /* الماوس — سحب وإفلات أصلي */
+  /* الماوس - سحب وإفلات أصلي */
   document.addEventListener('dragstart', (e) => {
     if(dragState.suppressNative){ e.preventDefault(); return; }
     if(e.target.closest('button,a,input,select,textarea,label')){ e.preventDefault(); return; }
@@ -3079,7 +3216,7 @@ function initDragReorder(){
     dragState.suppressNative = false;
   }, true);
 
-  /* اللمس — ضغطة مطوّلة ثم سحب */
+  /* اللمس - ضغطة مطوّلة ثم سحب */
   document.addEventListener('touchstart', (e) => {
     if(e.target.closest('button,a,input,select,textarea,label')) return;
     const row = e.target.closest('tr.student-row');
