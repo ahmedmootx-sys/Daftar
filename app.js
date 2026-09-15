@@ -33,24 +33,35 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v24';
+const APP_VERSION = 'v27';
 const CHANGELOG = {
+  v27: [
+    '📄 تقارير PDF أصبحت عمودية (Portrait) مضغوطة: صفوف أقصر وخط أصغر لاستيعاب طلاب أكثر في الصفحة وتوفير الورق'
+  ],
+  v26: [
+    '🛠️ إصلاح تداخل رقم الترتيب "م" مع اسم الطالب في ورقة الحضور المطبوعة: توسيع عمود الرقم وتصغير صندوق الرقم الأصفر ومنع الفيضان'
+  ],
+  v25: [
+    '🔢 عمود "م" (رقم الترتيب) في أول الجداول المصدّرة: تقرير الشهر، التقرير الشامل، وورقة الحضور',
+    '🖨️ ورقة الحضور الفارغة أصبحت عمودية (Portrait) وتستوعب 15 طالبًا في الصفحة',
+    '🎨 خلية الاسم في ورقة الحضور: الاسم بارز والهاتف أسفله مع تظليل أصفر خفيف'
+  ],
   v24: [
     '📅 تقرير الشهر: اختيار فترة (من يوم - إلى يوم) وإعادة حساب النسب والتقارير عليها',
-    '📅 التقرير الشامل: نفس فلتر الفترة الزمنية — الحصص خارج الفترة تُستبعد من كل الشهور',
+    '📅 التقرير الشامل: نفس فلتر الفترة الزمنية - الحصص خارج الفترة تُستبعد من كل الشهور',
     '📊 Excel التقرير الشامل: خلية الشهر الواحدة فيها عدد الحضور (5/9) والنسبة تحتها'
   ],
   v23: [
     '📞 حذف رمز الدولة (+20) من أرقام الهواتف في كل التقارير المصدّرة (PDF/Excel)',
-    '📊 تقرير شامل جديد: جدول نسب حضور الطلاب عبر كل الشهور — كل عمود شهر فيه عدد مرات الحضور والنسبة، مع تضمين الشهر الحالي حتى آخر حصة',
+    '📊 تقرير شامل جديد: جدول نسب حضور الطلاب عبر كل الشهور - كل عمود شهر فيه عدد مرات الحضور والنسبة، مع تضمين الشهر الحالي حتى آخر حصة',
     '📱 إصلاح القوائم المنسدلة: تثبيت القائمة في مكانها مع سكرول داخلي (فوق/تحت/يمين/يسار) بدون قطع الخيارات'
   ],
   v22: [
-    '⚠️ مؤشر خطر الغياب: كل طالب بيظهر بجانبه مؤشر ملون (مثالي/متابعة/إنقاذ) حسب نسبة حضوره — قابل للتخصيص من الإعدادات',
+    '⚠️ مؤشر خطر الغياب: كل طالب بيظهر بجانبه مؤشر ملون (مثالي/متابعة/إنقاذ) حسب نسبة حضوره - قابل للتخصيص من الإعدادات',
     '📁 عند التصدير: اختيار مكان حفظ الملف بنفسك (Chrome/Edge)',
     '💡 إشعار تذكير بالتصدير: لو سجّلت حضور/غياب ولم تصدّر، يظهر تنبيه صغير',
     '🎯 تبسيط الأزرار: شريط أدوات نظيف بقوائم منسدلة بدل 14 زر مزدحم',
-    '📊 التقارير والمؤشرات تعتمد على الحصص اللي فاتت بس — مش كل الشهر (الحصص المستقبلية لا تحسب غياب)'
+    '📊 التقارير والمؤشرات تعتمد على الحصص اللي فاتت بس - مش كل الشهر (الحصص المستقبلية لا تحسب غياب)'
   ],
   v21: [
     '👨‍👩‍👦 دروس الاشتراك الشهري: رقم للطالب + رقم لولي الأمر + أرقام إضافية للطالبين',
@@ -1387,12 +1398,12 @@ function showComprehensiveReport(lesson){
 function exportComprehensiveCSV(lesson, data){
   const { months, rows } = data;
   const lines = [];
-  const head = ['اسم الطالب (الرقم تحته)'];
+  const head = ['م', 'اسم الطالب (الرقم تحته)'];
   months.forEach(a => head.push('شهر ' + a.monthNumber + '/' + a.year));
   head.push('النسبة الكلية %');
   lines.push(head.join(','));
-  rows.forEach(r => {
-    const row = ['"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
+  rows.forEach((r, i) => {
+    const row = [i + 1, '"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
     r.per.forEach(p => row.push('"' + p.done + '/' + p.total + '\n' + p.pct + '%"'));
     row.push('"' + r.pct + '%"');
     lines.push(row.join(','));
@@ -1403,15 +1414,15 @@ function exportComprehensiveCSV(lesson, data){
 
 function printComprehensiveReport(lesson, data){
   const { months, rows } = data;
-  $('#printPageRule').textContent = '@page{size:A4 landscape;margin:10mm}';
-  let html = '<div class="report" dir="rtl">';
+  $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
+  let html = '<div class="report compact" dir="rtl">';
   html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
   html += '<div class="r-sub">تقرير شامل - ' + esc(lesson.name) + ' - نسبة الحضور عبر ' + months.length + ' شهر' + (data.range && (data.range.from || data.range.to) ? ' (من ' + (data.range.from || 'البداية') + ' إلى ' + (data.range.to || 'الآن') + ')' : '') + '</div>';
-  html += '<table class="r-table"><thead><tr><th class="r-name">الطالب</th>';
+  html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">الطالب</th>';
   months.forEach(a => html += '<th>' + a.monthNumber + '/' + a.year + '</th>');
   html += '<th>النسبة الكلية</th></tr></thead><tbody>';
-  rows.forEach(r => {
-    html += '<tr><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:9px;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+  rows.forEach((r, i) => {
+    html += '<tr><td class="ord-col">' + (i+1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
     r.per.forEach(p => html += '<td>' + p.done + '/' + p.total + '<br><b>' + p.pct + '%</b></td>');
     html += '<td><b>' + r.pct + '%</b></td></tr>';
   });
@@ -1429,7 +1440,7 @@ function exportCSV(students, sessions, records, title, statuses){
   const stList = statuses || state.settings.statuses;
   const rows = computeStats(students, sessions, records, statuses);
   const lines = [];
-  let head = ['اسم الطالب (الرقم تحته)'];
+  let head = ['م', 'اسم الطالب (الرقم تحته)'];
   sd.customFields.forEach(f => head.push(f.label));
   sessions.forEach(s => head.push(s.label + (s.dateLabel ? ' ('+s.dateLabel+')' : '') + (s.event ? ' ['+s.event+']' : '')));
   head.push(sd.notesLabel);
@@ -1437,8 +1448,8 @@ function exportCSV(students, sessions, records, title, statuses){
   head.push('نسبة الحضور %');
   lines.push(head.join(','));
 
-  rows.forEach(r => {
-    const row = ['"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
+  rows.forEach((r, i) => {
+    const row = [i + 1, '"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
     sd.customFields.forEach(f => row.push('"' + String((r.st.fields && r.st.fields[f.id]) || '').replace(/"/g,'""') + '"'));
     sessions.forEach(s => {
       const rec = (records[r.st.id] && records[r.st.id][s.id]) || {};
@@ -1460,8 +1471,7 @@ function exportCSV(students, sessions, records, title, statuses){
 /* ---------- طباعة A4 ---------- */
 function printReport(students, sessions, records, title, statuses){
   const rows = computeStats(students, sessions, records, statuses);
-  const orientation = sessions.length > 6 ? 'landscape' : 'portrait';
-  $('#printPageRule').textContent = '@page{size:A4 ' + orientation + ';margin:10mm}';
+  $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
   $('#printArea').innerHTML = buildReportHTML(students, sessions, records, rows, title, statuses);
   window.print();
   $('#printPageRule').textContent = '';
@@ -1493,28 +1503,26 @@ function printBlankSheet(lesson){
   const scheduleStr = scheduleLabel(lesson);
 
   let html = '<div class="report" dir="rtl">';
-  html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
-  html += '<div class="r-sub">' + esc(lesson.name) + ' - ' + esc(monthTitle) + (yearLabel ? ' ' + esc(String(yearLabel)) : '') + '</div>';
+  html += '<div class="r-title">أبنام حضور وغياب عن ' + esc(lesson.name) + ' - ' + esc(monthTitle) + (yearLabel ? ' ' + esc(String(yearLabel)) : '') + '</div>';
   if(scheduleStr) html += '<div style="text-align:center;font-size:10px;color:#475569;margin-bottom:6px">' + esc(scheduleStr) + '</div>';
 
-  /* جدول الحضور الفارغ - رفيع */
+  /* جدول الحضور الفارغ — عمودي، رفيع، 15 طالب في الصفحة */
   html += '<table class="r-table blank-sheet"><thead><tr>';
-  html += '<th style="width:4%">#</th>';
-  html += '<th class="r-name">' + esc(sd.studentLabel) + '</th>';
+  html += '<th class="ord-col">م</th>';
+  html += '<th class="r-name">الاسم</th>';
   sessions.forEach(s => {
     const dayLabel = s.dateLabel || '';
-    html += '<th>' + esc(s.label);
-    if(dayLabel) html += '<br><span style="font-weight:400;font-size:7px">' + esc(dayLabel) + '</span>';
+    html += '<th>' + (dayLabel ? esc(dayLabel) : esc(s.label));
     if(s.event) html += '<br><span style="color:#b45309;font-size:7px">📝 ' + esc(s.event) + '</span>';
     html += '</th>';
   });
-  html += '<th>' + esc(sd.notesLabel) + '</th>';
+  html += '<th>ملاحظات</th>';
   html += '</tr></thead><tbody>';
 
   students.forEach((st, i) => {
     html += '<tr>';
-    html += '<td>' + (i + 1) + '</td>';
-    html += '<td class="r-name">' + esc(st.name) + '<br><span style="font-weight:400;font-size:8px;color:#64748b;direction:ltr">' + esc(localPhone(st.phone || '')) + '</span></td>';
+    html += '<td class="ord-col"><span class="ord-num">' + (i + 1) + '</span></td>';
+    html += '<td class="r-name"><span class="st-name">' + esc(st.name) + '</span><br><span class="st-phone">' + esc(localPhone(st.phone || '')) + '</span></td>';
     sessions.forEach(() => {
       html += '<td class="blank-cell"></td>';
     });
@@ -1526,8 +1534,8 @@ function printBlankSheet(lesson){
   html += '<div class="r-foot">عدد الطلاب: ' + students.length + ' · عدد الحصص: ' + sessions.length + '</div>';
   html += '</div>';
 
-  /* دائمًا أفقي (landscape) عشان صفحات أقل */
-  $('#printPageRule').textContent = '@page{size:A4 landscape;margin:6mm}';
+  /* عمودي (portrait) — 15 طالب في الصفحة */
+  $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
   $('#printArea').innerHTML = html;
   window.print();
   $('#printPageRule').textContent = '';
@@ -1548,7 +1556,7 @@ function exportBlankSheetExcel(lesson){
   lines.push('');
 
   /* رأس الجدول */
-  let head = ['#', 'اسم الطالب'];
+  let head = ['م', 'اسم الطالب'];
   sessions.forEach(s => {
     let col = s.label;
     if(s.dateLabel) col += ' (' + s.dateLabel + ')';
@@ -1573,21 +1581,21 @@ function exportBlankSheetExcel(lesson){
 function buildReportHTML(students, sessions, records, rows, title, statuses){
   const sd = state.settings;
   const stList = statuses || state.settings.statuses;
-  let html = '<div class="report" dir="rtl">';
+  let html = '<div class="report compact" dir="rtl">';
   html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
   html += '<div class="r-sub">' + esc(title) + '</div>';
 
-  html += '<table class="r-table"><thead><tr><th class="r-name">'+esc(sd.studentLabel)+'</th>';
+  html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">'+esc(sd.studentLabel)+'</th>';
   sd.customFields.forEach(f => html += '<th>'+esc(f.label)+'</th>');
-  sessions.forEach(s => html += '<th>'+esc(s.label)+'<br><span>'+esc(s.dateLabel||'')+'</span>' + (s.event ? '<br><span style="color:#b45309;font-size:9px">📝 '+esc(s.event)+'</span>' : '') + '</th>');
+  sessions.forEach(s => html += '<th>'+esc(s.label)+'<br><span>'+esc(s.dateLabel||'')+'</span>' + (s.event ? '<br><span style="color:#b45309;font-size:7px">📝 '+esc(s.event)+'</span>' : '') + '</th>');
   html += '<th>'+esc(sd.notesLabel)+'</th></tr></thead><tbody>';
-  students.forEach(st => {
-    html += '<tr><td class="r-name">'+esc(st.name)+'<br><span style="font-weight:400;font-size:9px;color:#64748b;direction:ltr">'+esc(localPhone(st.phone))+'</span></td>';
+  students.forEach((st, i) => {
+    html += '<tr><td class="ord-col">'+(i+1)+'</td><td class="r-name">'+esc(st.name)+'<br><span style="font-weight:400;font-size:7px;color:#64748b;direction:ltr">'+esc(localPhone(st.phone))+'</span></td>';
     sd.customFields.forEach(f => html += '<td>'+esc((st.fields && st.fields[f.id]) || '')+'</td>');
     sessions.forEach(s => {
       const rec = (records[st.id] && records[st.id][s.id]) || {};
       const lbl = rec.status ? (stList.find(x=>x.id===rec.status)||{}).label || '' : '';
-      html += '<td>'+esc(lbl||'-') + (rec.note ? '<br><span style="font-size:8px;color:#b45309">'+esc(rec.note)+'</span>' : '') + '</td>';
+      html += '<td>'+esc(lbl||'-') + (rec.note ? '<br><span style="font-size:7px;color:#b45309">'+esc(rec.note)+'</span>' : '') + '</td>';
     });
     const note = (records[st.id] && records[st.id]['__note__']) || '';
     html += '<td>'+esc(note)+'</td></tr>';
@@ -1595,11 +1603,11 @@ function buildReportHTML(students, sessions, records, rows, title, statuses){
   html += '</tbody></table>';
 
   html += '<div class="r-section">تحليل الحضور</div>';
-  html += '<table class="r-table"><thead><tr><th class="r-name">'+esc(sd.studentLabel)+'</th>';
+  html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">'+esc(sd.studentLabel)+'</th>';
   stList.forEach(s => html += '<th>'+esc(s.label)+'</th>');
   html += '<th>نسبة الحضور</th></tr></thead><tbody>';
-  rows.forEach(r => {
-    html += '<tr><td class="r-name">'+esc(r.st.name)+'</td>';
+  rows.forEach((r, i) => {
+    html += '<tr><td class="ord-col">'+(i+1)+'</td><td class="r-name">'+esc(r.st.name)+'</td>';
     stList.forEach(s => html += '<td>'+(r.counts[s.id]||0)+'</td>');
     html += '<td><b>'+r.pct+'%</b></td></tr>';
   });
