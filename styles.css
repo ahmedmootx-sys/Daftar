@@ -165,11 +165,14 @@ thead th.sticky-col{z-index:3;background:var(--primary-light)}
 .export-reminder{font-size:12px;padding:6px 10px;background:#fef3c7;color:#92400e;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 /* Dropdown menus */
 .toolbar-dropdown{position:relative;display:inline-block}
-.dropdown-menu{position:fixed;z-index:200;min-width:200px;max-width:90vw;max-height:70vh;overflow:auto;background:#ffffff;border:1px solid #d1d5db;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.35);padding:6px 0}
+.dropdown-menu{position:fixed;z-index:200;min-width:200px;max-width:90vw;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:#ffffff;border:1px solid #d1d5db;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.35);padding:6px 0}
 .dropdown-item{display:block;text-align:right;padding:10px 16px;font-size:13px;font-weight:600;color:#1e2440;background:transparent;border:none;cursor:pointer;font-family:inherit;white-space:nowrap}
 .dropdown-item:hover{background:#f1f5f9}
 .dropdown-danger{color:#dc2626}
 .dropdown-danger:hover{background:#fee2e2}
+/* Comprehensive report table */
+.comp-table td{text-align:center;vertical-align:middle}
+.comp-table .comp-count{font-size:11px;color:#64748b}
 .student-actions{display:flex;gap:5px;margin-top:5px;justify-content:flex-start;flex-wrap:wrap}
 .mini-btn{
   display:inline-flex;align-items:center;gap:3px;border:none;border-radius:7px;

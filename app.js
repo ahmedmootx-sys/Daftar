@@ -33,8 +33,13 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v22';
+const APP_VERSION = 'v23';
 const CHANGELOG = {
+  v23: [
+    '📞 حذف رمز الدولة (+20) من أرقام الهواتف في كل التقارير المصدّرة (PDF/Excel)',
+    '📊 تقرير شامل جديد: جدول نسب حضور الطلاب عبر كل الشهور — كل عمود شهر فيه عدد مرات الحضور والنسبة، مع تضمين الشهر الحالي حتى آخر حصة',
+    '📱 إصلاح القوائم المنسدلة: تثبيت القائمة في مكانها مع سكرول داخلي (فوق/تحت/يمين/يسار) بدون قطع الخيارات'
+  ],
   v22: [
     '⚠️ مؤشر خطر الغياب: كل طالب بيظهر بجانبه مؤشر ملون (مثالي/متابعة/إنقاذ) حسب نسبة حضوره — قابل للتخصيص من الإعدادات',
     '📁 عند التصدير: اختيار مكان حفظ الملف بنفسك (Chrome/Edge)',
@@ -115,6 +120,14 @@ function normalizePhone(p){
   if(d.startsWith('0'))  d = '20' + d.slice(1);
   if(!d.startsWith('20')) d = '20' + d;
   return '+' + d;
+}
+/* رقم محلي بدون رمز الدولة (للتقارير والطباعة) */
+function localPhone(p){
+  let d = digits(p);
+  if(!d) return '';
+  if(d.startsWith('00')) d = d.slice(2);
+  if(d.startsWith('20')) d = '0' + d.slice(2);
+  return d;
 }
 function waHref(phone, text){
   const num = digits(phone);
@@ -1245,23 +1258,30 @@ function showAnalytics(students, sessions, records, title, statuses){
 function comprehensiveData(lesson){
   const months = state.archive
     .filter(a => a.lessonId === lesson.id)
-    .sort((a,b) => (a.year - b.year) || (a.monthNumber - b.monthNumber));
+    .sort((a,b) => (a.year - b.year) || (a.monthNumber - b.monthNumber))
+    .map(a => ({ label: 'شهر ' + a.monthNumber + '/' + a.year, monthNumber: a.monthNumber, year: a.year, sessions: a.sessions||[], records: a.records||{}, students: archiveStudents(a) }));
+  /* الشهر الحالي (إلى لحظة توقف الدرس) */
+  if(lesson && pastSessions(lesson.sessions||[]).length){
+    months.push({ label: 'شهر ' + lesson.monthNumber + '/' + lesson.year, monthNumber: lesson.monthNumber, year: lesson.year, sessions: lesson.sessions||[], records: lesson.records||{}, students: lesson.students||[] });
+  }
   if(!months.length) return null;
   const studentMap = {};
-  months.forEach(a => {
-    archiveStudents(a).forEach(st => {
+  months.forEach(m => {
+    m.students.forEach(st => {
       if(!studentMap[st.id]) studentMap[st.id] = { id: st.id, name: st.name, phone: st.phone };
       else { if(st.name) studentMap[st.id].name = st.name; if(st.phone) studentMap[st.id].phone = st.phone; }
     });
   });
   const rows = Object.keys(studentMap).map(id => {
     const st = studentMap[id];
-    const per = months.map(a => {
-      const recs = (a.records && a.records[st.id]) || {};
-      const ps = pastSessions(a.sessions||[]);
+    const per = months.map(m => {
+      const recs = (m.records && m.records[st.id]) || {};
+      const ps = pastSessions(m.sessions);
       let done = 0;
       ps.forEach(s => { if(recs[s.id] && recs[s.id].status === 'st_done') done++; });
-      return { done: done, total: ps.length };
+      const total = ps.length;
+      const pct = total ? Math.round(done / total * 100) : 0;
+      return { done: done, total: total, pct: pct };
     });
     const tot = per.reduce((acc,p) => ({ done: acc.done + p.done, total: acc.total + p.total }), { done:0, total:0 });
     const pct = tot.total ? Math.round(tot.done / tot.total * 100) : 0;
@@ -1273,14 +1293,14 @@ function comprehensiveData(lesson){
 
 function showComprehensiveReport(lesson){
   const data = comprehensiveData(lesson);
-  if(!data){ showToastMessage('لا توجد شهور مؤرشفة لهذا الدرس بعد.'); return; }
+  if(!data){ showToastMessage('لا توجد شهور مؤرشفة ولا حصص سابقة لهذا الدرس بعد.'); return; }
   const { months, rows } = data;
-  let t = '<div class="table-wrap" style="max-height:52vh;overflow:auto"><table class="stats-table"><thead><tr><th class="sticky-col">الطالب</th>';
-  months.forEach(a => t += '<th>شهر ' + a.monthNumber + '/' + a.year + '</th>');
-  t += '<th>نسبة الحضور الكلية</th></tr></thead><tbody>';
+  let t = '<div class="table-wrap" style="max-height:52vh;overflow:auto"><table class="stats-table comp-table"><thead><tr><th class="sticky-col">الطالب</th>';
+  months.forEach(a => t += '<th>' + a.monthNumber + '/' + a.year + '</th>');
+  t += '<th>النسبة الكلية</th></tr></thead><tbody>';
   rows.forEach(r => {
-    t += '<tr><td class="sticky-col" style="text-align:right;font-weight:700">' + esc(r.st.name) + '<br><span style="font-weight:400;color:#64748b">' + esc(r.st.phone) + '</span></td>';
-    r.per.forEach(p => t += '<td>' + p.done + '/' + p.total + '</td>');
+    t += '<tr><td class="sticky-col" style="text-align:right;font-weight:700">' + esc(r.st.name) + '<br><span style="font-weight:400;color:#64748b;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+    r.per.forEach(p => t += '<td><span class="comp-count">' + p.done + '/' + p.total + '</span><br><b>' + p.pct + '%</b></td>');
     t += '<td><b>' + r.pct + '%</b></td></tr>';
   });
   t += '</tbody></table></div>';
@@ -1297,13 +1317,13 @@ function showComprehensiveReport(lesson){
 function exportComprehensiveCSV(lesson, data){
   const { months, rows } = data;
   const lines = [];
-  const head = ['اسم الطالب (الرقم تحته)'];
-  months.forEach(a => head.push('حضور ' + a.monthNumber + '/' + a.year));
-  head.push('نسبة الحضور الكلية %');
+  const head = ['اسم الطالب', 'رقم الهاتف'];
+  months.forEach(a => { head.push('حضور ' + a.monthNumber + '/' + a.year); head.push('نسبة ' + a.monthNumber + '/' + a.year + ' %'); });
+  head.push('النسبة الكلية %');
   lines.push(head.join(','));
   rows.forEach(r => {
-    const row = ['"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(r.st.phone).replace(/"/g,'""') + '"'];
-    r.per.forEach(p => row.push(p.done + '/' + p.total));
+    const row = ['"' + String(r.st.name).replace(/"/g,'""') + '"', '"' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
+    r.per.forEach(p => { row.push(p.done + '/' + p.total); row.push(p.pct); });
     row.push(r.pct);
     lines.push(row.join(','));
   });
@@ -1316,17 +1336,17 @@ function printComprehensiveReport(lesson, data){
   $('#printPageRule').textContent = '@page{size:A4 landscape;margin:10mm}';
   let html = '<div class="report" dir="rtl">';
   html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
-  html += '<div class="r-sub">تقرير شامل - ' + esc(lesson.name) + ' - نسبة الحضور عبر ' + months.length + ' شهر مؤرشف</div>';
+  html += '<div class="r-sub">تقرير شامل - ' + esc(lesson.name) + ' - نسبة الحضور عبر ' + months.length + ' شهر</div>';
   html += '<table class="r-table"><thead><tr><th class="r-name">الطالب</th>';
-  months.forEach(a => html += '<th>شهر ' + a.monthNumber + '/' + a.year + '</th>');
+  months.forEach(a => html += '<th>' + a.monthNumber + '/' + a.year + '</th>');
   html += '<th>النسبة الكلية</th></tr></thead><tbody>';
   rows.forEach(r => {
-    html += '<tr><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:9px">' + esc(r.st.phone) + '</span></td>';
-    r.per.forEach(p => html += '<td>' + p.done + '/' + p.total + '</td>');
+    html += '<tr><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:9px;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+    r.per.forEach(p => html += '<td>' + p.done + '/' + p.total + '<br><b>' + p.pct + '%</b></td>');
     html += '<td><b>' + r.pct + '%</b></td></tr>';
   });
   html += '</tbody></table>';
-  html += '<div class="r-foot">عدد الشهور المؤرشفة: ' + months.length + ' · عدد الطلاب: ' + rows.length + '</div>';
+  html += '<div class="r-foot">عدد الشهور: ' + months.length + ' · عدد الطلاب: ' + rows.length + '</div>';
   html += '</div>';
   $('#printArea').innerHTML = html;
   window.print();
@@ -1348,7 +1368,7 @@ function exportCSV(students, sessions, records, title, statuses){
   lines.push(head.join(','));
 
   rows.forEach(r => {
-    const row = ['"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(r.st.phone).replace(/"/g,'""') + '"'];
+    const row = ['"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
     sd.customFields.forEach(f => row.push('"' + String((r.st.fields && r.st.fields[f.id]) || '').replace(/"/g,'""') + '"'));
     sessions.forEach(s => {
       const rec = (records[r.st.id] && records[r.st.id][s.id]) || {};
@@ -1424,7 +1444,7 @@ function printBlankSheet(lesson){
   students.forEach((st, i) => {
     html += '<tr>';
     html += '<td>' + (i + 1) + '</td>';
-    html += '<td class="r-name">' + esc(st.name) + '<br><span style="font-weight:400;font-size:8px;color:#64748b">' + esc(st.phone || '') + '</span></td>';
+    html += '<td class="r-name">' + esc(st.name) + '<br><span style="font-weight:400;font-size:8px;color:#64748b;direction:ltr">' + esc(localPhone(st.phone || '')) + '</span></td>';
     sessions.forEach(() => {
       html += '<td class="blank-cell"></td>';
     });
@@ -1470,7 +1490,7 @@ function exportBlankSheetExcel(lesson){
 
   /* صفوف الطلاب - الحضور فارغ */
   students.forEach((st, i) => {
-    const row = [i + 1, '"' + String(st.name).replace(/"/g,'""') + '\n' + String(st.phone || '').replace(/"/g,'""') + '"'];
+    const row = [i + 1, '"' + String(st.name).replace(/"/g,'""') + '\n' + String(localPhone(st.phone || '')).replace(/"/g,'""') + '"'];
     sessions.forEach(() => row.push(''));
     row.push('');
     lines.push(row.join(','));
@@ -1492,7 +1512,7 @@ function buildReportHTML(students, sessions, records, rows, title, statuses){
   sessions.forEach(s => html += '<th>'+esc(s.label)+'<br><span>'+esc(s.dateLabel||'')+'</span>' + (s.event ? '<br><span style="color:#b45309;font-size:9px">📝 '+esc(s.event)+'</span>' : '') + '</th>');
   html += '<th>'+esc(sd.notesLabel)+'</th></tr></thead><tbody>';
   students.forEach(st => {
-    html += '<tr><td class="r-name">'+esc(st.name)+'<br><span style="font-weight:400;font-size:9px;color:#64748b">'+esc(st.phone)+'</span></td>';
+    html += '<tr><td class="r-name">'+esc(st.name)+'<br><span style="font-weight:400;font-size:9px;color:#64748b;direction:ltr">'+esc(localPhone(st.phone))+'</span></td>';
     sd.customFields.forEach(f => html += '<td>'+esc((st.fields && st.fields[f.id]) || '')+'</td>');
     sessions.forEach(s => {
       const rec = (records[st.id] && records[st.id][s.id]) || {};
@@ -2650,16 +2670,30 @@ function bindEvents(){
     const btn = document.getElementById(btnId);
     if(!menu || !btn) return;
     const wasOpen = !menu.hidden;
-    /* أغلق كل القوائم */
-    $$('.dropdown-menu').forEach(m => m.hidden = true);
-    if(!wasOpen){
-      /* حساب موقع الزر لوضع القائمة تحته */
-      const rect = btn.getBoundingClientRect();
+    /* أغلق كل القوائم وأعد ضبط الأنماط */
+    $$('.dropdown-menu').forEach(m => { m.hidden = true; m.style.maxHeight = ''; m.style.bottom = ''; m.style.top = ''; });
+    if(wasOpen) return;
+    const rect = btn.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const spaceBelow = vh - rect.bottom - 14;
+    const spaceAbove = rect.top - 14;
+    /* محاذاة أفقية: من اليمين مع حماية من الخروج من الشاشة */
+    const rightPx = Math.max(8, Math.min(vw - rect.right, vw - 208));
+    menu.style.right = rightPx + 'px';
+    menu.style.left = 'auto';
+    if(spaceBelow >= 180 || spaceBelow >= spaceAbove){
+      /* افتح لتحت بارتفاع يناسب المساحة */
       menu.style.top = (rect.bottom + 4) + 'px';
-      menu.style.right = (window.innerWidth - rect.right) + 'px';
-      menu.style.left = 'auto';
-      menu.hidden = false;
+      menu.style.bottom = 'auto';
+      menu.style.maxHeight = Math.max(140, spaceBelow) + 'px';
+    } else {
+      /* افتح لفوق */
+      menu.style.bottom = (vh - rect.top + 4) + 'px';
+      menu.style.top = 'auto';
+      menu.style.maxHeight = Math.max(140, spaceAbove) + 'px';
     }
+    menu.hidden = false;
   }
   $('#reportsMenuBtn').onclick = () => toggleDropdown('reportsMenu', 'reportsMenuBtn');
   $('#manageMenuBtn').onclick = () => toggleDropdown('manageMenu', 'manageMenuBtn');
