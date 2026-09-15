@@ -33,8 +33,13 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v23';
+const APP_VERSION = 'v24';
 const CHANGELOG = {
+  v24: [
+    '📅 تقرير الشهر: اختيار فترة (من يوم - إلى يوم) وإعادة حساب النسب والتقارير عليها',
+    '📅 التقرير الشامل: نفس فلتر الفترة الزمنية — الحصص خارج الفترة تُستبعد من كل الشهور',
+    '📊 Excel التقرير الشامل: خلية الشهر الواحدة فيها عدد الحضور (5/9) والنسبة تحتها'
+  ],
   v23: [
     '📞 حذف رمز الدولة (+20) من أرقام الهواتف في كل التقارير المصدّرة (PDF/Excel)',
     '📊 تقرير شامل جديد: جدول نسب حضور الطلاب عبر كل الشهور — كل عمود شهر فيه عدد مرات الحضور والنسبة، مع تضمين الشهر الحالي حتى آخر حصة',
@@ -1227,20 +1232,19 @@ function sortByAttendance(){
 }
 
 function showAnalytics(students, sessions, records, title, statuses){
-  const rows = computeStats(students, sessions, records, statuses);
   const stList = statuses || state.settings.statuses;
+  const dated = sessions.filter(s => s.date);
+  const minDate = dated.length ? dated.reduce((a,b) => a.date < b.date ? a : b).date : '';
+  const maxDate = dated.length ? dated.reduce((a,b) => a.date > b.date ? a : b).date : '';
 
-  let body = '<div class="table-wrap"><table class="stats-table"><thead><tr><th>الطالب</th>';
-  stList.forEach(s => body += '<th>'+esc(s.label)+'</th>');
-  body += '<th>نسبة الحضور</th></tr></thead><tbody>';
-  rows.forEach(r => {
-    body += '<tr><td style="text-align:right;font-weight:700">'+esc(r.st.name)+'</td>';
-    stList.forEach(s => body += '<td>'+(r.counts[s.id]||0)+'</td>');
-    body += '<td><div class="bar" style="display:inline-block"><i style="width:'+r.pct+'%"></i></div> <b>'+r.pct+'%</b></td></tr>';
-  });
-  body += '</tbody></table></div>';
+  const filterHTML = dated.length
+    ? '<div class="range-filter"><span>📅 فترة التقرير:</span>'
+      + '<label>من <input type="date" id="rangeFrom" value="'+minDate+'"></label>'
+      + '<label>إلى <input type="date" id="rangeTo" value="'+maxDate+'"></label>'
+      + '</div>'
+    : '';
 
-  openModal('📊 تحليل ' + title, body);
+  openModal('📊 تحليل ' + title, filterHTML + '<div id="analyticsTableWrap"></div>');
   const actions = document.createElement('div');
   actions.className = 'modal-actions';
   actions.innerHTML =
@@ -1249,20 +1253,57 @@ function showAnalytics(students, sessions, records, title, statuses){
     + '<button class="btn" id="analyticsClose">إغلاق</button>';
   $('#modalBody').appendChild(actions);
 
-  $('#analyticsCsv').onclick = () => exportCSV(students, sessions, records, title, statuses);
-  $('#analyticsPdf').onclick = () => printReport(students, sessions, records, title, statuses);
+  let curSessions = sessions;
+  function applyRange(){
+    const from = $('#rangeFrom') ? $('#rangeFrom').value : '';
+    const to = $('#rangeTo') ? $('#rangeTo').value : '';
+    curSessions = sessions.filter(s => {
+      if(!s.date) return true;
+      if(from && s.date < from) return false;
+      if(to && s.date > to) return false;
+      return true;
+    });
+    const rows = computeStats(students, curSessions, records, statuses);
+    let body = '<div class="table-wrap"><table class="stats-table"><thead><tr><th>الطالب</th>';
+    stList.forEach(s => body += '<th>'+esc(s.label)+'</th>');
+    body += '<th>نسبة الحضور</th></tr></thead><tbody>';
+    rows.forEach(r => {
+      body += '<tr><td style="text-align:right;font-weight:700">'+esc(r.st.name)+'</td>';
+      stList.forEach(s => body += '<td>'+(r.counts[s.id]||0)+'</td>');
+      body += '<td><div class="bar" style="display:inline-block"><i style="width:'+r.pct+'%"></i></div> <b>'+r.pct+'%</b></td></tr>';
+    });
+    body += '</tbody></table></div>';
+    if(dated.length){
+      const shown = curSessions.filter(s => s.date).length;
+      body += '<p class="muted" style="font-size:12px;margin:6px 0 0">الحصص المحسوبة: ' + shown + ' من ' + sessions.length + '</p>';
+    }
+    $('#analyticsTableWrap').innerHTML = body;
+  }
+  applyRange();
+  if($('#rangeFrom')) $('#rangeFrom').onchange = applyRange;
+  if($('#rangeTo')) $('#rangeTo').onchange = applyRange;
+
+  $('#analyticsCsv').onclick = () => exportCSV(students, curSessions, records, title, statuses);
+  $('#analyticsPdf').onclick = () => printReport(students, curSessions, records, title, statuses);
   $('#analyticsClose').onclick = closeModal;
 }
 
 /* ---------- التقرير الشامل عبر الشهور المؤرشفة ---------- */
-function comprehensiveData(lesson){
+function comprehensiveData(lesson, fromDate, toDate){
+  const inRange = (s) => {
+    if(!s.date) return true;
+    if(fromDate && s.date < fromDate) return false;
+    if(toDate && s.date > toDate) return false;
+    return true;
+  };
   const months = state.archive
     .filter(a => a.lessonId === lesson.id)
     .sort((a,b) => (a.year - b.year) || (a.monthNumber - b.monthNumber))
-    .map(a => ({ label: 'شهر ' + a.monthNumber + '/' + a.year, monthNumber: a.monthNumber, year: a.year, sessions: a.sessions||[], records: a.records||{}, students: archiveStudents(a) }));
+    .map(a => ({ label: 'شهر ' + a.monthNumber + '/' + a.year, monthNumber: a.monthNumber, year: a.year, sessions: (a.sessions||[]).filter(inRange), records: a.records||{}, students: archiveStudents(a) }))
+    .filter(m => pastSessions(m.sessions).length > 0);
   /* الشهر الحالي (إلى لحظة توقف الدرس) */
-  if(lesson && pastSessions(lesson.sessions||[]).length){
-    months.push({ label: 'شهر ' + lesson.monthNumber + '/' + lesson.year, monthNumber: lesson.monthNumber, year: lesson.year, sessions: lesson.sessions||[], records: lesson.records||{}, students: lesson.students||[] });
+  if(lesson && pastSessions((lesson.sessions||[]).filter(inRange)).length){
+    months.push({ label: 'شهر ' + lesson.monthNumber + '/' + lesson.year, monthNumber: lesson.monthNumber, year: lesson.year, sessions: (lesson.sessions||[]).filter(inRange), records: lesson.records||{}, students: lesson.students||[] });
   }
   if(!months.length) return null;
   const studentMap = {};
@@ -1288,43 +1329,72 @@ function comprehensiveData(lesson){
     return { st: st, per: per, tot: tot, pct: pct };
   });
   rows.sort((x,y) => y.pct - x.pct);
-  return { months: months, rows: rows };
+  return { months: months, rows: rows, range: { from: fromDate || '', to: toDate || '' } };
 }
 
 function showComprehensiveReport(lesson){
-  const data = comprehensiveData(lesson);
-  if(!data){ showToastMessage('لا توجد شهور مؤرشفة ولا حصص سابقة لهذا الدرس بعد.'); return; }
-  const { months, rows } = data;
-  let t = '<div class="table-wrap" style="max-height:52vh;overflow:auto"><table class="stats-table comp-table"><thead><tr><th class="sticky-col">الطالب</th>';
-  months.forEach(a => t += '<th>' + a.monthNumber + '/' + a.year + '</th>');
-  t += '<th>النسبة الكلية</th></tr></thead><tbody>';
-  rows.forEach(r => {
-    t += '<tr><td class="sticky-col" style="text-align:right;font-weight:700">' + esc(r.st.name) + '<br><span style="font-weight:400;color:#64748b;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
-    r.per.forEach(p => t += '<td><span class="comp-count">' + p.done + '/' + p.total + '</span><br><b>' + p.pct + '%</b></td>');
-    t += '<td><b>' + r.pct + '%</b></td></tr>';
-  });
-  t += '</tbody></table></div>';
-  openModal('📊 تقرير شامل - ' + esc(lesson.name), t);
+  /* اجمع كل الحصص من الأرشيف + الشهر الحالي لتحديد حدود الفترة */
+  const allSessions = [];
+  state.archive.filter(a => a.lessonId === lesson.id).forEach(a => (a.sessions||[]).forEach(s => allSessions.push(s)));
+  (lesson.sessions||[]).forEach(s => allSessions.push(s));
+  const dated = allSessions.filter(s => s.date);
+  const minDate = dated.length ? dated.reduce((a,b) => a.date < b.date ? a : b).date : '';
+  const maxDate = dated.length ? dated.reduce((a,b) => a.date > b.date ? a : b).date : '';
+  const hasDates = dated.length > 0;
+
+  const filterHTML = hasDates
+    ? '<div class="range-filter"><span>📅 فترة التقرير:</span>'
+      + '<label>من <input type="date" id="compRangeFrom" value="'+minDate+'"></label>'
+      + '<label>إلى <input type="date" id="compRangeTo" value="'+maxDate+'"></label>'
+      + '</div>'
+    : '';
+  openModal('📊 تقرير شامل - ' + esc(lesson.name), filterHTML + '<div id="compTableWrap"></div>');
   const actions = document.createElement('div');
   actions.className = 'modal-actions';
   actions.innerHTML = '<button class="btn btn-outline" id="compCsv">⬇️ Excel (CSV)</button><button class="btn btn-outline" id="compPdf">🖨️ PDF (A4)</button><button class="btn" id="compClose">إغلاق</button>';
   $('#modalBody').appendChild(actions);
-  $('#compCsv').onclick = () => exportComprehensiveCSV(lesson, data);
-  $('#compPdf').onclick = () => printComprehensiveReport(lesson, data);
+
+  let curData = null;
+  function applyRange(){
+    const from = $('#compRangeFrom') ? $('#compRangeFrom').value : '';
+    const to = $('#compRangeTo') ? $('#compRangeTo').value : '';
+    curData = comprehensiveData(lesson, from, to);
+    if(!curData){
+      $('#compTableWrap').innerHTML = '<p class="muted">لا توجد شهور مؤرشفة ولا حصص سابقة في هذه الفترة.</p>';
+      return;
+    }
+    const { months, rows } = curData;
+    let t = '<div class="table-wrap" style="max-height:52vh;overflow:auto"><table class="stats-table comp-table"><thead><tr><th class="sticky-col">الطالب</th>';
+    months.forEach(a => t += '<th>' + a.monthNumber + '/' + a.year + '</th>');
+    t += '<th>النسبة الكلية</th></tr></thead><tbody>';
+    rows.forEach(r => {
+      t += '<tr><td class="sticky-col" style="text-align:right;font-weight:700">' + esc(r.st.name) + '<br><span style="font-weight:400;color:#64748b;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+      r.per.forEach(p => t += '<td><span class="comp-count">' + p.done + '/' + p.total + '</span><br><b>' + p.pct + '%</b></td>');
+      t += '<td><b>' + r.pct + '%</b></td></tr>';
+    });
+    t += '</tbody></table></div>';
+    $('#compTableWrap').innerHTML = t;
+  }
+  applyRange();
+  if($('#compRangeFrom')) $('#compRangeFrom').onchange = applyRange;
+  if($('#compRangeTo')) $('#compRangeTo').onchange = applyRange;
+
+  $('#compCsv').onclick = () => { if(curData) exportComprehensiveCSV(lesson, curData); };
+  $('#compPdf').onclick = () => { if(curData) printComprehensiveReport(lesson, curData); };
   $('#compClose').onclick = closeModal;
 }
 
 function exportComprehensiveCSV(lesson, data){
   const { months, rows } = data;
   const lines = [];
-  const head = ['اسم الطالب', 'رقم الهاتف'];
-  months.forEach(a => { head.push('حضور ' + a.monthNumber + '/' + a.year); head.push('نسبة ' + a.monthNumber + '/' + a.year + ' %'); });
+  const head = ['اسم الطالب (الرقم تحته)'];
+  months.forEach(a => head.push('شهر ' + a.monthNumber + '/' + a.year));
   head.push('النسبة الكلية %');
   lines.push(head.join(','));
   rows.forEach(r => {
-    const row = ['"' + String(r.st.name).replace(/"/g,'""') + '"', '"' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
-    r.per.forEach(p => { row.push(p.done + '/' + p.total); row.push(p.pct); });
-    row.push(r.pct);
+    const row = ['"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
+    r.per.forEach(p => row.push('"' + p.done + '/' + p.total + '\n' + p.pct + '%"'));
+    row.push('"' + r.pct + '%"');
     lines.push(row.join(','));
   });
   const safe = (lesson.name || 'درس').replace(/[^\w\u0600-\u06FF ]/g, '');
@@ -1336,7 +1406,7 @@ function printComprehensiveReport(lesson, data){
   $('#printPageRule').textContent = '@page{size:A4 landscape;margin:10mm}';
   let html = '<div class="report" dir="rtl">';
   html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
-  html += '<div class="r-sub">تقرير شامل - ' + esc(lesson.name) + ' - نسبة الحضور عبر ' + months.length + ' شهر</div>';
+  html += '<div class="r-sub">تقرير شامل - ' + esc(lesson.name) + ' - نسبة الحضور عبر ' + months.length + ' شهر' + (data.range && (data.range.from || data.range.to) ? ' (من ' + (data.range.from || 'البداية') + ' إلى ' + (data.range.to || 'الآن') + ')' : '') + '</div>';
   html += '<table class="r-table"><thead><tr><th class="r-name">الطالب</th>';
   months.forEach(a => html += '<th>' + a.monthNumber + '/' + a.year + '</th>');
   html += '<th>النسبة الكلية</th></tr></thead><tbody>';
