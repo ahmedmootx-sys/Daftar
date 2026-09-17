@@ -33,8 +33,12 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v27';
+const APP_VERSION = 'v28';
 const CHANGELOG = {
+  v28: [
+    '🔔 سجل "ما الجديد" داخل شريط الإشعارات: اقرأ تحديثات فاتتك في أي وقت، واحذف الإشعار متى شئت',
+    '⚠️ تنبيه عند تسجيل حضور في يوم لم يأتي بعد — بدون منع، وقابل للإيقاف من الإعدادات'
+  ],
   v27: [
     '📄 تقارير PDF أصبحت عمودية (Portrait) مضغوطة: صفوف أقصر وخط أصغر لاستيعاب طلاب أكثر في الصفحة وتوفير الورق'
   ],
@@ -246,6 +250,7 @@ function defaultState(){
       statuses: defaultStatuses(),
       whatsappNumber: '+201038805435',
       whatsappType: 'normal',
+      warnFutureAttendance: true,
       messageTemplate: 'السلام عليكم ورحمة الله وبركاته\n\nأخباركم إن شاء الله تكونو بخير\n\nبنأكد على معاد النهاردة الساعة {time} وجزاكم الله خيراً',
       ownerName: ADMIN_NAME,
       ownerPhone: ADMIN_PHONE,
@@ -288,6 +293,7 @@ function normalizeState(raw){
     .map(f => ({ id: f.id || uid('f'), label: (f.label || '').trim() }))
     .filter(f => f.label);
   settings.whatsappType = (settings.whatsappType === 'business') ? 'business' : 'normal';
+  settings.warnFutureAttendance = settings.warnFutureAttendance !== false;
   settings.ownerName = ADMIN_NAME;
   settings.ownerPhone = ADMIN_PHONE;
   /* مؤشرات خطر الغياب */
@@ -938,6 +944,8 @@ function renderSettings(){
   $('#set_whatsappNumber').value = sd.whatsappNumber;
   $('#set_whatsappType').value = sd.whatsappType;
   $('#set_messageTemplate').value = sd.messageTemplate;
+  const wf = $('#set_warnFuture');
+  if(wf) wf.checked = sd.warnFutureAttendance !== false;
 
   $('#customFieldsList').innerHTML = sd.customFields.map(f =>
     '<div class="status-edit-row">'
@@ -1000,23 +1008,59 @@ function maybePromptNotifications(){
   }, 900);
 }
 function versionNum(v){ return parseInt(String(v).replace(/[^0-9]/g,''),10) || 0; }
-function maybeShowChangelog(next){
-  let seen = 0;
-  try{ seen = versionNum(localStorage.getItem('daftar_seen_version') || ''); }catch(e){}
+/* ---------- سجل "ما الجديد" داخل شريط الإشعارات ---------- */
+const CHANGELOG_STORE_KEY = 'daftar_whatsnew';
+function whatsNewList(){
+  /* يرجّع قائمة الإصدارات المحفوظة (غير المحذوفة) من localStorage */
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(CHANGELOG_STORE_KEY) || 'null'); }catch(e){}
+  if(!saved || typeof saved !== 'object') saved = {};
+  const seen = versionNum(saved.seenVersion || '');
   const current = versionNum(APP_VERSION);
-  const isFirst = !seen;
-  const entries = [];
-  Object.keys(CHANGELOG)
-    .filter(v => versionNum(v) > seen && versionNum(v) <= current)
+  /* مزامنة: أي إصدار في CHANGELOG أعلى من آخر نسخة شافها المستخدم ≤ الحالي يُضاف للمخزن */
+  let changed = false;
+  Object.keys(CHANGELOG).forEach(v => {
+    const n = versionNum(v);
+    if(n > seen && n <= current){
+      if(!Array.isArray(saved[v])){ saved[v] = CHANGELOG[v]; changed = true; }
+    }
+  });
+  if(!saved.seenVersion || versionNum(saved.seenVersion) < current){ saved.seenVersion = APP_VERSION; changed = true; }
+  if(changed){ try{ localStorage.setItem(CHANGELOG_STORE_KEY, JSON.stringify(saved)); }catch(e){} }
+  /* لو المستخدم حذف كل الإصدارات، دايمًا نضيف الإصدار الحالي مرة واحدة عند الترقية فقط (بفضل seenVersion) */
+  return Object.keys(CHANGELOG)
+    .filter(v => Array.isArray(saved[v]) && saved[v].length)
     .sort((a,b) => versionNum(a) - versionNum(b))
-    .forEach(v => { if(!isFirst || versionNum(v) === current) entries.push({ v: v, items: CHANGELOG[v] }); });
+    .map(v => ({ v: v, items: saved[v] }));
+}
+function whatsNewCount(){ return whatsNewList().length; }
+function removeWhatsNew(v){
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(CHANGELOG_STORE_KEY) || 'null'); }catch(e){}
+  if(!saved || typeof saved !== 'object') return;
+  delete saved[v];
+  try{ localStorage.setItem(CHANGELOG_STORE_KEY, JSON.stringify(saved)); }catch(e){}
+}
+function removeAllWhatsNew(){
+  const saved = { seenVersion: APP_VERSION };
+  try{ localStorage.setItem(CHANGELOG_STORE_KEY, JSON.stringify(saved)); }catch(e){}
+}
+function whatsNewModal(v){
+  const entry = whatsNewList().find(x => x.v === v);
+  if(!entry) return;
+  const html = '<div class="changelog-ver"><b>🆕 التحديث ' + esc(entry.v) + '</b><ul>' + entry.items.map(i => '<li>' + esc(i) + '</li>').join('') + '</ul></div>';
+  openModal('ما الجديد؟', html + '<div class="modal-actions"><button class="btn" id="wn_ok">تمام</button><button class="btn btn-outline" id="wn_del">🗑️ حذف هذا الإشعار</button></div>');
+  $('#wn_ok').onclick = () => { closeModal(); };
+  $('#wn_del').onclick = () => { removeWhatsNew(entry.v); closeModal(); renderToday(); if(!$('#notifPanel').hidden) renderNotifPanel(); };
+}
+function maybeShowChangelog(next){
+  const entries = whatsNewList();
   if(entries.length === 0){ if(next) next(); return; }
-  try{ localStorage.setItem('daftar_seen_version', APP_VERSION); }catch(e){}
   const html = entries.map(en =>
     '<div class="changelog-ver"><b>🆕 التحديث ' + esc(en.v) + '</b><ul>' + en.items.map(i => '<li>' + esc(i) + '</li>').join('') + '</ul></div>'
   ).join('');
   openModal('ما الجديد؟', html + '<div class="modal-actions"><button class="btn" id="cl_ok">تمام</button></div>');
-  $('#cl_ok').onclick = () => { closeModal(); if(next) setTimeout(next, 400); };
+  $('#cl_ok').onclick = () => { closeModal(); renderToday(); if(next) setTimeout(next, 400); };
 }
 function notify(title, body){
   if(notifSupported() && Notification.permission === 'granted'){
@@ -1054,11 +1098,17 @@ function renderToday(){
   const dot = $('#notifDot');
   if(!banner) return;
   const items = todayScheduleItems();
-  if(items.length){
-    banner.hidden = false;
-    banner.innerHTML = '<div class="tb-title">📅 جدول اليوم والتذكيرات</div>'
-      + items.map(it => '<div class="tb-item"><span>'+esc(it.lesson)+(it.group?' - '+esc(it.group):'')+'</span><span class="tb-time">🕐 '+formatTime12(it.time)+'</span>'+(it.reminderMinutes?'<span class="muted">('+reminderLabel(it.reminderMinutes)+')</span>':'')+'</div>').join('');
-    if(dot) dot.hidden = false;
+  const hasNews = whatsNewCount() > 0;
+  if(items.length || hasNews){
+    if(items.length){
+      banner.hidden = false;
+      banner.innerHTML = '<div class="tb-title">📅 جدول اليوم والتذكيرات</div>'
+        + items.map(it => '<div class="tb-item"><span>'+esc(it.lesson)+(it.group?' - '+esc(it.group):'')+'</span><span class="tb-time">🕐 '+formatTime12(it.time)+'</span>'+(it.reminderMinutes?'<span class="muted">('+reminderLabel(it.reminderMinutes)+')</span>':'')+'</div>').join('');
+    } else {
+      banner.hidden = true;
+      banner.innerHTML = '';
+    }
+    if(dot) dot.hidden = !hasNews;
   } else {
     banner.hidden = true;
     banner.innerHTML = '';
@@ -1077,6 +1127,19 @@ function renderNotifPanel(){
       html += '<div class="np-item">'+esc(it.lesson)+(it.group?' - '+esc(it.group):'')+'<br><span class="np-time">🕐 '+formatTime12(it.time)+'</span>'+(it.reminderMinutes?' · '+reminderLabel(it.reminderMinutes):'')+'</div>';
     });
   }
+  /* سجل "ما الجديد" — الإصدارات غير المحذوفة */
+  const news = whatsNewList();
+  if(news.length){
+    html += '<p class="np-title" style="margin-top:10px">🆕 ما الجديد؟</p>';
+    news.slice().reverse().forEach(en => {
+      html += '<div class="np-item np-news" data-wn="'+esc(en.v)+'">'
+        + '<span class="np-news-ver">التحديث ' + esc(en.v) + '</span>'
+        + '<ul class="np-news-list">' + en.items.map(i => '<li>'+esc(i)+'</li>').join('') + '</ul>'
+        + '<button class="np-news-del" data-wn-del="'+esc(en.v)+'" title="حذف هذا الإشعار">🗑️</button>'
+        + '</div>';
+    });
+    html += '<button class="np-news-clear" data-wn-clear="1">حذف كل إشعارات التحديثات</button>';
+  }
   panel.innerHTML = html;
 }
 function showReminderToast(label, time){
@@ -1094,6 +1157,15 @@ function showToastMessage(html){
   if(!toast) return;
   $('#toastBody').innerHTML = html;
   toast.hidden = false;
+}
+function warnIfFutureSession(L, ssid){
+  if(!state.settings.warnFutureAttendance) return;
+  const s = (L.sessions || []).find(x => x.id === ssid);
+  if(!s || !s.date) return;
+  const todayStr = new Date().toISOString().slice(0,10);
+  if(s.date > todayStr){
+    showToastMessage('⚠️ تنبيه: يوم «' + esc(s.dateLabel || s.label) + '» لم يأتي بعد، ومع ذلك تم تسجيل الحضور. (يمكن إيقاف هذا التنبيه من الإعدادات)');
+  }
 }
 function scheduleReminders(){
   if(notifTimers){ notifTimers.forEach(t => clearTimeout(t)); }
@@ -2729,6 +2801,14 @@ function bindEvents(){
 
   $('#enableNotifBtn').onclick = requestNotifications;
   $('#notifBtn').onclick = (e) => { e.stopPropagation(); const p = $('#notifPanel'); renderNotifPanel(); p.hidden = !p.hidden; };
+  $('#notifPanel').addEventListener('click', (e) => {
+    const del = e.target.closest('[data-wn-del]');
+    if(del){ e.stopPropagation(); removeWhatsNew(del.dataset.wnDel); renderNotifPanel(); renderToday(); return; }
+    const clr = e.target.closest('[data-wn-clear]');
+    if(clr){ e.stopPropagation(); removeAllWhatsNew(); renderNotifPanel(); renderToday(); return; }
+    const item = e.target.closest('[data-wn]');
+    if(item){ e.stopPropagation(); $('#notifPanel').hidden = true; whatsNewModal(item.dataset.wn); }
+  });
   document.addEventListener('click', (e) => {
     const p = $('#notifPanel');
     if(p && !p.hidden && !e.target.closest('.notif-wrap')) p.hidden = true;
@@ -2813,6 +2893,10 @@ function bindEvents(){
   $('#set_whatsappType').addEventListener('change', (e) => {
     state.settings.whatsappType = e.target.value;
     saveState(); renderLessonDetail();
+  });
+  $('#set_warnFuture').addEventListener('change', (e) => {
+    state.settings.warnFutureAttendance = e.target.checked;
+    saveState();
   });
 
   document.addEventListener('click', (e) => {
@@ -3124,6 +3208,7 @@ function bindEvents(){
         saveState();
         updateStatusCellUI(st);
         updateSessionCounterUI(ssid);
+        warnIfFutureSession(L, ssid);
       }
     }
     else if(e.target.matches('[data-act="paid"]')){
