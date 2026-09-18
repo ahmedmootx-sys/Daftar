@@ -33,8 +33,15 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v28';
+const APP_VERSION = 'v29';
 const CHANGELOG = {
+  v29: [
+    '👤 ملف الطالب (Profile): بطاقة شخصية متكاملة للطالب بصورته وعنوانه وعمره وإيميله وملاحظاته الخاصة وإحصائيات حضوره',
+    '🔄 تحريك الحصص وترتيبها التلقائي: إدراج الحصة زمنياً بحسب تاريخها، مع إمكانية سحبها يميناً ويساراً وتعديل مسمياتها',
+    '⚙️ تجديد قسم الإعدادات: دمج الأعمدة الإضافية مع إمكانية إعادة ترتيبها، وإزالة العناوين غير المستغلة',
+    '🔘 تحويل مفاتيح التفعيل إلى سويتشات حديثة (الاشتراك، التذكير، الإشعارات، الحفظ التلقائي) في قالب موحد',
+    '🔔 ظهور إشعار التحديث مرة واحدة فقط عند نزول كل إصدار، مع بقائه متاحاً دائماً من شريط الإشعارات'
+  ],
   v28: [
     '🔔 سجل "ما الجديد" داخل شريط الإشعارات: اقرأ تحديثات فاتتك في أي وقت، واحذف الإشعار متى شئت',
     '⚠️ تنبيه عند تسجيل حضور في يوم لم يأتي بعد — بدون منع، وقابل للإيقاف من الإعدادات'
@@ -272,7 +279,22 @@ function monthKey(year, month){ return year + '-' + String(month).padStart(2,'0'
 
 /* ---------- تحميل/تطبيع ---------- */
 function normalizeStudent(st){
-  return { id: st.id || uid('s'), name: st.name || '', phone: normalizePhone(st.phone), guardianPhone: normalizePhone(st.guardianPhone || ''), extraPhones: Array.isArray(st.extraPhones) ? st.extraPhones.map(normalizePhone).filter(Boolean) : [], guardianExtraPhones: Array.isArray(st.guardianExtraPhones) ? st.guardianExtraPhones.map(normalizePhone).filter(Boolean) : [], paid: !!st.paid, groupId: st.groupId || '', fields: (st.fields && typeof st.fields === 'object') ? st.fields : {} };
+  return {
+    id: st.id || uid('s'),
+    name: st.name || '',
+    phone: normalizePhone(st.phone),
+    guardianPhone: normalizePhone(st.guardianPhone || ''),
+    extraPhones: Array.isArray(st.extraPhones) ? st.extraPhones.map(normalizePhone).filter(Boolean) : [],
+    guardianExtraPhones: Array.isArray(st.guardianExtraPhones) ? st.guardianExtraPhones.map(normalizePhone).filter(Boolean) : [],
+    paid: !!st.paid,
+    groupId: st.groupId || '',
+    fields: (st.fields && typeof st.fields === 'object') ? st.fields : {},
+    address: typeof st.address === 'string' ? st.address : '',
+    age: (typeof st.age === 'string' || typeof st.age === 'number') ? String(st.age) : '',
+    email: typeof st.email === 'string' ? st.email : '',
+    photo: typeof st.photo === 'string' ? st.photo : '',
+    profileNotes: typeof st.profileNotes === 'string' ? st.profileNotes : ''
+  };
 }
 function normalizeGroup(g){
   return {
@@ -439,10 +461,70 @@ function genSessions(lesson, confirmLoss){
   if(confirmLoss) lesson.records = {};
   saveState();
 }
+function sortLessonSessions(lesson){
+  if(!lesson || !Array.isArray(lesson.sessions)) return;
+  lesson.sessions.sort((a,b) => {
+    if(a.date && b.date) return a.date.localeCompare(b.date);
+    if(a.date && !b.date) return -1;
+    if(!a.date && b.date) return 1;
+    return 0;
+  });
+}
+function shiftSession(lesson, sessionId, dir){
+  if(!lesson || !Array.isArray(lesson.sessions)) return;
+  const idx = lesson.sessions.findIndex(x => x.id === sessionId);
+  if(idx < 0) return;
+  const targetIdx = idx + dir;
+  if(targetIdx < 0 || targetIdx >= lesson.sessions.length) return;
+  const tmp = lesson.sessions[idx];
+  lesson.sessions[idx] = lesson.sessions[targetIdx];
+  lesson.sessions[targetIdx] = tmp;
+  saveState();
+  renderLessonDetail();
+}
 function addSession(lesson){
   const n = lesson.sessions.length + 1;
   lesson.sessions.push({ id: uid('ss'), label: 'حصة ' + n, date:'', dateLabel:'' });
   saveState();
+}
+function addSessionModal(lesson){
+  if(!lesson) return;
+  const n = (lesson.sessions ? lesson.sessions.length : 0) + 1;
+  const defaultName = 'حصة ' + n;
+  const todayStr = new Date().toISOString().slice(0,10);
+  const presets = ['حصة ' + n, 'حصة إضافية', 'حصة مراجعة', 'اختبار', 'تدريب عملي'];
+  const chipsHTML = presets.map(p => '<button type="button" class="preset-chip" data-val="'+esc(p)+'">'+esc(p)+'</button>').join('');
+
+  openModal('➕ إضافة حصة جديدة',
+    '<div class="form-row"><label>اسم ومسمى الحصة<input id="new_sess_name" type="text" value="'+esc(defaultName)+'"></label>'
+    + '<div class="preset-chips">'+chipsHTML+'</div></div>'
+    + '<div class="form-row"><label>تاريخ الحصة (اختياري - يحدد موضعها وترتيبها الزمني تلقائياً)<input id="new_sess_date" type="date" value="'+todayStr+'"></label></div>'
+    + '<div class="modal-actions"><button class="btn" id="new_sess_save">حفظ وإدراج الحصة</button><button class="btn btn-outline" id="new_sess_cancel">إلغاء</button></div>'
+  );
+
+  $$('#modalBody .preset-chip').forEach(btn => {
+    btn.onclick = () => { $('#new_sess_name').value = btn.dataset.val; };
+  });
+
+  $('#new_sess_cancel').onclick = closeModal;
+  $('#new_sess_save').onclick = () => {
+    const lbl = ($('#new_sess_name').value || '').trim() || defaultName;
+    const dt = ($('#new_sess_date').value || '').trim();
+    let dtLabel = '';
+    if(dt){
+      const d = new Date(dt);
+      dtLabel = isNaN(d) ? dt : formatDate(d);
+    }
+    const newSession = { id: uid('ss'), label: lbl, date: dt, dateLabel: dtLabel };
+    lesson.sessions.push(newSession);
+    if(dt){
+      sortLessonSessions(lesson);
+    }
+    saveState();
+    renderAll();
+    closeModal();
+    showToastMessage('تمت إضافة «' + esc(lbl) + '» ' + (dt ? 'وترتيبها زمنياً بنجاح' : ''));
+  };
 }
 
 /* ---------- حالة العرض ---------- */
@@ -714,15 +796,17 @@ function renderLessonDetail(){
 
   let h = '<tr><th class="sticky-col">' + esc(sd.studentLabel) + '</th>';
   sd.customFields.forEach(f => { h += '<th class="field-col">' + esc(f.label) + '</th>'; });
-  L.sessions.forEach(s => {
-    h += '<th><div class="week-head">'
-       + '<span>' + esc(s.label) + '</span>'
-       + '<span class="week-date" title="اضغط لتعديل التاريخ" data-act="edit-session-date" data-id="'+s.id+'">' + (s.dateLabel ? esc(s.dateLabel) : 'بدون تاريخ') + '</span>'
+  L.sessions.forEach((s, sIdx) => {
+    h += '<th class="session-col-drag" draggable="true" data-session-id="'+s.id+'" data-idx="'+sIdx+'"><div class="week-head">'
+       + '<span class="week-title" title="اضغط لتعديل مسمى الحصة" data-act="edit-session-label" data-id="'+s.id+'">' + esc(s.label) + '</span>'
+       + '<span class="week-date" title="اضغط لتعديل التاريخ والترتيب الزمني" data-act="edit-session-date" data-id="'+s.id+'">' + (s.dateLabel ? esc(s.dateLabel) : 'بدون تاريخ') + '</span>'
        + (s.event ? '<span class="week-event" title="اضغط لتعديل الحدث" data-act="edit-session-event" data-id="'+s.id+'">📝 ' + esc(s.event) + '</span>' : '')
-       + '<button class="del-week" data-act="del-session" data-id="'+s.id+'" title="حذف الحصة">حذف</button>'
        + '<div class="week-tools">'
-       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-id="'+s.id+'">📝 حدث</button>'
-       + '<button class="mini-btn mini-wa" data-act="session-summary" data-id="'+s.id+'">📤 ملخص</button>'
+       + (sIdx > 0 ? '<button class="mini-btn" data-act="shift-session-left" data-id="'+s.id+'" title="تحريك لليمين (سابق)">◀</button>' : '')
+       + (sIdx < L.sessions.length - 1 ? '<button class="mini-btn" data-act="shift-session-right" data-id="'+s.id+'" title="تحريك لليسار (تالي)">▶</button>' : '')
+       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-id="'+s.id+'" title="حدث الحصة">📝</button>'
+       + '<button class="mini-btn mini-wa" data-act="session-summary" data-id="'+s.id+'" title="ملخص واتساب">📤</button>'
+       + '<button class="del-week" data-act="del-session" data-id="'+s.id+'" title="حذف الحصة">✕</button>'
        + '</div>'
        + '</div></th>';
   });
@@ -753,7 +837,13 @@ function renderLessonDetail(){
     const ind = ps.length > 0 ? attendanceIndicator(stPct) : null;
     b += '<tr class="student-row" draggable="true" data-drag-id="'+st.id+'">'
        + '<td class="sticky-col student-cell">'
-       +   '<div class="student-name"><input class="order-input" type="number" min="1" max="'+L.students.length+'" value="'+(realIdx+1)+'" data-act="order" data-id="'+st.id+'" title="اكتب رقم الترتيب الجديد ثم اضغط Enter"> ' + esc(st.name) + (g ? ' <span class="badge-group">'+esc(g.name)+'</span>' : '') + (ind ? ' <span class="badge-indicator" style="background:'+ind.color+'" title="'+esc(ind.label)+' ('+stPct+'%)">'+esc(ind.label)+'</span>' : '') + '</div>'
+       +   '<div class="student-name">'
+       +     '<input class="order-input" type="number" min="1" max="'+L.students.length+'" value="'+(realIdx+1)+'" data-act="order" data-id="'+st.id+'" title="اكتب رقم الترتيب الجديد ثم اضغط Enter"> '
+       +     (st.photo ? '<img src="'+st.photo+'" class="st-avatar-mini" alt="">' : '<span class="st-avatar-initial">'+esc((st.name||'').trim().charAt(0) || '👤')+'</span>')
+       +     ' <span class="st-name-click" data-act="view-student" data-id="'+st.id+'" title="اضغط لفتح الملف الشخصي للطالب">' + esc(st.name) + '</span>'
+       +     (g ? ' <span class="badge-group">'+esc(g.name)+'</span>' : '')
+       +     (ind ? ' <span class="badge-indicator" style="background:'+ind.color+'" title="'+esc(ind.label)+' ('+stPct+'%)">'+esc(ind.label)+'</span>' : '')
+       +   '</div>'
        +   '<div class="student-phone">' + esc(st.phone) + '</div>'
        +   (L.subscription && st.guardianPhone ? '<div class="student-phone">👨 ولي الأمر: ' + esc(st.guardianPhone) + ' <a class="mini-btn mini-call" href="tel:'+esc(st.guardianPhone)+'">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(st.guardianPhone)+'">واتساب</button></div>' : '')
        +   ((st.guardianExtraPhones||[]).map(p => '<div class="student-phone">👨 ' + esc(p) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(p)+'">واتساب</button></div>').join(''))
@@ -937,19 +1027,31 @@ function archiveTableHTML(a, idx, statuses){
 /* ---------- الإعدادات ---------- */
 function renderSettings(){
   const sd = state.settings;
-  $('#set_appTitle').value = sd.appTitle;
-  $('#set_monthTitle').value = sd.monthTitleTemplate;
-  $('#set_studentLabel').value = sd.studentLabel;
-  $('#set_notesLabel').value = sd.notesLabel;
-  $('#set_whatsappNumber').value = sd.whatsappNumber;
-  $('#set_whatsappType').value = sd.whatsappType;
-  $('#set_messageTemplate').value = sd.messageTemplate;
+  if($('#set_appTitle')) $('#set_appTitle').value = sd.appTitle;
+  if($('#set_monthTitle')) $('#set_monthTitle').value = sd.monthTitleTemplate;
+  if($('#set_studentLabel')) $('#set_studentLabel').value = sd.studentLabel;
+  if($('#set_notesLabel')) $('#set_notesLabel').value = sd.notesLabel;
+  if($('#set_whatsappNumber')) $('#set_whatsappNumber').value = sd.whatsappNumber;
+  if($('#set_whatsappType')) $('#set_whatsappType').value = sd.whatsappType;
+  if($('#set_messageTemplate')) $('#set_messageTemplate').value = sd.messageTemplate;
+  
   const wf = $('#set_warnFuture');
   if(wf) wf.checked = sd.warnFutureAttendance !== false;
 
-  $('#customFieldsList').innerHTML = sd.customFields.map(f =>
-    '<div class="status-edit-row">'
+  const notifSw = $('#set_enableNotif');
+  if(notifSw) notifSw.checked = notifSupported() && (Notification.permission === 'granted');
+
+  const asSw = $('#set_enableAutoSave');
+  if(asSw) asSw.checked = autoSaveReady;
+
+  updateNotifStatus();
+  updateAutoSaveStatus();
+
+  $('#customFieldsList').innerHTML = sd.customFields.map((f, i) =>
+    '<div class="status-edit-row" data-fid="'+f.id+'">'
     + '<input type="text" value="'+esc(f.label)+'" data-act="field-label" data-id="'+f.id+'">'
+    + '<button class="btn-move" data-act="field-move-up" data-id="'+f.id+'" title="تحريك لأعلى" '+(i===0?'disabled':'')+'>⬆️</button>'
+    + '<button class="btn-move" data-act="field-move-down" data-id="'+f.id+'" title="تحريك لأسفل" '+(i===sd.customFields.length-1?'disabled':'')+'>⬇️</button>'
     + '<button class="del-status" data-act="del-field" data-id="'+f.id+'">حذف</button>'
     + '</div>'
   ).join('') || '<p class="muted">لا توجد أعمدة إضافية.</p>';
@@ -979,16 +1081,21 @@ function notifSupported(){ return ('Notification' in window); }
 function updateNotifStatus(){
   const el = $('#notifStatus');
   if(!el) return;
+  const notifSw = $('#set_enableNotif');
   if(!notifSupported()){
     el.textContent = '⚠️ الإشعارات غير مدعومة في هذا المتصفح.';
+    if(notifSw) notifSw.disabled = true;
     return;
   }
   if(Notification.permission === 'granted'){
-    el.textContent = '✅ الإشعارات مفعّلة - سيصلك تذكير قبل موعد كل حصة حسب الإعداد.';
+    el.textContent = '✅ الإشعارات مفعّلة - تذكير قبل موعد كل حصة.';
+    if(notifSw) notifSw.checked = true;
   } else if(Notification.permission === 'denied'){
-    el.textContent = '⛔ تم حظر الإشعارات من المتصفح. فعّلها من إعدادات الموقع.';
+    el.textContent = '⛔ تم حظر الإشعارات من المتصفح (فعّلها من إعدادات الموقع).';
+    if(notifSw) notifSw.checked = false;
   } else {
-    el.textContent = '🔕 الإشعارات غير مفعّلة بعد. اضغط «تفعيل الإشعارات».';
+    el.textContent = '🔕 الإشعارات غير مفعّلة بعد.';
+    if(notifSw) notifSw.checked = false;
   }
 }
 function requestNotifications(){
@@ -1042,7 +1149,10 @@ function removeWhatsNew(v){
   try{ localStorage.setItem(CHANGELOG_STORE_KEY, JSON.stringify(saved)); }catch(e){}
 }
 function removeAllWhatsNew(){
-  const saved = { seenVersion: APP_VERSION };
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(CHANGELOG_STORE_KEY) || 'null'); }catch(e){}
+  const popupSeen = (saved && saved.popupSeenVersion) || APP_VERSION;
+  saved = { seenVersion: APP_VERSION, popupSeenVersion: popupSeen };
   try{ localStorage.setItem(CHANGELOG_STORE_KEY, JSON.stringify(saved)); }catch(e){}
 }
 function whatsNewModal(v){
@@ -1054,13 +1164,36 @@ function whatsNewModal(v){
   $('#wn_del').onclick = () => { removeWhatsNew(entry.v); closeModal(); renderToday(); if(!$('#notifPanel').hidden) renderNotifPanel(); };
 }
 function maybeShowChangelog(next){
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(CHANGELOG_STORE_KEY) || 'null'); }catch(e){}
+  if(!saved || typeof saved !== 'object') saved = {};
+  const current = versionNum(APP_VERSION);
+  const popupSeen = versionNum(saved.popupSeenVersion || '');
+  if(popupSeen >= current){
+    if(next) next();
+    return;
+  }
   const entries = whatsNewList();
-  if(entries.length === 0){ if(next) next(); return; }
+  if(entries.length === 0){
+    saved.popupSeenVersion = APP_VERSION;
+    try{ localStorage.setItem(CHANGELOG_STORE_KEY, JSON.stringify(saved)); }catch(e){}
+    if(next) next();
+    return;
+  }
   const html = entries.map(en =>
     '<div class="changelog-ver"><b>🆕 التحديث ' + esc(en.v) + '</b><ul>' + en.items.map(i => '<li>' + esc(i) + '</li>').join('') + '</ul></div>'
   ).join('');
-  openModal('ما الجديد؟', html + '<div class="modal-actions"><button class="btn" id="cl_ok">تمام</button></div>');
-  $('#cl_ok').onclick = () => { closeModal(); renderToday(); if(next) setTimeout(next, 400); };
+  openModal('ما الجديد في ' + APP_VERSION + '؟', html + '<div class="modal-actions"><button class="btn" id="cl_ok">تمام</button></div>');
+  $('#cl_ok').onclick = () => {
+    try{
+      let s2 = JSON.parse(localStorage.getItem(CHANGELOG_STORE_KEY) || '{}');
+      s2.popupSeenVersion = APP_VERSION;
+      localStorage.setItem(CHANGELOG_STORE_KEY, JSON.stringify(s2));
+    }catch(e){}
+    closeModal();
+    renderToday();
+    if(next) setTimeout(next, 400);
+  };
 }
 function notify(title, body){
   if(notifSupported() && Notification.permission === 'granted'){
@@ -2028,6 +2161,11 @@ function updateAutoSaveStatus(){
   if(statusEl){ statusEl.textContent = html; }
   if(en) en.style.display = (autoSaveSupported() && !(fileHandle && autoSaveReady)) ? '' : 'none';
   if(dis) dis.style.display = (fileHandle && autoSaveReady) ? '' : 'none';
+  const asSw = $('#set_enableAutoSave');
+  if(asSw){
+    asSw.disabled = !autoSaveSupported();
+    asSw.checked = !!(fileHandle && autoSaveReady);
+  }
 }
 function maybePromptAutoSave(){
   if(!autoSaveSupported()) return;
@@ -2563,9 +2701,87 @@ function phoneRow(labelText, inputId, value){
     + contactPickerBtn(inputId) + '</div>';
 }
 
+function openStudentProfile(student, lesson){
+  if(!student || !lesson) return;
+  const g = (lesson.groups||[]).find(x => x.id === student.groupId);
+  const ps = pastSessions(lesson.sessions);
+  const doneCount = ps.filter(s => (lesson.records[student.id]||{})[s.id] && lesson.records[student.id][s.id].status === 'st_done').length;
+  const apolCount = ps.filter(s => (lesson.records[student.id]||{})[s.id] && lesson.records[student.id][s.id].status === 'st_apology').length;
+  const noansCount = ps.filter(s => (lesson.records[student.id]||{})[s.id] && lesson.records[student.id][s.id].status === 'st_noanswer').length;
+  const pct = ps.length ? Math.round((doneCount / ps.length) * 100) : 0;
+  const ind = ps.length > 0 ? attendanceIndicator(pct) : null;
+
+  const avatarHTML = student.photo
+    ? '<img src="'+student.photo+'" class="profile-avatar" alt="'+esc(student.name)+'">'
+    : '<div class="profile-avatar-ph">'+esc((student.name||'').trim().charAt(0) || '👤')+'</div>';
+
+  let contactsHTML = '';
+  if(student.phone){
+    contactsHTML += '<div class="profile-row"><span class="profile-label">📱 هاتف الطالب</span><span class="profile-val">' + esc(localPhone(student.phone)) + ' <a class="mini-btn mini-call" href="tel:'+esc(student.phone)+'">📞</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(student.phone)+'">واتساب</button></span></div>';
+  }
+  (student.extraPhones || []).forEach(p => {
+    contactsHTML += '<div class="profile-row"><span class="profile-label">📱 هاتف إضافي</span><span class="profile-val">' + esc(localPhone(p)) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">📞</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(p)+'">واتساب</button></span></div>';
+  });
+  if(student.guardianPhone){
+    contactsHTML += '<div class="profile-row"><span class="profile-label">👨 ولي الأمر</span><span class="profile-val">' + esc(localPhone(student.guardianPhone)) + ' <a class="mini-btn mini-call" href="tel:'+esc(student.guardianPhone)+'">📞</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(student.guardianPhone)+'">واتساب</button></span></div>';
+  }
+  (student.guardianExtraPhones || []).forEach(p => {
+    contactsHTML += '<div class="profile-row"><span class="profile-label">👨 هاتف إضافي لولي الأمر</span><span class="profile-val">' + esc(localPhone(p)) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">📞</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(p)+'">واتساب</button></span></div>';
+  });
+
+  let personalHTML = '';
+  if(student.age) personalHTML += '<div class="profile-row"><span class="profile-label">🎂 العمر</span><span class="profile-val">' + esc(student.age) + ' سنة</span></div>';
+  if(student.address) personalHTML += '<div class="profile-row"><span class="profile-label">📍 السكن / العنوان</span><span class="profile-val">' + esc(student.address) + '</span></div>';
+  if(student.email) personalHTML += '<div class="profile-row"><span class="profile-label">✉️ البريد الإلكتروني</span><span class="profile-val"><a href="mailto:'+esc(student.email)+'" dir="ltr">' + esc(student.email) + '</a></span></div>';
+  (state.settings.customFields || []).forEach(cf => {
+    const v = (student.fields || {})[cf.id];
+    if(v) personalHTML += '<div class="profile-row"><span class="profile-label">📋 ' + esc(cf.label) + '</span><span class="profile-val">' + esc(v) + '</span></div>';
+  });
+
+  let notesHTML = '';
+  if(student.profileNotes){
+    notesHTML = '<div class="profile-section"><div class="profile-sec-title">📝 ملاحظات خاصة بالطالب</div><div style="font-size:13px;line-height:1.6;white-space:pre-wrap">' + esc(student.profileNotes) + '</div></div>';
+  }
+
+  const html = '<div class="profile-card">'
+    + '<div class="profile-avatar-wrap">' + avatarHTML + '</div>'
+    + '<div class="profile-name">' + esc(student.name) + '</div>'
+    + '<div class="profile-badges">'
+    +   (g ? '<span class="badge-group">' + esc(g.name) + '</span>' : '')
+    +   (lesson.subscription ? '<span class="paid-toggle" style="margin:0">' + (student.paid ? '✅ مسدد الاشتراك' : '❌ لم يسدد') + '</span>' : '')
+    +   (ind ? '<span class="badge-indicator" style="background:'+ind.color+'">' + esc(ind.label) + ' (' + pct + '%)</span>' : '')
+    + '</div>'
+    + '<div class="profile-section">'
+    +   '<div class="profile-sec-title">📊 إحصائيات الحضور (الشهر الحالي)</div>'
+    +   '<div class="profile-stats-grid">'
+    +     '<div class="profile-stat-box"><div class="ps-num">' + ps.length + '</div><div class="ps-lbl">الحصص</div></div>'
+    +     '<div class="profile-stat-box"><div class="ps-num" style="color:#15803d">' + doneCount + '</div><div class="ps-lbl">حضور</div></div>'
+    +     '<div class="profile-stat-box"><div class="ps-num" style="color:#b45309">' + apolCount + '</div><div class="ps-lbl">اعتذار</div></div>'
+    +     '<div class="profile-stat-box"><div class="ps-num" style="color:#b91c1c">' + noansCount + '</div><div class="ps-lbl">غياب</div></div>'
+    +   '</div>'
+    + '</div>'
+    + (contactsHTML ? '<div class="profile-section"><div class="profile-sec-title">📞 معلومات الاتصال</div>' + contactsHTML + '</div>' : '')
+    + (personalHTML ? '<div class="profile-section"><div class="profile-sec-title">👤 البيانات الشخصية</div>' + personalHTML + '</div>' : '')
+    + notesHTML
+    + '</div>'
+    + '<div class="modal-actions">'
+    +   '<button class="btn btn-primary" id="prof_edit">✏️ تعديل بيانات الطالب</button>'
+    +   '<button class="btn btn-outline" id="prof_close">إغلاق</button>'
+    + '</div>';
+
+  openModal('الملف الشخصي للطالب', html);
+  $('#prof_close').onclick = closeModal;
+  $('#prof_edit').onclick = () => {
+    closeModal();
+    studentForm(lesson, student);
+  };
+}
+
 function studentForm(lesson, student){
   const isEdit = !!student;
   const isSub = lesson ? !!lesson.subscription : false;
+  let photoBase64 = (student && student.photo) || '';
+
   let groupSel = '';
   if(lesson.groups && lesson.groups.length){
     groupSel = '<div class="form-row"><label>المجموعة<select id="f_group">'
@@ -2590,14 +2806,62 @@ function studentForm(lesson, student){
       + '<button type="button" class="btn btn-outline" id="addExtraPhone" style="margin-top:6px">➕ إضافة رقم آخر للطالب</button>'
       + '</div>';
 
+  const photoHTML = '<div class="form-row"><label>صورة الطالب (اختياري - تُضغط كرمز شخصي)'
+    + '<div class="photo-picker-wrap">'
+    + '<input type="file" id="f_photo" accept="image/*" style="display:none">'
+    + '<div id="photoPreviewWrap">' + (photoBase64 ? '<img src="'+photoBase64+'" class="photo-preview">' : '<div class="photo-preview-empty">👤</div>') + '</div>'
+    + '<button type="button" class="btn btn-outline btn-sm" id="btnPickPhoto">📷 اختيار صورة</button>'
+    + '<button type="button" class="btn btn-danger btn-sm" id="btnRemovePhoto" style="display:'+(photoBase64?'':'none')+'">حذف الصورة</button>'
+    + '</div></label></div>';
+
+  const profileExtraHTML = '<div class="grid2">'
+    + '<label>مكان السكن / العنوان (اختياري)<input id="f_address" type="text" value="'+esc(student?student.address||'':'')+'" placeholder="مثال: المنصورة - حي الجامعة"></label>'
+    + '<label>العمر (اختياري)<input id="f_age" type="number" min="3" max="100" value="'+esc(student?student.age||'':'')+'" placeholder="مثال: 16"></label>'
+    + '</div>'
+    + '<div class="form-row"><label>البريد الإلكتروني (اختياري)<input id="f_email" type="email" value="'+esc(student?student.email||'':'')+'" placeholder="student@example.com" dir="ltr"></label></div>'
+    + '<div class="form-row"><label>ملاحظات في الملف الشخصي (اختياري)<textarea id="f_profileNotes" rows="2" placeholder="ملاحظات وسلوك ومستوى الطالب...">'+esc(student?student.profileNotes||'':'')+'</textarea></label></div>';
+
   openModal(isEdit ? 'تعديل عضو' : 'إضافة عضو جديد',
-    '<div class="form-row"><label>الاسم<input id="f_name" type="text" value="'+esc(student?student.name:'')+'"></label></div>'
+    photoHTML
+    + '<div class="form-row"><label>الاسم<input id="f_name" type="text" value="'+esc(student?student.name:'')+'"></label></div>'
     + phoneRow('رقم هاتف الطالب', 'f_phone', student ? student.phone : '')
     + guardianHTML
     + extrasHTML
     + groupSel
+    + profileExtraHTML
     + fieldInputs
     + '<div class="modal-actions"><button class="btn" id="f_save">حفظ</button><button class="btn btn-outline" id="f_cancel">إلغاء</button></div>');
+
+  $('#btnPickPhoto').onclick = () => $('#f_photo').click();
+  $('#btnRemovePhoto').onclick = () => {
+    photoBase64 = '';
+    $('#f_photo').value = '';
+    $('#photoPreviewWrap').innerHTML = '<div class="photo-preview-empty">👤</div>';
+    $('#btnRemovePhoto').style.display = 'none';
+  };
+  $('#f_photo').onchange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (re) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 150;
+        let w = img.width, h = img.height;
+        if(w > h){ if(w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; } }
+        else { if(h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; } }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        photoBase64 = canvas.toDataURL('image/jpeg', 0.85);
+        $('#photoPreviewWrap').innerHTML = '<img src="'+photoBase64+'" class="photo-preview">';
+        $('#btnRemovePhoto').style.display = '';
+      };
+      img.src = re.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
 
   let extraIdx = 0, gExtraIdx = 0;
   function addExtraRow(val){
@@ -2638,21 +2902,49 @@ function studentForm(lesson, student){
     const nm = $('#f_name').value.trim();
     const ph = normalizePhone($('#f_phone').value);
     const grp = $('#f_group') ? $('#f_group').value : '';
+    const addr = ($('#f_address') ? $('#f_address').value : '').trim();
+    const age = ($('#f_age') ? $('#f_age').value : '').trim();
+    const eml = ($('#f_email') ? $('#f_email').value : '').trim();
+    const pNotes = ($('#f_profileNotes') ? $('#f_profileNotes').value : '').trim();
     const fields = {};
     $$('#modalBody .f-field').forEach(inp => { fields[inp.dataset.fid] = inp.value; });
     if(!nm){ alert('اكتب الاسم.'); return; }
     const dup = lesson.students.some(x => x.id !== (student ? student.id : null) && normalizeForSearch(x.name) === normalizeForSearch(nm));
     if(dup){ alert('يوجد طالب بهذا الاسم بالفعل في هذا الدرس. (يمكن تكرار رقم الهاتف فقط).'); return; }
-    if(isSub){
-      const gp = $('#f_guardian') ? normalizePhone($('#f_guardian').value) : '';
-      const gExtras = $$('#modalBody .guardian-extra-input').map(i => normalizePhone(i.value)).filter(Boolean);
-      const extras = $$('#modalBody .extra-phone-input').map(i => normalizePhone(i.value)).filter(Boolean);
-      if(isEdit){ student.name = nm; if(ph) student.phone = ph; student.guardianPhone = gp; student.guardianExtraPhones = gExtras; student.extraPhones = extras; student.groupId = grp; student.fields = fields; }
-      else { lesson.students.push({ id: uid('s'), name: nm, phone: ph || '', guardianPhone: gp, guardianExtraPhones: gExtras, extraPhones: extras, paid: false, groupId: grp, fields }); }
+    const gp = isSub && $('#f_guardian') ? normalizePhone($('#f_guardian').value) : (student ? student.guardianPhone : '');
+    const gExtras = isSub ? $$('#modalBody .guardian-extra-input').map(i => normalizePhone(i.value)).filter(Boolean) : (student ? student.guardianExtraPhones : []);
+    const extras = $$('#modalBody .extra-phone-input').map(i => normalizePhone(i.value)).filter(Boolean);
+
+    if(isEdit){
+      student.name = nm;
+      if(ph) student.phone = ph;
+      student.guardianPhone = gp;
+      student.guardianExtraPhones = gExtras;
+      student.extraPhones = extras;
+      student.groupId = grp;
+      student.fields = fields;
+      student.address = addr;
+      student.age = age;
+      student.email = eml;
+      student.profileNotes = pNotes;
+      student.photo = photoBase64;
     } else {
-      const extras = $$('#modalBody .extra-phone-input').map(i => normalizePhone(i.value)).filter(Boolean);
-      if(isEdit){ student.name = nm; if(ph) student.phone = ph; student.extraPhones = extras; student.groupId = grp; student.fields = fields; }
-      else { lesson.students.push({ id: uid('s'), name: nm, phone: ph || '', guardianPhone: '', extraPhones: extras, paid: false, groupId: grp, fields }); }
+      lesson.students.push({
+        id: uid('s'),
+        name: nm,
+        phone: ph || '',
+        guardianPhone: gp,
+        guardianExtraPhones: gExtras,
+        extraPhones: extras,
+        paid: false,
+        groupId: grp,
+        fields,
+        address: addr,
+        age,
+        email: eml,
+        profileNotes: pNotes,
+        photo: photoBase64
+      });
     }
     saveState(); renderAll(); closeModal();
   };
@@ -2687,8 +2979,14 @@ function lessonForm(lesson){
     + '</div>'
     + '<div class="form-row"><label>المجموعات (لتقسيم عدد كبير إلى مجموعات صغيرة)<div id="groupsBox">'+editingGroupsHTML()+'</div>'
     +   '<button class="btn btn-sm btn-outline" id="addGroupBtn" type="button" style="margin-top:8px">➕ إضافة مجموعة</button></label></div>'
-    + '<div class="form-row"><label class="chk" style="width:auto;display:inline-flex"><input type="checkbox" id="l_sub"'+(subscription?' checked':'')+'> هذا الدرس باشتراك شهري (يظهر حالة الدفع وسعر الاشتراك)</label></div>'
-    + '<div class="form-row"><label class="chk" style="width:auto;display:inline-flex"><input type="checkbox" id="l_headOnly"'+(remindHeadOnly?' checked':'')+'> التذكير برأس الدرس فقط (دون تفاصيل المجموعات)</label></div>'
+    + '<div class="switch-row" style="margin-top:10px;margin-bottom:8px">'
+    +   '<label class="switch"><input type="checkbox" id="l_sub"'+(subscription?' checked':'')+'><span class="switch-slider"></span></label>'
+    +   '<span class="switch-label">هذا الدرس باشتراك شهري (يظهر حالة الدفع وسعر الاشتراك)</span>'
+    + '</div>'
+    + '<div class="switch-row" style="margin-bottom:12px">'
+    +   '<label class="switch"><input type="checkbox" id="l_headOnly"'+(remindHeadOnly?' checked':'')+'><span class="switch-slider"></span></label>'
+    +   '<span class="switch-label">التذكير برأس الدرس فقط (دون تفاصيل المجموعات)</span>'
+    + '</div>'
     + '<div class="modal-actions"><button class="btn" id="l_save">حفظ</button><button class="btn btn-outline" id="l_cancel">إلغاء</button></div>');
 
   $('#addGroupBtn').onclick = addEditingGroup;
@@ -2784,7 +3082,7 @@ function bindEvents(){
   $('#groupFilter').addEventListener('change', (e) => { groupFilterQuery = e.target.value; renderLessonDetail(); });
 
   $('#addStudentBtn').onclick = () => { const L = curLesson(); if(L) studentForm(L, null); };
-  $('#addSessionBtn').onclick = () => { const L = curLesson(); if(L){ addSession(L); renderAll(); } };
+  $('#addSessionBtn').onclick = () => { const L = curLesson(); if(L){ addSessionModal(L); } };
   $('#regenSessionsBtn').onclick = () => { const L = curLesson(); if(L){ genSessions(L, true); renderAll(); } };
   $('#lessonReportBtn').onclick = () => { const L = curLesson(); if(L) showAnalytics(L.students, pastSessions(L.sessions), L.records, L.name + ' - ' + buildMonthTitle(L.monthNumber), effectiveStatuses(L)); };
   $('#sortAttendanceBtn').onclick = () => sortByAttendance();
@@ -2799,7 +3097,18 @@ function bindEvents(){
   $('#monthlyMsgBtn').onclick = () => { const L = curLesson(); if(L) monthlyReportMessage(L); };
   $('#blankSheetBtn').onclick = showBlankSheetOptions;
 
-  $('#enableNotifBtn').onclick = requestNotifications;
+  if($('#enableNotifBtn')) $('#enableNotifBtn').onclick = requestNotifications;
+  const notifSw = $('#set_enableNotif');
+  if(notifSw){
+    notifSw.addEventListener('change', () => {
+      if(notifSw.checked){
+        requestNotifications();
+      } else {
+        showToastMessage('تم إيقاف التذكيرات.');
+        updateNotifStatus();
+      }
+    });
+  }
   $('#notifBtn').onclick = (e) => { e.stopPropagation(); const p = $('#notifPanel'); renderNotifPanel(); p.hidden = !p.hidden; };
   $('#notifPanel').addEventListener('click', (e) => {
     const del = e.target.closest('[data-wn-del]');
@@ -2875,8 +3184,18 @@ function bindEvents(){
   $('#saveFileBtn').onclick = saveToFile;
   $('#encryptExportBtn').onclick = encryptExport;
   $('#encryptImportBtn').onclick = () => $('#encryptImportFile').click();
-  $('#enableAutoSaveBtn').onclick = enableAutoSave;
-  $('#disableAutoSaveBtn').onclick = disableAutoSave;
+  if($('#enableAutoSaveBtn')) $('#enableAutoSaveBtn').onclick = enableAutoSave;
+  if($('#disableAutoSaveBtn')) $('#disableAutoSaveBtn').onclick = disableAutoSave;
+  const asSw = $('#set_enableAutoSave');
+  if(asSw){
+    asSw.addEventListener('change', () => {
+      if(asSw.checked){
+        enableAutoSave();
+      } else {
+        disableAutoSave();
+      }
+    });
+  }
   $('#importFile').onchange = (e) => { if(e.target.files[0]) importBackup(e.target.files[0]); e.target.value=''; };
   $('#encryptImportFile').onchange = (e) => { if(e.target.files[0]) decryptImport(e.target.files[0]); e.target.value=''; };
   $('#importLessonFile').onchange = (e) => { if(e.target.files[0]) importLesson(e.target.files[0]); e.target.value=''; };
@@ -2885,19 +3204,26 @@ function bindEvents(){
   [['set_appTitle','appTitle'],['set_monthTitle','monthTitleTemplate'],
    ['set_studentLabel','studentLabel'],['set_notesLabel','notesLabel'],
    ['set_whatsappNumber','whatsappNumber'],['set_messageTemplate','messageTemplate']].forEach(([id,key]) => {
-    $('#'+id).addEventListener('change', (e) => {
-      state.settings[key] = e.target.value;
-      saveState(); renderHeader(); renderFooter(); renderLessonDetail();
+    const el = $('#'+id);
+    if(el){
+      el.addEventListener('change', (e) => {
+        state.settings[key] = e.target.value;
+        saveState(); renderHeader(); renderFooter(); renderLessonDetail();
+      });
+    }
+  });
+  if($('#set_whatsappType')){
+    $('#set_whatsappType').addEventListener('change', (e) => {
+      state.settings.whatsappType = e.target.value;
+      saveState(); renderLessonDetail();
     });
-  });
-  $('#set_whatsappType').addEventListener('change', (e) => {
-    state.settings.whatsappType = e.target.value;
-    saveState(); renderLessonDetail();
-  });
-  $('#set_warnFuture').addEventListener('change', (e) => {
-    state.settings.warnFutureAttendance = e.target.checked;
-    saveState();
-  });
+  }
+  if($('#set_warnFuture')){
+    $('#set_warnFuture').addEventListener('change', (e) => {
+      state.settings.warnFutureAttendance = e.target.checked;
+      saveState();
+    });
+  }
 
   document.addEventListener('click', (e) => {
     const t = e.target.closest('[data-act]');
@@ -2908,6 +3234,11 @@ function bindEvents(){
     const lessonId = t.dataset.lesson;
 
     if(act === 'open-lesson'){ currentLessonId = id; lessonFilterQuery = ''; groupFilterQuery = ''; $('#lessonSearch').value = ''; renderLessonDetail(); }
+    else if(act === 'view-student'){
+      const L = curLesson();
+      const st = L && L.students.find(x => x.id === id);
+      if(L && st) openStudentProfile(st, L);
+    }
     else if(act === 'open-student'){
       currentLessonId = lessonId;
       const st = state.lessons.find(x=>x.id===lessonId)?.students.find(x=>x.id===id);
@@ -2915,6 +3246,41 @@ function bindEvents(){
       groupFilterQuery = '';
       $('#lessonSearch').value = lessonFilterQuery;
       renderLessonDetail();
+    }
+    else if(act === 'edit-session-label'){
+      const L = curLesson();
+      const s = L && L.sessions.find(x => x.id === id);
+      if(!s) return;
+      const val = prompt('اسم أو مسمى الحصة (مثال: حصة إضافية، مراجعة، اختبار):', s.label || '');
+      if(val !== null && val.trim()){
+        s.label = val.trim();
+        saveState();
+        renderLessonDetail();
+      }
+    }
+    else if(act === 'shift-session-left'){
+      const L = curLesson();
+      if(L) shiftSession(L, id, -1);
+    }
+    else if(act === 'shift-session-right'){
+      const L = curLesson();
+      if(L) shiftSession(L, id, 1);
+    }
+    else if(act === 'field-move-up'){
+      const flds = state.settings.customFields;
+      const fIdx = flds.findIndex(x => x.id === id);
+      if(fIdx > 0){
+        const tmp = flds[fIdx]; flds[fIdx] = flds[fIdx - 1]; flds[fIdx - 1] = tmp;
+        saveState(); renderSettings(); renderLessonDetail();
+      }
+    }
+    else if(act === 'field-move-down'){
+      const flds = state.settings.customFields;
+      const fIdx = flds.findIndex(x => x.id === id);
+      if(fIdx >= 0 && fIdx < flds.length - 1){
+        const tmp = flds[fIdx]; flds[fIdx] = flds[fIdx + 1]; flds[fIdx + 1] = tmp;
+        saveState(); renderSettings(); renderLessonDetail();
+      }
     }
     else if(act === 'edit-lesson'){ lessonForm(state.lessons.find(x => x.id === id)); }
     else if(act === 'del-lesson'){
@@ -3054,6 +3420,10 @@ function bindEvents(){
       s.date = val.trim();
       const d = new Date(val.trim());
       s.dateLabel = isNaN(d) ? s.date : formatDate(d);
+      if(s.date && archIdx === null){
+        const curL = curLesson();
+        if(curL) sortLessonSessions(curL);
+      }
       saveState(); after();
     }
     else if(act === 'del-session'){
@@ -3336,8 +3706,20 @@ function autoScrollOnDrag(clientY){
 }
 
 function initDragReorder(){
-  /* الماوس - سحب وإفلات أصلي */
+  /* الماوس - سحب وإفلات أصلي (الطلاب والحصص) */
+  let dragSessionId = null;
   document.addEventListener('dragstart', (e) => {
+    const th = e.target.closest('th.session-col-drag');
+    if(th){
+      if(e.target.closest('button,a,input,select,textarea')) { e.preventDefault(); return; }
+      dragSessionId = th.dataset.sessionId;
+      th.classList.add('col-dragging');
+      if(e.dataTransfer){
+        e.dataTransfer.effectAllowed = 'move';
+        try{ e.dataTransfer.setData('text/plain', dragSessionId); }catch(_){}
+      }
+      return;
+    }
     if(dragState.suppressNative){ e.preventDefault(); return; }
     if(e.target.closest('button,a,input,select,textarea,label')){ e.preventDefault(); return; }
     const row = e.target.closest('tr.student-row');
@@ -3350,10 +3732,28 @@ function initDragReorder(){
     }
   });
   document.addEventListener('dragend', () => {
+    if(dragSessionId){
+      $$('th.session-col-drag').forEach(t => t.classList.remove('col-dragging','col-drop-target-left','col-drop-target-right'));
+      dragSessionId = null;
+    }
     $$('tr.student-row').forEach(r => r.classList.remove('dragging','drop-target'));
     dragState.dragId = null;
   });
   document.addEventListener('dragover', (e) => {
+    if(dragSessionId){
+      const th = e.target.closest('th.session-col-drag');
+      if(!th || th.dataset.sessionId === dragSessionId) return;
+      e.preventDefault();
+      if(e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      $$('th.session-col-drag').forEach(t => t.classList.remove('col-drop-target-left','col-drop-target-right'));
+      const rect = th.getBoundingClientRect();
+      if(e.clientX < rect.left + rect.width / 2){
+        th.classList.add('col-drop-target-left');
+      } else {
+        th.classList.add('col-drop-target-right');
+      }
+      return;
+    }
     if(!dragState.dragId) return;
     autoScrollOnDrag(e.clientY);
     const row = e.target.closest('tr.student-row');
@@ -3364,6 +3764,24 @@ function initDragReorder(){
     if(row.dataset.dragId !== dragState.dragId) row.classList.add('drop-target');
   });
   document.addEventListener('drop', (e) => {
+    if(dragSessionId){
+      const th = e.target.closest('th.session-col-drag');
+      const L = curLesson();
+      if(th && L && th.dataset.sessionId !== dragSessionId){
+        e.preventDefault();
+        const fromIdx = L.sessions.findIndex(x => x.id === dragSessionId);
+        const toIdx = L.sessions.findIndex(x => x.id === th.dataset.sessionId);
+        if(fromIdx >= 0 && toIdx >= 0){
+          const [moved] = L.sessions.splice(fromIdx, 1);
+          L.sessions.splice(toIdx, 0, moved);
+          saveState();
+          renderLessonDetail();
+        }
+      }
+      $$('th.session-col-drag').forEach(t => t.classList.remove('col-dragging','col-drop-target-left','col-drop-target-right'));
+      dragSessionId = null;
+      return;
+    }
     const row = e.target.closest('tr.student-row');
     const L = curLesson();
     if(!L || !dragState.dragId) return;

@@ -132,20 +132,9 @@
     </div>
 
     <div class="card">
-      <h3>العناوين</h3>
-      <div class="grid2">
-        <label>العنوان الفرعي (يظهر أسفل الاسم Daftar)
-          <input id="set_appTitle" type="text">
-        </label>
-        <label>قالب عنوان الشهر (استخدم {month} لرقم الشهر)
-          <input id="set_monthTitle" type="text" dir="rtl">
-        </label>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>أسماء الأعمدة</h3>
-      <div class="grid2">
+      <h3>إدارة الأعمدة والحقول</h3>
+      <p class="muted">تخصيص أسماء الأعمدة الأساسية وإضافة أعمدة مخصصة إضافية بجانب اسم الطالب مع إمكانية إعادة ترتيبها.</p>
+      <div class="grid2" style="margin-bottom:12px">
         <label>عمود الطالب
           <input id="set_studentLabel" type="text">
         </label>
@@ -153,13 +142,9 @@
           <input id="set_notesLabel" type="text">
         </label>
       </div>
-    </div>
-
-    <div class="card">
-      <h3>أعمدة إضافية</h3>
-      <p class="muted">أضف أعمدة مخصصة بجانب اسم الطالب (مثل: العمر، البريد، الدفعة…)، أو احذفها. قيمها تُحفظ مع كل طالب.</p>
+      <div style="font-weight:700;font-size:14px;margin-bottom:6px">أعمدة مخصصة إضافية</div>
       <div id="customFieldsList" class="status-edit-list"></div>
-      <button id="addFieldBtn" class="btn btn-outline">➕ عمود جديد</button>
+      <button id="addFieldBtn" class="btn btn-outline" style="margin-top:8px">➕ عمود جديد</button>
     </div>
 
     <div class="card">
@@ -167,7 +152,7 @@
       <p class="muted">أضف حالات جديدة، أو عدّل الاسم واللون، أو احذف.</p>
       <div id="statusList" class="status-edit-list"></div>
       <button id="addStatusBtn" class="btn btn-outline">➕ حالة جديدة</button>
-    </divF>
+    </div>
 
     <div class="card">
       <h3>⚠️ مؤشرات خطر الغياب</h3>
@@ -176,23 +161,40 @@
     </div>
 
     <div class="card">
-      <h3>🔔 الإشعارات والتذكيرات</h3>
-      <p class="muted">عندما يأتي يوم الدرس، يذكّرك التطبيق بموعد كل مجموعة قبل الموعد بالمدة المحددة (نصف ساعة / ساعة / 3 ساعات / يوم).</p>
-      <div id="notifStatus" class="muted"></div>
-      <div class="row-actions">
-        <button id="enableNotifBtn" class="btn">🔔 تفعيل الإشعارات</button>
-      </div>
-    </div>
+      <h3>مفاتيح التحكم والتفضيلات</h3>
+      <p class="muted">التحكم في الإشعارات والتنبيهات وخاصية الحفظ التلقائي عبر مفاتيح تشغيل وإيقاف فورية.</p>
 
-    <div class="card">
-      <h3>⚠️ تنبيه الأيام التي لم تأتِ بعد</h3>
-      <p class="muted">لو ضغطت بالخطأ على يوم لم يأتي بعد وسجّلت فيه حضورًا، ينبّهك التطبيق بتنبيه صغير — لكنه لا يمنعك من التسجيل.</p>
-      <div class="switch-row">
+      <div class="switch-row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:10px 0">
+        <div>
+          <div class="switch-label">🔔 الإشعارات والتذكيرات بمواعيد المجموعات</div>
+          <div id="notifStatus" class="muted" style="font-size:12px;margin-top:2px"></div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="set_enableNotif">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <div class="switch-row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:10px 0">
+        <div>
+          <div class="switch-label">💾 الحفظ التلقائي المباشر في ملف</div>
+          <div id="autosaveStatus" class="muted" style="font-size:12px;margin-top:2px"></div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="set_enableAutoSave">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <div class="switch-row" style="justify-content:space-between;padding:10px 0">
+        <div>
+          <div class="switch-label">⚠️ تنبيه الأيام التي لم تأتِ بعد</div>
+          <div class="muted" style="font-size:12px;margin-top:2px">تنبيه خفيف عند تسجيل حضور في يوم لم يأتِ بعد دون منع التسجيل.</div>
+        </div>
         <label class="switch">
           <input type="checkbox" id="set_warnFuture">
           <span class="switch-slider"></span>
         </label>
-        <span class="switch-label">التنبيه عند التسجيل في يوم لم يأتي بعد</span>
       </div>
     </div>
 
@@ -212,16 +214,6 @@
       <label>نص الرسالة (استخدم {time} لوقت الحصة)
         <textarea id="set_messageTemplate" rows="5" dir="rtl"></textarea>
       </label>
-    </div>
-
-    <div class="card">
-      <h3>💾 الحفظ التلقائي في ملف</h3>
-      <p class="muted">اختر ملفاً على هاتفك مرة واحدة ومنح التطبيق الصلاحية، وسيُحفظ كل تغيير تلقائياً فيه دون أن تضغط أي زر. (يعمل على Chrome/Edge — أندرويد والكمبيوتر).</p>
-      <div id="autosaveStatus" class="muted"></div>
-      <div class="row-actions">
-        <button id="enableAutoSaveBtn" class="btn">🔗 تفعيل الحفظ التلقائي</button>
-        <button id="disableAutoSaveBtn" class="btn btn-outline">⏸️ إيقاف الحفظ التلقائي</button>
-      </div>
     </div>
 
     <div class="card">
