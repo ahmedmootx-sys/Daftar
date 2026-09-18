@@ -109,7 +109,8 @@ state = {
 ### `student`
 ```
 { id, name, phone, guardianPhone, extraPhones[], guardianExtraPhones[],
-  paid, groupId, fields: {customFieldId: value} }
+  paid, groupId, fields: {customFieldId: value},
+  address, job, age, email, photo, profileNotes }
 ```
 
 ### `session`

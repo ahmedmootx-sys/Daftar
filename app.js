@@ -36,7 +36,7 @@ const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
 const APP_VERSION = 'v29';
 const CHANGELOG = {
   v29: [
-    '👤 ملف الطالب (Profile): بطاقة شخصية متكاملة للطالب بصورته وعنوانه وعمره وإيميله وملاحظاته الخاصة وإحصائيات حضوره',
+    '👤 ملف الطالب (Profile): بطاقة شخصية متكاملة للطالب بصورته ومهنته/وظيفته وعنوانه وعمره وإيميله وملاحظاته الخاصة وإحصائيات حضوره',
     '🔄 تحريك الحصص وترتيبها التلقائي: إدراج الحصة زمنياً بحسب تاريخها، مع إمكانية سحبها يميناً ويساراً وتعديل مسمياتها',
     '⚙️ تجديد قسم الإعدادات: دمج الأعمدة الإضافية مع إمكانية إعادة ترتيبها، وإزالة العناوين غير المستغلة',
     '🔘 تحويل مفاتيح التفعيل إلى سويتشات حديثة (الاشتراك، التذكير، الإشعارات، الحفظ التلقائي) في قالب موحد',
@@ -290,6 +290,7 @@ function normalizeStudent(st){
     groupId: st.groupId || '',
     fields: (st.fields && typeof st.fields === 'object') ? st.fields : {},
     address: typeof st.address === 'string' ? st.address : '',
+    job: typeof st.job === 'string' ? st.job : '',
     age: (typeof st.age === 'string' || typeof st.age === 'number') ? String(st.age) : '',
     email: typeof st.email === 'string' ? st.email : '',
     photo: typeof st.photo === 'string' ? st.photo : '',
@@ -2730,6 +2731,7 @@ function openStudentProfile(student, lesson){
   });
 
   let personalHTML = '';
+  if(student.job) personalHTML += '<div class="profile-row"><span class="profile-label">💼 المهنة / الوظيفة</span><span class="profile-val">' + esc(student.job) + '</span></div>';
   if(student.age) personalHTML += '<div class="profile-row"><span class="profile-label">🎂 العمر</span><span class="profile-val">' + esc(student.age) + ' سنة</span></div>';
   if(student.address) personalHTML += '<div class="profile-row"><span class="profile-label">📍 السكن / العنوان</span><span class="profile-val">' + esc(student.address) + '</span></div>';
   if(student.email) personalHTML += '<div class="profile-row"><span class="profile-label">✉️ البريد الإلكتروني</span><span class="profile-val"><a href="mailto:'+esc(student.email)+'" dir="ltr">' + esc(student.email) + '</a></span></div>';
@@ -2815,10 +2817,13 @@ function studentForm(lesson, student){
     + '</div></label></div>';
 
   const profileExtraHTML = '<div class="grid2">'
-    + '<label>مكان السكن / العنوان (اختياري)<input id="f_address" type="text" value="'+esc(student?student.address||'':'')+'" placeholder="مثال: المنصورة - حي الجامعة"></label>'
+    + '<label>المهنة / الوظيفة (اختياري)<input id="f_job" type="text" value="'+esc(student?student.job||'':'')+'" placeholder="مثال: مهندس / محاسب / طالب..."></label>'
     + '<label>العمر (اختياري)<input id="f_age" type="number" min="3" max="100" value="'+esc(student?student.age||'':'')+'" placeholder="مثال: 16"></label>'
     + '</div>'
-    + '<div class="form-row"><label>البريد الإلكتروني (اختياري)<input id="f_email" type="email" value="'+esc(student?student.email||'':'')+'" placeholder="student@example.com" dir="ltr"></label></div>'
+    + '<div class="grid2">'
+    + '<label>مكان السكن / العنوان (اختياري)<input id="f_address" type="text" value="'+esc(student?student.address||'':'')+'" placeholder="مثال: المنصورة - حي الجامعة"></label>'
+    + '<label>البريد الإلكتروني (اختياري)<input id="f_email" type="email" value="'+esc(student?student.email||'':'')+'" placeholder="student@example.com" dir="ltr"></label>'
+    + '</div>'
     + '<div class="form-row"><label>ملاحظات في الملف الشخصي (اختياري)<textarea id="f_profileNotes" rows="2" placeholder="ملاحظات وسلوك ومستوى الطالب...">'+esc(student?student.profileNotes||'':'')+'</textarea></label></div>';
 
   openModal(isEdit ? 'تعديل عضو' : 'إضافة عضو جديد',
@@ -2902,6 +2907,7 @@ function studentForm(lesson, student){
     const nm = $('#f_name').value.trim();
     const ph = normalizePhone($('#f_phone').value);
     const grp = $('#f_group') ? $('#f_group').value : '';
+    const job = ($('#f_job') ? $('#f_job').value : '').trim();
     const addr = ($('#f_address') ? $('#f_address').value : '').trim();
     const age = ($('#f_age') ? $('#f_age').value : '').trim();
     const eml = ($('#f_email') ? $('#f_email').value : '').trim();
@@ -2923,6 +2929,7 @@ function studentForm(lesson, student){
       student.extraPhones = extras;
       student.groupId = grp;
       student.fields = fields;
+      student.job = job;
       student.address = addr;
       student.age = age;
       student.email = eml;
@@ -2939,6 +2946,7 @@ function studentForm(lesson, student){
         paid: false,
         groupId: grp,
         fields,
+        job,
         address: addr,
         age,
         email: eml,
