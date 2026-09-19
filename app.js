@@ -33,8 +33,17 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v29';
+const APP_VERSION = 'v30';
 const CHANGELOG = {
+  v30: [
+    '⚡ التحضير السريع الجماعي: تعيين حالة لجميع طلاب الحصة بنقرة واحدة (تحضير الكل / تغييب الكل / اعتذار / تفريغ)',
+    '📲 المراسلة التسلسلية الذكية: إرسال رسائل فردية سريعة ومتتابعة للغائبين أو لجميع الطلاب عبر واتساب بقوالب مخصصة',
+    '💰 سجل مصروفات ومدفوعات الطالب: تتبع الأقساط ورسوم الملازم والكتب لدروس الاشتراك مع شارات سداد دقيقة',
+    '📝 جدول درجات الاختبارات المستقل: رصد درجات الامتحانات والواجبات في جدول مخصص ومدمج في تقارير الشهر والواتساب',
+    '📊 لوحة المؤشرات والتحليلات: نظرة سريعة في الرئيسية لإجمالي الطلاب والحصص ونسب الحضور مع رسوم بيانية ومقارنات',
+    '☑️ التحديد المتعدد ونقل الطلاب: تحديد عدة طلاب ونقلهم أو تكرارهم بين المجموعات والدروس مع خيار ترحيل سجل الحضور',
+    '☁️ النسخ الاحتياطي السحابي الهجين: مشاركة سريعة عبر Google Drive وتطبيقات الهاتف، وإرسال تلقائي لمحادثة تيليجرام'
+  ],
   v29: [
     '👤 ملف الطالب (Profile): بطاقة شخصية متكاملة للطالب بصورته ومهنته/وظيفته وعنوانه وعمره وإيميله وملاحظاته الخاصة وإحصائيات حضوره',
     '🔄 تحريك الحصص وترتيبها التلقائي: إدراج الحصة زمنياً بحسب تاريخها، مع إمكانية سحبها يميناً ويساراً وتعديل مسمياتها',
@@ -258,6 +267,9 @@ function defaultState(){
       whatsappNumber: '+201038805435',
       whatsappType: 'normal',
       warnFutureAttendance: true,
+      tgBotToken: '',
+      tgChatId: '',
+      hideDashboardMoney: false,
       messageTemplate: 'السلام عليكم ورحمة الله وبركاته\n\nأخباركم إن شاء الله تكونو بخير\n\nبنأكد على معاد النهاردة الساعة {time} وجزاكم الله خيراً',
       ownerName: ADMIN_NAME,
       ownerPhone: ADMIN_PHONE,
@@ -278,6 +290,23 @@ function defaultState(){
 function monthKey(year, month){ return year + '-' + String(month).padStart(2,'0'); }
 
 /* ---------- تحميل/تطبيع ---------- */
+function normalizePayment(p){
+  return {
+    id: p.id || uid('pay'),
+    date: p.date || todayStr(),
+    amount: Number(p.amount) || 0,
+    type: p.type || 'subscription',
+    note: typeof p.note === 'string' ? p.note : ''
+  };
+}
+function normalizeExam(e){
+  return {
+    id: e.id || uid('ex'),
+    name: e.name || 'اختبار',
+    date: e.date || todayStr(),
+    maxScore: Number(e.maxScore) > 0 ? Number(e.maxScore) : 20
+  };
+}
 function normalizeStudent(st){
   return {
     id: st.id || uid('s'),
@@ -294,7 +323,8 @@ function normalizeStudent(st){
     age: (typeof st.age === 'string' || typeof st.age === 'number') ? String(st.age) : '',
     email: typeof st.email === 'string' ? st.email : '',
     photo: typeof st.photo === 'string' ? st.photo : '',
-    profileNotes: typeof st.profileNotes === 'string' ? st.profileNotes : ''
+    profileNotes: typeof st.profileNotes === 'string' ? st.profileNotes : '',
+    payments: Array.isArray(st.payments) ? st.payments.map(normalizePayment) : []
   };
 }
 function normalizeGroup(g){
@@ -317,6 +347,9 @@ function normalizeState(raw){
     .filter(f => f.label);
   settings.whatsappType = (settings.whatsappType === 'business') ? 'business' : 'normal';
   settings.warnFutureAttendance = settings.warnFutureAttendance !== false;
+  settings.tgBotToken = (raw.settings && typeof raw.settings.tgBotToken === 'string') ? raw.settings.tgBotToken : '';
+  settings.tgChatId = (raw.settings && typeof raw.settings.tgChatId === 'string') ? raw.settings.tgChatId : '';
+  settings.hideDashboardMoney = !!(raw.settings && raw.settings.hideDashboardMoney);
   settings.ownerName = ADMIN_NAME;
   settings.ownerPhone = ADMIN_PHONE;
   /* مؤشرات خطر الغياب */
@@ -359,6 +392,8 @@ function normalizeState(raw){
         monthNumber, year,
         sessions: (Array.isArray(L.sessions) ? L.sessions : (Array.isArray(cur.sessions) ? cur.sessions : [])),
         records: (L.records && typeof L.records === 'object') ? L.records : ((cur.records && typeof cur.records === 'object') ? cur.records : {}),
+        exams: Array.isArray(L.exams) ? L.exams.map(normalizeExam) : [],
+        examScores: (L.examScores && typeof L.examScores === 'object') ? L.examScores : {},
         lastExportAt: L.lastExportAt || null
       };
     });
@@ -696,8 +731,128 @@ function scheduleLabel(L){
   return days + (L.time ? ' · ' + formatTime12(L.time) : '');
 }
 
+/* ---------- لوحة المؤشرات والتحليلات ---------- */
+function renderDashboardOverview(){
+  const wrap = $('#dashboardOverview');
+  if(!wrap) return;
+  if(state.lessons.length === 0){
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+
+  let totalSt = 0;
+  state.lessons.forEach(L => { totalSt += (L.students || []).length; });
+
+  const todayItems = todayScheduleItems();
+
+  let totalPastAttended = 0, totalPossible = 0;
+  state.lessons.forEach(L => {
+    const ps = pastSessions(L.sessions);
+    if(ps.length && L.students.length){
+      L.students.forEach(st => {
+        ps.forEach(s => {
+          totalPossible++;
+          const rec = (L.records[st.id] && L.records[st.id][s.id]) || {};
+          if(rec.status === 'st_done') totalPastAttended++;
+        });
+      });
+    }
+  });
+  const overallPct = totalPossible > 0 ? Math.round((totalPastAttended / totalPossible) * 100) : 0;
+
+  let totalCollected = 0, hasSub = false;
+  state.lessons.forEach(L => {
+    if(L.subscription){
+      hasSub = true;
+      (L.students || []).forEach(st => {
+        const payments = st.payments || [];
+        if(payments.length > 0){
+          totalCollected += payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        } else if(st.paid){
+          totalCollected += (L.price || 0);
+        }
+      });
+    }
+  });
+
+  const hideMoney = !!state.settings.hideDashboardMoney;
+  const moneyValStr = hideMoney ? '••••' : (moneyDisplay(totalCollected) + ' ج.م');
+
+  let todayListHTML = '';
+  if(todayItems.length > 0){
+    todayListHTML = '<div class="dash-today-list"><b>📅 حصص اليوم:</b> '
+      + todayItems.map(item => '<span class="dash-today-item">🕒 ' + esc(item.label) + ' (' + formatTime12(item.time) + ')</span>').join('')
+      + '</div>';
+  } else {
+    todayListHTML = '<div class="dash-today-list muted">لا توجد حصص مجدولة لليوم.</div>';
+  }
+
+  wrap.innerHTML = '<div class="dash-head">'
+    + '<div class="dash-title">📊 لوحة المؤشرات السريعة</div>'
+    + '<div style="display:flex;gap:6px">'
+    +   (hasSub ? '<button class="btn btn-outline btn-sm" id="btnToggleDashMoney" title="إخفاء/إظهار المبالغ" style="padding:2px 8px;font-size:12px">' + (hideMoney ? '👁️ إظهار' : '🔒 إخفاء') + '</button>' : '')
+    +   '<button class="btn btn-outline btn-sm" id="btnDashAnalytics" style="padding:2px 8px;font-size:12px">📈 التحليلات</button>'
+    + '</div>'
+    + '</div>'
+    + '<div class="dash-grid">'
+    +   '<div class="dash-metric"><div class="dash-val">' + totalSt + '</div><div class="dash-lbl">إجمالي الطلاب</div></div>'
+    +   '<div class="dash-metric"><div class="dash-val" style="color:' + (overallPct >= 80 ? '#15803d' : overallPct >= 50 ? '#b45309' : '#dc2626') + '">' + overallPct + '%</div><div class="dash-lbl">نسبة حضور الشهر</div></div>'
+    +   '<div class="dash-metric"><div class="dash-val">' + todayItems.length + '</div><div class="dash-lbl">حصص اليوم</div></div>'
+    +   (hasSub ? '<div class="dash-metric"><div class="dash-val" style="color:#15803d">' + moneyValStr + '</div><div class="dash-lbl">إجمالي التحصيل</div></div>' : '')
+    + '</div>'
+    + todayListHTML;
+
+  const btnToggle = $('#btnToggleDashMoney');
+  if(btnToggle){
+    btnToggle.onclick = () => {
+      state.settings.hideDashboardMoney = !state.settings.hideDashboardMoney;
+      saveState();
+      renderDashboardOverview();
+    };
+  }
+  const btnAnalytics = $('#btnDashAnalytics');
+  if(btnAnalytics) btnAnalytics.onclick = openAnalyticsModal;
+}
+
+function openAnalyticsModal(){
+  let chartBars = '';
+  state.lessons.forEach(L => {
+    const ps = pastSessions(L.sessions);
+    let done = 0, total = ps.length * (L.students.length || 1);
+    if(ps.length && L.students.length){
+      L.students.forEach(st => {
+        ps.forEach(s => {
+          if((L.records[st.id] && L.records[st.id][s.id] && L.records[st.id][s.id].status === 'st_done')) done++;
+        });
+      });
+    }
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const barColor = pct >= 85 ? '#15803d' : pct >= 50 ? '#b45309' : '#dc2626';
+    chartBars += '<div style="margin-bottom:12px">'
+      + '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px">'
+      +   '<span>' + esc(L.name) + ' (' + L.students.length + ' طالب)</span>'
+      +   '<span style="color:' + barColor + '">' + pct + '% حضور</span>'
+      + '</div>'
+      + '<div style="background:#e2e8f0;border-radius:999px;height:10px;overflow:hidden">'
+      +   '<div style="background:' + barColor + ';width:' + pct + '%;height:100%;border-radius:999px;transition:width .4s ease"></div>'
+      + '</div>'
+      + '</div>';
+  });
+
+  let html = '<div class="dash-chart-card">'
+    + '<div class="dash-chart-title">مقارنة نسب الحضور بين الدروس (الشهر الحالي)</div>'
+    + (chartBars || '<p class="muted">لا توجد بيانات حضور كافية بعد.</p>')
+    + '</div>'
+    + '<div class="modal-actions"><button class="btn btn-outline" id="an_close">إغلاق</button></div>';
+
+  openModal('📊 التحليلات والإحصائيات العامة', html);
+  $('#an_close').onclick = closeModal;
+}
+
 /* ---------- شاشة الدروس ---------- */
 function renderLessonsHome(){
+  renderDashboardOverview();
   const list = $('#lessonsList');
   if(state.lessons.length === 0){
     list.innerHTML = '<div class="empty-state">لا توجد دروس بعد - اضغط «درس جديد» لإضافة أول درس.</div>';
@@ -760,6 +915,563 @@ function renderGroupFilter(L){
   sel.style.display = (L.groups && L.groups.length) ? '' : 'none';
 }
 
+/* =====================================================================
+   v30: المتغيرات العامة والدوال الجديدة
+   ===================================================================== */
+let currentLessonSubtab = 'attendance'; // 'attendance' | 'exams'
+let isBulkSelecting = false;
+let selectedStudentIds = new Set();
+
+/* ---------- 1. التحضير السريع الجماعي (Bulk Attendance) ---------- */
+function openBulkAttendanceModal(lesson, session){
+  if(!lesson || !session) return;
+  const html = '<div style="text-align:center;padding:8px">'
+    + '<p style="font-size:14px;font-weight:700;margin-bottom:14px">تعيين حالة لجميع طلاب الحصة:<br><b style="color:var(--primary);font-size:15px">' + esc(session.label) + (session.dateLabel ? ' (' + esc(session.dateLabel) + ')' : '') + '</b></p>'
+    + '<div style="display:flex;flex-direction:column;gap:10px;max-width:300px;margin:0 auto">'
+    +   '<button class="btn" id="bulk_set_done" style="background:#15803d;color:#fff;justify-content:center">✅ تحضير الكل حاضر</button>'
+    +   '<button class="btn" id="bulk_set_apology" style="background:#b45309;color:#fff;justify-content:center">⚠️ تسجيل الكل اعتذار</button>'
+    +   '<button class="btn" id="bulk_set_absent" style="background:#b91c1c;color:#fff;justify-content:center">❌ تغييب الكل غائب</button>'
+    +   '<button class="btn btn-outline" id="bulk_set_clear" style="justify-content:center">🔄 تفريغ سجلات الحصة للجميع</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('⚡ التحضير السريع الجماعي', html);
+
+  function applyStatus(stCode){
+    let targetStudents = lesson.students;
+    if(groupFilterQuery && groupFilterQuery !== '__none__'){
+      targetStudents = targetStudents.filter(st => st.groupId === groupFilterQuery);
+    } else if(groupFilterQuery === '__none__'){
+      targetStudents = targetStudents.filter(st => !st.groupId);
+    }
+    targetStudents.forEach(st => {
+      if(!lesson.records[st.id]) lesson.records[st.id] = {};
+      if(stCode === null){
+        delete lesson.records[st.id][session.id];
+      } else {
+        lesson.records[st.id][session.id] = {
+          status: stCode,
+          note: (lesson.records[st.id][session.id] && lesson.records[st.id][session.id].note) || ''
+        };
+      }
+    });
+    saveState();
+    renderLessonDetail();
+    closeModal();
+    showToastMessage('تم تطبيق الحالة على ' + targetStudents.length + ' طالب.');
+  }
+
+  $('#bulk_set_done').onclick = () => applyStatus('st_done');
+  $('#bulk_set_apology').onclick = () => applyStatus('st_apology');
+  $('#bulk_set_absent').onclick = () => applyStatus('st_noanswer');
+  $('#bulk_set_clear').onclick = () => applyStatus(null);
+}
+
+/* ---------- 2. المراسلة التسلسلية الذكية (Sequential WhatsApp) ---------- */
+function openSequentialMessagingModal(lesson){
+  if(!lesson) return;
+  const past = pastSessions(lesson.sessions);
+  const lastSession = past.length ? past[past.length - 1] : (lesson.sessions[0] || null);
+
+  let html = '<div class="form-row"><label>الجمهور المستهدف'
+    + '<select id="seq_audience">'
+    +   '<option value="absent">الطلاب الغائبون فقط (في ' + (lastSession ? esc(lastSession.label) : 'آخر حصة') + ')</option>'
+    +   '<option value="attended">الطلاب الحاضرون فقط (في ' + (lastSession ? esc(lastSession.label) : 'آخر حصة') + ')</option>'
+    +   '<option value="all">جميع طلاب هذا الدرس (' + lesson.students.length + ' طالب)</option>'
+    +   (lesson.groups||[]).map(g => '<option value="group_' + g.id + '">مجموعة: ' + esc(g.name) + '</option>').join('')
+    + '</select></label></div>'
+    + '<div class="grid2">'
+    +   '<label>إرسال إلى'
+    +     '<select id="seq_target">'
+    +       '<option value="guardian">ولي الأمر (ثم الطالب إن لم يتوفر)</option>'
+    +       '<option value="student">هاتف الطالب مباشرة</option>'
+    +       '<option value="both">كلاهما (طالب وولي أمر)</option>'
+    +     '</select>'
+    +   '</label>'
+    +   '<label>نوع الواتساب'
+    +     '<select id="seq_wa_type">'
+    +       '<option value="normal">واتساب عادي</option>'
+    +       '<option value="business">واتساب أعمال</option>'
+    +     '</select>'
+    +   '</label>'
+    + '</div>'
+    + '<div class="form-row"><label>نص قالب الرسالة (المتغيرات: {name}، {lesson}، {date}، {group})'
+    + '<textarea id="seq_tmpl" rows="4" dir="rtl"></textarea></label></div>'
+    + '<div class="modal-actions">'
+    +   '<button class="btn btn-whatsapp" id="seq_start">بدء الإرسال المتتابع 🚀</button>'
+    +   '<button class="btn btn-outline" id="seq_close">إلغاء</button>'
+    + '</div>';
+
+  openModal('📲 مراسلة جماعية مخصصة', html);
+
+  const defaultTemplates = {
+    absent: 'السلام عليكم ورحمة الله وبركاته،\nنحيطكم علماً بغياب الطالب/ة {name} عن حصة {lesson} بتاريخ {date}.\nنرجو الاطمئنان ومتابعة ما فاته.',
+    attended: 'السلام عليكم ورحمة الله وبركاته،\nنشكر الطالب/ة {name} على التزامه وحضوره في حصة {lesson} اليوم {date}. بارك الله في جهوده.',
+    all: 'السلام عليكم ورحمة الله وبركاته،\nنود تذكيركم بموعد حصة {lesson} القادمة للطالب/ة {name}.\nبالتوفيق دائماً إن شاء الله.'
+  };
+
+  const tmplArea = $('#seq_tmpl');
+  tmplArea.value = defaultTemplates.absent;
+  $('#seq_audience').onchange = (e) => {
+    const aud = e.target.value;
+    if(defaultTemplates[aud]) tmplArea.value = defaultTemplates[aud];
+    else if(aud.startsWith('group_')) tmplArea.value = defaultTemplates.all;
+  };
+  $('#seq_close').onclick = closeModal;
+
+  $('#seq_start').onclick = () => {
+    const aud = $('#seq_audience').value;
+    const tgt = $('#seq_target').value;
+    const waType = $('#seq_wa_type').value;
+    const tmpl = tmplArea.value.trim();
+    if(!tmpl){ alert('يرجى كتابة نص الرسالة.'); return; }
+
+    let students = lesson.students;
+    if(aud === 'absent' && lastSession){
+      students = students.filter(st => {
+        const rec = (lesson.records[st.id] && lesson.records[st.id][lastSession.id]) || {};
+        return rec.status === 'st_noanswer';
+      });
+    } else if(aud === 'attended' && lastSession){
+      students = students.filter(st => {
+        const rec = (lesson.records[st.id] && lesson.records[st.id][lastSession.id]) || {};
+        return rec.status === 'st_done';
+      });
+    } else if(aud.startsWith('group_')){
+      const gid = aud.replace('group_', '');
+      students = students.filter(st => st.groupId === gid);
+    }
+
+    if(students.length === 0){
+      alert('لا يوجد طلاب مطابقين للمعايير المحددة.');
+      return;
+    }
+
+    let queue = [];
+    students.forEach(st => {
+      const g = (lesson.groups||[]).find(x => x.id === st.groupId);
+      const text = tmpl
+        .replace(/\{name\}/g, st.name)
+        .replace(/\{lesson\}/g, lesson.name)
+        .replace(/\{date\}/g, (lastSession && lastSession.dateLabel) || todayStr())
+        .replace(/\{group\}/g, g ? g.name : '');
+
+      if(tgt === 'guardian'){
+        const ph = st.guardianPhone || st.phone;
+        if(ph) queue.push({ student: st, phone: ph, targetLabel: st.name + ' (ولي الأمر)', text });
+      } else if(tgt === 'student'){
+        if(st.phone) queue.push({ student: st, phone: st.phone, targetLabel: st.name, text });
+      } else if(tgt === 'both'){
+        if(st.guardianPhone) queue.push({ student: st, phone: st.guardianPhone, targetLabel: st.name + ' (ولي الأمر)', text });
+        if(st.phone && st.phone !== st.guardianPhone) queue.push({ student: st, phone: st.phone, targetLabel: st.name + ' (الطالب)', text });
+      }
+    });
+
+    if(queue.length === 0){
+      alert('لم يتم العثور على أرقام هواتف مسجلة للطلاب المحددين.');
+      return;
+    }
+
+    startSequentialQueue(queue, waType);
+  };
+}
+
+function startSequentialQueue(queue, waType){
+  let currIdx = 0;
+
+  function renderStep(){
+    if(currIdx >= queue.length){
+      openModal('🎉 اكتملت المراسلة',
+        '<div class="seq-box">'
+        + '<div style="font-size:48px;margin-bottom:10px">✅</div>'
+        + '<h3>تم الانتهاء من إرسال كافة الرسائل بنجاح!</h3>'
+        + '<p class="muted" style="margin-top:6px">تم المرور على ' + queue.length + ' رقم هاتف.</p>'
+        + '<div class="modal-actions" style="justify-content:center;margin-top:16px"><button class="btn btn-primary" id="seq_finish">إغلاق</button></div>'
+        + '</div>');
+      $('#seq_finish').onclick = closeModal;
+      return;
+    }
+
+    const item = queue[currIdx];
+    const pct = Math.round(((currIdx + 1) / queue.length) * 100);
+
+    const html = '<div class="seq-box">'
+      + '<div style="font-size:13px;font-weight:800;color:var(--primary);display:flex;justify-content:space-between">'
+      +   '<span>الرسالة رقم ' + (currIdx + 1) + ' من ' + queue.length + '</span>'
+      +   '<span>' + pct + '%</span>'
+      + '</div>'
+      + '<div class="seq-progress-wrap"><div class="seq-progress-bar" style="width:' + pct + '%"></div></div>'
+      + '<div class="seq-card">'
+      +   '<div class="seq-name">' + esc(item.targetLabel) + '</div>'
+      +   '<div class="seq-phone">📱 ' + esc(localPhone(item.phone)) + '</div>'
+      +   '<div class="seq-preview">' + esc(item.text) + '</div>'
+      + '</div>'
+      + '<div class="modal-actions" style="justify-content:space-between;flex-wrap:wrap;gap:8px">'
+      +   '<div style="display:flex;gap:6px">'
+      +     (currIdx > 0 ? '<button class="btn btn-outline btn-sm" id="seq_prev">⏪ السابق</button>' : '')
+      +     '<button class="btn btn-outline btn-sm" id="seq_skip">تخطي ⏭️</button>'
+      +     '<button class="btn btn-outline btn-sm" id="seq_copy_text">📋 نسخ</button>'
+      +   '</div>'
+      +   '<div style="display:flex;gap:6px">'
+      +     '<button class="btn btn-whatsapp" id="seq_send_next">🚀 إرسال لواتساب والتالي ⏩</button>'
+      +     '<button class="btn btn-outline" id="seq_stop">إنهاء</button>'
+      +   '</div>'
+      + '</div>'
+      + '</div>';
+
+    openModal('📲 إرسال متتابع (' + (currIdx + 1) + '/' + queue.length + ')', html);
+
+    if($('#seq_prev')) $('#seq_prev').onclick = () => { currIdx--; renderStep(); };
+    $('#seq_skip').onclick = () => { currIdx++; renderStep(); };
+    $('#seq_stop').onclick = closeModal;
+
+    $('#seq_copy_text').onclick = () => {
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(item.text).then(() => showToastMessage('تم نسخ نص الرسالة'));
+      } else fallbackCopy(item.text);
+    };
+
+    $('#seq_send_next').onclick = () => {
+      const url = waHrefNumber(item.phone, item.text, waType);
+      window.open(url, '_blank', 'noopener');
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(item.text).catch(()=>{});
+      }
+      currIdx++;
+      renderStep();
+    };
+  }
+
+  renderStep();
+}
+
+/* ---------- 3. سجل مدفوعات ومصروفات الطالب (Payments & Expenses) ---------- */
+function openAddPaymentModal(student, lesson){
+  if(!student || !lesson) return;
+  const subPrice = lesson.price || 0;
+  const payments = student.payments || [];
+  const currentTotal = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const defAmount = Math.max(0, subPrice - currentTotal) || subPrice || '';
+
+  const html = '<div class="form-row"><label>المبلغ (ج.م)<input id="pm_amount" type="number" step="1" min="1" value="' + defAmount + '"></label></div>'
+    + '<div class="grid2">'
+    +   '<label>التاريخ<input id="pm_date" type="date" value="' + todayStr() + '"></label>'
+    +   '<label>نوع البند'
+    +     '<select id="pm_type">'
+    +       '<option value="subscription">اشتراك شهري</option>'
+    +       '<option value="book">رسوم مذكرة / كتاب</option>'
+    +       '<option value="other">أخرى</option>'
+    +     '</select>'
+    +   '</label>'
+    + '</div>'
+    + '<div class="form-row"><label>ملاحظات (اختياري)<input id="pm_note" type="text" placeholder="مثال: قسط أول، كتاب الفصل الدراسي الثاني..."></label></div>'
+    + '<div class="modal-actions"><button class="btn" id="pm_save">حفظ الدفعة</button><button class="btn btn-outline" id="pm_cancel">إلغاء</button></div>';
+
+  openModal('💰 تسجيل دفعة جديدة - ' + esc(student.name), html);
+
+  $('#pm_cancel').onclick = () => {
+    closeModal();
+    openStudentProfile(student, lesson);
+  };
+
+  $('#pm_save').onclick = () => {
+    const amt = Number($('#pm_amount').value);
+    const dt = $('#pm_date').value || todayStr();
+    const tp = $('#pm_type').value || 'subscription';
+    const nt = ($('#pm_note').value || '').trim();
+
+    if(!amt || amt <= 0){ alert('اكتب مبلغاً صحيحاً.'); return; }
+
+    if(!Array.isArray(student.payments)) student.payments = [];
+    student.payments.push({
+      id: uid('pay'),
+      date: dt,
+      amount: amt,
+      type: tp,
+      note: nt
+    });
+
+    // تحديث علامة paid تلقائياً إن كان المجموع يغطي الاشتراك
+    const newTotal = student.payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    if(lesson.price > 0 && newTotal >= lesson.price) student.paid = true;
+
+    saveState();
+    renderLessonDetail();
+    closeModal();
+    openStudentProfile(student, lesson);
+    showToastMessage('✅ تم تسجيل الدفعة بنجاح.');
+  };
+}
+
+/* ---------- 4. درجات الاختبارات (Exams View) ---------- */
+function renderExamsTable(lesson, filteredStudents){
+  const exams = lesson.exams || [];
+  const head = $('#examsHead');
+  const body = $('#examsBody');
+  const foot = $('#examsFoot');
+  const meta = $('#examsMeta');
+  if(!head || !body) return;
+
+  if(meta) meta.textContent = exams.length + ' اختبار مسجل';
+
+  let h = '<tr><th class="sticky-col">اسم الطالب</th>';
+  exams.forEach(ex => {
+    h += '<th><div style="font-size:12px;font-weight:800">' + esc(ex.name) + '</div>'
+      + '<span class="exam-max-badge">الدرجة: ' + ex.maxScore + ' (' + esc(ex.date) + ')</span>'
+      + '<div style="display:flex;gap:4px;justify-content:center;margin-top:3px">'
+      +   '<button class="mini-btn mini-edit" data-act="edit-exam" data-id="' + ex.id + '" title="تعديل الاختبار">✏️</button>'
+      +   '<button class="mini-btn mini-del" data-act="del-exam" data-id="' + ex.id + '" title="حذف الاختبار">✕</button>'
+      + '</div>'
+      + '</th>';
+  });
+  h += '<th>المتوسط %</th></tr>';
+  head.innerHTML = h;
+
+  let students = filteredStudents || lesson.students;
+  let b = '';
+  students.forEach((st, idx) => {
+    const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
+    let totalPct = 0, examCount = 0;
+
+    b += '<tr><td class="sticky-col student-cell">'
+      +   '<div class="student-name">'
+      +     '<span class="student-num">' + (idx + 1) + '.</span> '
+      +     '<span class="st-name-click" data-act="view-student" data-id="' + st.id + '">' + esc(st.name) + '</span>'
+      +   '</div>'
+      + '</td>';
+
+    exams.forEach(ex => {
+      const scoreVal = studentScores[ex.id] !== undefined ? studentScores[ex.id] : '';
+      const pct = (scoreVal !== '' && ex.maxScore > 0) ? Math.round((Number(scoreVal) / ex.maxScore) * 100) : null;
+      if(pct !== null){ totalPct += pct; examCount++; }
+
+      b += '<td style="text-align:center">'
+        +   '<input type="number" step="0.5" min="0" max="' + ex.maxScore + '" value="' + (scoreVal !== '' ? scoreVal : '') + '" class="exam-input" data-sid="' + st.id + '" data-eid="' + ex.id + '" placeholder="-">'
+        +   (pct !== null ? '<span class="exam-pct" style="color:' + (pct >= 50 ? '#15803d' : '#b91c1c') + '">' + pct + '%</span>' : '')
+        + '</td>';
+    });
+
+    const avgPct = examCount > 0 ? Math.round(totalPct / examCount) : null;
+    b += '<td style="text-align:center;font-weight:800;color:' + (avgPct !== null ? (avgPct >= 50 ? '#15803d' : '#b91c1c') : 'var(--muted)') + '">'
+      + (avgPct !== null ? avgPct + '%' : '-')
+      + '</td></tr>';
+  });
+
+  if(students.length === 0){
+    b = '<tr><td colspan="' + (exams.length + 2) + '" class="empty-state">لا يوجد طلاب لعرض درجاتهم.</td></tr>';
+  }
+  body.innerHTML = b;
+
+  let f = '<tr class="count-row"><td class="sticky-col">متوسط درجات الطلاب</td>';
+  exams.forEach(ex => {
+    let sum = 0, cnt = 0;
+    lesson.students.forEach(st => {
+      const v = (lesson.examScores && lesson.examScores[st.id] && lesson.examScores[st.id][ex.id]);
+      if(v !== undefined && v !== '' && !isNaN(Number(v))){ sum += Number(v); cnt++; }
+    });
+    const avg = cnt > 0 ? (sum / cnt).toFixed(1) : '-';
+    f += '<td><b>' + avg + (cnt > 0 ? ' / ' + ex.maxScore : '') + '</b></td>';
+  });
+  f += '<td></td></tr>';
+  if(foot) foot.innerHTML = f;
+}
+
+function addExamModal(lesson, examToEdit){
+  if(!lesson) return;
+  const isEdit = !!examToEdit;
+  const html = '<div class="form-row"><label>اسم الاختبار أو الواجب<input id="ex_name" type="text" value="' + esc(isEdit ? examToEdit.name : '') + '" placeholder="مثال: اختبار الأسبوع الأول"></label></div>'
+    + '<div class="grid2">'
+    +   '<label>الدرجة النهائية (العظمى)<input id="ex_max" type="number" min="1" step="1" value="' + (isEdit ? examToEdit.maxScore : 20) + '"></label>'
+    +   '<label>التاريخ<input id="ex_date" type="date" value="' + (isEdit ? examToEdit.date : todayStr()) + '"></label>'
+    + '</div>'
+    + '<div class="modal-actions"><button class="btn" id="ex_save">حفظ</button><button class="btn btn-outline" id="ex_cancel">إلغاء</button></div>';
+
+  openModal(isEdit ? '✏️ تعديل الاختبار' : '➕ إضافة اختبار جديد', html);
+  $('#ex_cancel').onclick = closeModal;
+
+  $('#ex_save').onclick = () => {
+    const nm = ($('#ex_name').value || '').trim();
+    const mx = Number($('#ex_max').value);
+    const dt = $('#ex_date').value || todayStr();
+
+    if(!nm){ alert('اكتب اسم الاختبار.'); return; }
+    if(!mx || mx <= 0){ alert('اكتب الدرجة العظمى بشكل صحيح.'); return; }
+
+    if(!Array.isArray(lesson.exams)) lesson.exams = [];
+    if(!lesson.examScores || typeof lesson.examScores !== 'object') lesson.examScores = {};
+
+    if(isEdit){
+      examToEdit.name = nm;
+      examToEdit.maxScore = mx;
+      examToEdit.date = dt;
+    } else {
+      lesson.exams.push({ id: uid('ex'), name: nm, maxScore: mx, date: dt });
+    }
+
+    saveState();
+    renderExamsTable(lesson);
+    closeModal();
+    showToastMessage('✅ تم حفظ بيانات الاختبار.');
+  };
+}
+
+/* ---------- 5. التحديد المتعدد ونقل/تكرار الطلاب (Bulk Move / Copy) ---------- */
+function bulkMoveStudentsModal(lesson, isCopy){
+  if(!lesson || selectedStudentIds.size === 0) return;
+  const otherLessons = state.lessons.filter(l => l.id !== lesson.id);
+  if(otherLessons.length === 0){
+    alert('لا توجد دروس أخرى متاحة للنقل أو التكرار إليها. قم بإنشاء درس آخر أولاً.');
+    return;
+  }
+
+  let html = '<p style="font-size:13px;font-weight:700;margin-bottom:12px">تم تحديد <b style="color:var(--primary)">' + selectedStudentIds.size + '</b> طالب من درس «' + esc(lesson.name) + '».</p>'
+    + '<div class="form-row"><label>الدرس المستهدف'
+    +   '<select id="bm_target_lesson">'
+    +     otherLessons.map(l => '<option value="' + l.id + '">' + esc(l.name) + ' (شهر ' + l.monthNumber + '/' + l.year + ')</option>').join('')
+    +   '</select>'
+    + '</label></div>'
+    + '<div class="form-row"><label>المجموعة في الدرس المستهدف'
+    +   '<select id="bm_target_group"><option value="">بدون مجموعة</option></select>'
+    + '</label></div>'
+    + '<div class="form-row" style="margin-top:10px">'
+    +   '<label class="switch-row" style="padding:4px 0">'
+    +     '<div>'
+    +       '<div class="switch-label">ترحيل سجل حضور الشهر الحالي أيضاً</div>'
+    +       '<div class="muted" style="font-size:11px">إن كانت الحصص متطابقة، تُنقل حالات الحضور والغياب مع الطالب.</div>'
+    +     '</div>'
+    +     '<label class="switch"><input type="checkbox" id="bm_inc_att"><span class="switch-slider"></span></label>'
+    +   '</label>'
+    + '</div>'
+    + '<div class="modal-actions">'
+    +   '<button class="btn btn-primary" id="bm_submit">' + (isCopy ? '📋 نسخ الطلاب للدرس المحدد' : '🔄 نقل الطلاب وحذفهم من الحالي') + '</button>'
+    +   '<button class="btn btn-outline" id="bm_cancel">إلغاء</button>'
+    + '</div>';
+
+  openModal(isCopy ? '📋 نسخ وتكرار الطلاب' : '🔄 نقل الطلاب بين الدروس', html);
+
+  function updateGroups(){
+    const targetL = state.lessons.find(l => l.id === $('#bm_target_lesson').value);
+    const grpSel = $('#bm_target_group');
+    if(!targetL || !grpSel) return;
+    let opts = '<option value="">بدون مجموعة</option>';
+    (targetL.groups || []).forEach(g => {
+      opts += '<option value="' + esc(g.id) + '">' + esc(g.name) + '</option>';
+    });
+    grpSel.innerHTML = opts;
+  }
+  $('#bm_target_lesson').onchange = updateGroups;
+  updateGroups();
+
+  $('#bm_cancel').onclick = closeModal;
+
+  $('#bm_submit').onclick = () => {
+    const targetL = state.lessons.find(l => l.id === $('#bm_target_lesson').value);
+    if(!targetL) return;
+    const targetGid = $('#bm_target_group').value;
+    const incAtt = $('#bm_inc_att').checked;
+
+    const toProcess = lesson.students.filter(st => selectedStudentIds.has(st.id));
+
+    toProcess.forEach(st => {
+      // تفادي التكرار بالاسم في الدرس المستهدف
+      const dup = targetL.students.find(x => normalizeForSearch(x.name) === normalizeForSearch(st.name));
+      const targetStudent = dup || JSON.parse(JSON.stringify(st));
+      if(!dup){
+        targetStudent.id = uid('s');
+        targetStudent.groupId = targetGid;
+        targetL.students.push(targetStudent);
+      }
+
+      if(incAtt){
+        if(!targetL.records[targetStudent.id]) targetL.records[targetStudent.id] = {};
+        lesson.sessions.forEach((s, idx) => {
+          const rec = (lesson.records[st.id] && lesson.records[st.id][s.id]);
+          if(rec && targetL.sessions[idx]){
+            targetL.records[targetStudent.id][targetL.sessions[idx].id] = JSON.parse(JSON.stringify(rec));
+          }
+        });
+      }
+
+      if(!isCopy){
+        // حذف من الحالي
+        lesson.students = lesson.students.filter(x => x.id !== st.id);
+        delete lesson.records[st.id];
+      }
+    });
+
+    selectedStudentIds.clear();
+    isBulkSelecting = false;
+    saveState();
+    renderLessonDetail();
+    closeModal();
+    showToastMessage('✅ تم ' + (isCopy ? 'نسخ' : 'نقل') + ' ' + toProcess.length + ' طالب بنجاح.');
+  };
+}
+
+/* ---------- 6. النسخ الاحتياطي السحابي (Cloud Backup) ---------- */
+async function cloudShareBackup(){
+  const json = JSON.stringify(state, null, 2);
+  const fn = 'daftar-backup-' + todayStr() + '.json';
+  const file = new File([json], fn, { type: 'application/json' });
+
+  if(navigator.canShare && navigator.canShare({ files: [file] })){
+    try {
+      await navigator.share({
+        files: [file],
+        title: 'نسخة احتياطية - تطبيق دفتر',
+        text: 'نسخة احتياطية كاملة لبيانات دفتر بتاريخ ' + todayStr()
+      });
+      showToastMessage('✅ تمت المشاركة السحابية بنجاح.');
+      return;
+    } catch(err) {
+      if(err.name === 'AbortError') return;
+    }
+  }
+  // Fallback: download
+  downloadBlob(json, fn, 'application/json');
+}
+
+async function telegramBackup(){
+  const token = (state.settings.tgBotToken || '').trim();
+  const chatId = (state.settings.tgChatId || '').trim();
+  const statusEl = $('#tgStatus');
+
+  if(!token || !chatId){
+    alert('يرجى كتابة Bot Token و Chat ID الخاصين بك على تيليجرام أولاً من خانات الإعدادات.');
+    return;
+  }
+
+  if(statusEl) statusEl.textContent = '⏳ جاري إرسال النسخة إلى تيليجرام...';
+
+  try {
+    const json = JSON.stringify(state, null, 2);
+    const fn = 'daftar-backup-' + todayStr() + '.json';
+    const blob = new Blob([json], { type: 'application/json' });
+
+    const fd = new FormData();
+    fd.append('chat_id', chatId);
+    fd.append('caption', '📦 نسخة احتياطية سحابية من تطبيق دفتر\n📅 التاريخ: ' + todayStr() + '\n📚 عدد الدروس: ' + state.lessons.length);
+    fd.append('document', blob, fn);
+
+    const res = await fetch('https://api.telegram.org/bot' + token + '/sendDocument', {
+      method: 'POST',
+      body: fd
+    });
+    const data = await res.json();
+
+    if(data.ok){
+      if(statusEl) statusEl.textContent = '✅ تم الإرسال بنجاح!';
+      showToastMessage('✅ تم إرسال النسخة الاحتياطية لمحادثتك على تيليجرام!');
+    } else {
+      if(statusEl) statusEl.textContent = '❌ خطأ: ' + (data.description || 'فشل الإرسال');
+      alert('فشل الإرسال: ' + (data.description || 'تأكد من صحة التوكن والـ Chat ID وبدء المحادثة مع البوت أولاً'));
+    }
+  } catch(err) {
+    if(statusEl) statusEl.textContent = '❌ تعذر الاتصال بتيليجرام';
+    alert('تعذر الاتصال بخوادم تيليجرام. تأكد من اتصالك بالإنترنت.');
+  }
+}
+
 function renderLessonDetail(){
   const L = state.lessons.find(x => x.id === currentLessonId);
   const home = $('#lessonsHome');
@@ -779,9 +1491,18 @@ function renderLessonDetail(){
   const incEl = $('#lessonIncome');
   if(incEl){
     if(L.subscription && (L.price||0) > 0){
-      const cnt = L.students.length, paid = L.students.filter(s=>s.paid).length;
-      const total = cnt * L.price, coll = paid * L.price;
-      incEl.innerHTML = '💰 الدخل: <b>' + moneyDisplay(coll) + ' / ' + moneyDisplay(total) + ' ج.م</b>';
+      const cnt = L.students.length;
+      let totalCollected = 0;
+      L.students.forEach(st => {
+        const payments = st.payments || [];
+        if(payments.length > 0){
+          totalCollected += payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+        } else if(st.paid){
+          totalCollected += L.price;
+        }
+      });
+      const total = cnt * L.price;
+      incEl.innerHTML = '💰 التحصيل: <b>' + moneyDisplay(totalCollected) + ' / ' + moneyDisplay(total) + ' ج.م</b>';
       incEl.style.display = '';
     } else {
       incEl.style.display = 'none';
@@ -789,30 +1510,6 @@ function renderLessonDetail(){
   }
 
   renderGroupFilter(L);
-
-  const sd = state.settings;
-  const eff = effectiveStatuses(L);
-  const head = $('#tableHead');
-  const body = $('#tableBody');
-
-  let h = '<tr><th class="sticky-col">' + esc(sd.studentLabel) + '</th>';
-  sd.customFields.forEach(f => { h += '<th class="field-col">' + esc(f.label) + '</th>'; });
-  L.sessions.forEach((s, sIdx) => {
-    h += '<th class="session-col-drag" draggable="true" data-session-id="'+s.id+'" data-idx="'+sIdx+'"><div class="week-head">'
-       + '<span class="week-title" title="اضغط لتعديل مسمى الحصة" data-act="edit-session-label" data-id="'+s.id+'">' + esc(s.label) + '</span>'
-       + '<span class="week-date" title="اضغط لتعديل التاريخ والترتيب الزمني" data-act="edit-session-date" data-id="'+s.id+'">' + (s.dateLabel ? esc(s.dateLabel) : 'بدون تاريخ') + '</span>'
-       + (s.event ? '<span class="week-event" title="اضغط لتعديل الحدث" data-act="edit-session-event" data-id="'+s.id+'">📝 ' + esc(s.event) + '</span>' : '')
-       + '<div class="week-tools">'
-       + (sIdx > 0 ? '<button class="mini-btn" data-act="shift-session-left" data-id="'+s.id+'" title="تحريك لليمين (سابق)">◀</button>' : '')
-       + (sIdx < L.sessions.length - 1 ? '<button class="mini-btn" data-act="shift-session-right" data-id="'+s.id+'" title="تحريك لليسار (تالي)">▶</button>' : '')
-       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-id="'+s.id+'" title="حدث الحصة">📝</button>'
-       + '<button class="mini-btn mini-wa" data-act="session-summary" data-id="'+s.id+'" title="ملخص واتساب">📤</button>'
-       + '<button class="del-week" data-act="del-session" data-id="'+s.id+'" title="حذف الحصة">✕</button>'
-       + '</div>'
-       + '</div></th>';
-  });
-  h += '<th>' + esc(sd.notesLabel) + '</th></tr>';
-  head.innerHTML = h;
 
   // فلترة حسب البحث الداخلي والمجموعة
   let students = L.students;
@@ -829,6 +1526,76 @@ function renderLessonDetail(){
     });
   }
 
+  // التحكم بالتبويب الفرعي (حضور وغياب أم درجات اختبارات)
+  const subtabAtt = $('#subtabAttendance');
+  const subtabEx = $('#subtabExams');
+  const attWrap = $('#attendanceWrap') || $('.table-wrap');
+  const attLegend = $('#attendanceLegend') || $('#statusLegend');
+  const attHint = $('#attendanceHint');
+  const examsView = $('#examsView');
+
+  if(subtabAtt && subtabEx){
+    subtabAtt.classList.toggle('active', currentLessonSubtab === 'attendance');
+    subtabEx.classList.toggle('active', currentLessonSubtab === 'exams');
+  }
+
+  if(currentLessonSubtab === 'exams'){
+    if(attWrap) attWrap.style.display = 'none';
+    if(attLegend) attLegend.style.display = 'none';
+    if(attHint) attHint.style.display = 'none';
+    if(examsView) examsView.style.display = 'block';
+    renderExamsTable(L, students);
+    return;
+  } else {
+    if(attWrap) attWrap.style.display = '';
+    if(attLegend) attLegend.style.display = '';
+    if(attHint) attHint.style.display = '';
+    if(examsView) examsView.style.display = 'none';
+  }
+
+  // تحديث شريط التحديد المتعدد
+  const bulkBar = $('#bulkActionBar');
+  const bulkBtn = $('#bulkSelectBtn');
+  if(bulkBtn){
+    bulkBtn.textContent = isBulkSelecting ? '☑️ إنهاء التحديد' : '☑️ تحديد متعدد';
+    bulkBtn.className = isBulkSelecting ? 'btn btn-primary' : 'btn btn-outline';
+  }
+  if(bulkBar){
+    bulkBar.style.display = isBulkSelecting ? 'flex' : 'none';
+    const cntEl = $('#bulkSelectedCount');
+    if(cntEl) cntEl.textContent = selectedStudentIds.size;
+  }
+
+  const sd = state.settings;
+  const eff = effectiveStatuses(L);
+  const head = $('#tableHead');
+  const body = $('#tableBody');
+
+  let h = '<tr>';
+  if(isBulkSelecting){
+    const allChecked = students.length > 0 && students.every(st => selectedStudentIds.has(st.id));
+    h += '<th class="bulk-select-cell"><input type="checkbox" id="bulkSelectAll"' + (allChecked ? ' checked' : '') + ' title="تحديد/إلغاء الكل"></th>';
+  }
+  h += '<th class="sticky-col">' + esc(sd.studentLabel) + '</th>';
+  sd.customFields.forEach(f => { h += '<th class="field-col">' + esc(f.label) + '</th>'; });
+  L.sessions.forEach((s, sIdx) => {
+    h += '<th class="session-col-drag" draggable="true" data-session-id="'+s.id+'" data-idx="'+sIdx+'"><div class="week-head">'
+       + '<span class="week-title" title="اضغط لتعديل مسمى الحصة" data-act="edit-session-label" data-id="'+s.id+'">' + esc(s.label) + '</span>'
+       + '<span class="week-date" title="اضغط لتعديل التاريخ والترتيب الزمني" data-act="edit-session-date" data-id="'+s.id+'">' + (s.dateLabel ? esc(s.dateLabel) : 'بدون تاريخ') + '</span>'
+       + (s.event ? '<span class="week-event" title="اضغط لتعديل الحدث" data-act="edit-session-event" data-id="'+s.id+'">📝 ' + esc(s.event) + '</span>' : '')
+       + '<div class="week-tools">'
+       + (sIdx > 0 ? '<button class="mini-btn" data-act="shift-session-left" data-id="'+s.id+'" title="تحريك لليمين (سابق)">◀</button>' : '')
+       + (sIdx < L.sessions.length - 1 ? '<button class="mini-btn" data-act="shift-session-right" data-id="'+s.id+'" title="تحريك لليسار (تالي)">▶</button>' : '')
+       + '<button class="mini-btn" data-act="bulk-attendance" data-id="'+s.id+'" title="⚡ التحضير السريع الجماعي للحصة">⚡</button>'
+       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-id="'+s.id+'" title="حدث الحصة">📝</button>'
+       + '<button class="mini-btn mini-wa" data-act="session-summary" data-id="'+s.id+'" title="ملخص واتساب">📤</button>'
+       + '<button class="del-week" data-act="del-session" data-id="'+s.id+'" title="حذف الحصة">✕</button>'
+       + '</div>'
+       + '</div></th>';
+  });
+  h += '<th>' + esc(sd.notesLabel) + '</th></tr>';
+  head.innerHTML = h;
+
   let b = '';
   students.forEach(st => {
     const realIdx = L.students.findIndex(x => x.id === st.id);
@@ -836,8 +1603,29 @@ function renderLessonDetail(){
     const ps = pastSessions(L.sessions);
     const stPct = ps.length ? Math.round(ps.filter(s => (L.records[st.id]||{})[s.id] && L.records[st.id][s.id].status === 'st_done').length / ps.length * 100) : 0;
     const ind = ps.length > 0 ? attendanceIndicator(stPct) : null;
-    b += '<tr class="student-row" draggable="true" data-drag-id="'+st.id+'">'
-       + '<td class="sticky-col student-cell">'
+
+    let payPillHTML = '';
+    if(L.subscription){
+      const subPrice = L.price || 0;
+      const payments = st.payments || [];
+      const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) + (st.paid && payments.length === 0 ? subPrice : 0);
+      const remaining = Math.max(0, subPrice - totalPaid);
+      let pillClass = 'pay-pill-none', pillText = '❌ غير مسدد';
+      if(totalPaid >= subPrice && subPrice > 0){
+        pillClass = 'pay-pill-full';
+        pillText = '✅ مسدد (' + totalPaid + ')';
+      } else if(totalPaid > 0){
+        pillClass = 'pay-pill-part';
+        pillText = '⏳ مدفوع ' + totalPaid + (remaining > 0 ? ' (باقي ' + remaining + ')' : '');
+      }
+      payPillHTML = '<div class="pay-pill ' + pillClass + '" data-act="open-payments" data-id="' + st.id + '" title="اضغط لفتح سجل المدفوعات والمصروفات">' + pillText + '</div>';
+    }
+
+    b += '<tr class="student-row" draggable="true" data-drag-id="'+st.id+'">';
+    if(isBulkSelecting){
+      b += '<td class="bulk-select-cell"><input type="checkbox" class="bulk-student-check" data-id="' + st.id + '"' + (selectedStudentIds.has(st.id) ? ' checked' : '') + '></td>';
+    }
+    b += '<td class="sticky-col student-cell">'
        +   '<div class="student-name">'
        +     '<input class="order-input" type="number" min="1" max="'+L.students.length+'" value="'+(realIdx+1)+'" data-act="order" data-id="'+st.id+'" title="اكتب رقم الترتيب الجديد ثم اضغط Enter"> '
        +     (st.photo ? '<img src="'+st.photo+'" class="st-avatar-mini" alt="">' : '<span class="st-avatar-initial">'+esc((st.name||'').trim().charAt(0) || '👤')+'</span>')
@@ -858,7 +1646,8 @@ function renderLessonDetail(){
        +     '<button class="mini-btn mini-edit" data-act="edit-student" data-id="'+st.id+'">✏️</button>'
        +     '<button class="mini-btn mini-del" data-act="del-student" data-id="'+st.id+'">🗑️</button>'
        +   '</div>'
-       +   (L.subscription ? '<label class="paid-toggle"><input type="checkbox" data-act="paid" data-id="'+st.id+'"'+(st.paid?' checked':'')+'> دفع الاشتراك</label>' : '')
+       +   payPillHTML
+       +   (L.subscription ? '<label class="paid-toggle"><input type="checkbox" data-act="paid" data-id="'+st.id+'"'+(st.paid?' checked':'')+'> دفع كامل الاشتراك</label>' : '')
        + '</td>';
 
     sd.customFields.forEach(f => {
@@ -877,10 +1666,13 @@ function renderLessonDetail(){
     b += '<td><textarea class="note-input" data-act="note" data-id="'+st.id+'" placeholder="...">' + esc(note) + '</textarea></td></tr>';
   });
 
+  const totalCols = L.sessions.length + 2 + sd.customFields.length + (isBulkSelecting ? 1 : 0);
   if(students.length === 0){
-    b = '<tr><td colspan="' + (L.sessions.length + 2 + sd.customFields.length) + '"><div class="empty-state">' + (fq ? 'لا نتائج مطابقة للبحث.' : 'لا يوجد أعضاء - اضغط «عضو جديد» لإضافة أول اسم.') + '</div></td></tr>';
+    b = '<tr><td colspan="' + totalCols + '"><div class="empty-state">' + (fq ? 'لا نتائج مطابقة للبحث.' : 'لا يوجد أعضاء - اضغط «عضو جديد» لإضافة أول اسم.') + '</div></td></tr>';
   }
-  let tf = '<tr class="count-row"><td class="sticky-col">حضور الحصة</td>';
+  let tf = '<tr class="count-row">';
+  if(isBulkSelecting) tf += '<td></td>';
+  tf += '<td class="sticky-col">حضور الحصة</td>';
   sd.customFields.forEach(() => tf += '<td></td>');
   L.sessions.forEach(s => {
     let c = 0;
@@ -895,9 +1687,12 @@ function renderLessonDetail(){
   const footEl = $('#tableFoot');
   if(footEl) footEl.innerHTML = tf;
 
-  $('#statusLegend').innerHTML = eff.map(s =>
-    '<span><span class="dot" style="background:'+esc(s.color)+'"></span>'+esc(s.label)+'</span>'
-  ).join('');
+  const legEl = $('#attendanceLegend') || $('#statusLegend');
+  if(legEl){
+    legEl.innerHTML = eff.map(s =>
+      '<span><span class="dot" style="background:'+esc(s.color)+'"></span>'+esc(s.label)+'</span>'
+    ).join('');
+  }
   updateExportReminder();
 }
 
@@ -1035,6 +1830,8 @@ function renderSettings(){
   if($('#set_whatsappNumber')) $('#set_whatsappNumber').value = sd.whatsappNumber;
   if($('#set_whatsappType')) $('#set_whatsappType').value = sd.whatsappType;
   if($('#set_messageTemplate')) $('#set_messageTemplate').value = sd.messageTemplate;
+  if($('#set_tgBotToken')) $('#set_tgBotToken').value = sd.tgBotToken || '';
+  if($('#set_tgChatId')) $('#set_tgChatId').value = sd.tgChatId || '';
   
   const wf = $('#set_warnFuture');
   if(wf) wf.checked = sd.warnFutureAttendance !== false;
@@ -1818,6 +2615,31 @@ function buildReportHTML(students, sessions, records, rows, title, statuses){
     html += '<td><b>'+r.pct+'%</b></td></tr>';
   });
   html += '</tbody></table>';
+
+  const curL = curLesson();
+  if(curL && Array.isArray(curL.exams) && curL.exams.length > 0){
+    html += '<div class="r-section">نتائج ودرجات الاختبارات</div>';
+    html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">'+esc(sd.studentLabel)+'</th>';
+    curL.exams.forEach(ex => html += '<th>' + esc(ex.name) + '<br><span style="font-size:7px">(' + ex.maxScore + ')</span></th>');
+    html += '<th>المتوسط</th></tr></thead><tbody>';
+    students.forEach((st, i) => {
+      html += '<tr><td class="ord-col">'+(i+1)+'</td><td class="r-name">'+esc(st.name)+'</td>';
+      let tot = 0, ecnt = 0;
+      curL.exams.forEach(ex => {
+        const sc = (curL.examScores && curL.examScores[st.id] && curL.examScores[st.id][ex.id]);
+        if(sc !== undefined && sc !== '' && !isNaN(Number(sc))){
+          tot += (Number(sc) / ex.maxScore) * 100;
+          ecnt++;
+          html += '<td>' + sc + '</td>';
+        } else {
+          html += '<td>-</td>';
+        }
+      });
+      const avg = ecnt > 0 ? Math.round(tot / ecnt) + '%' : '-';
+      html += '<td><b>' + avg + '</b></td></tr>';
+    });
+    html += '</tbody></table>';
+  }
 
   html += '<div class="r-foot">إجمالي الحصص: ' + sessions.length + ' · عدد الطلاب: ' + students.length + '</div>';
   html += '</div>';
@@ -2745,6 +3567,45 @@ function openStudentProfile(student, lesson){
     notesHTML = '<div class="profile-section"><div class="profile-sec-title">📝 ملاحظات خاصة بالطالب</div><div style="font-size:13px;line-height:1.6;white-space:pre-wrap">' + esc(student.profileNotes) + '</div></div>';
   }
 
+  let paymentsHTML = '';
+  if(lesson.subscription){
+    const payments = student.payments || [];
+    const subPrice = lesson.price || 0;
+    const totalPaid = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0) + (student.paid && payments.length === 0 ? subPrice : 0);
+    const remaining = Math.max(0, subPrice - totalPaid);
+    const typeLabel = { subscription: 'اشتراك شهري', book: 'مذكرة / كتاب', other: 'أخرى' };
+    const typeClass = { subscription: 'lt-sub', book: 'lt-book', other: 'lt-other' };
+
+    paymentsHTML = '<div class="profile-section">'
+      + '<div class="profile-sec-title" style="display:flex;justify-content:space-between;align-items:center">'
+      +   '<span>💰 سجل المدفوعات والاشتراكات</span>'
+      +   '<button class="btn btn-sm btn-primary" id="prof_add_payment" style="font-size:11px;padding:3px 8px">➕ إضافة دفعة</button>'
+      + '</div>'
+      + '<div class="pay-summary-box">'
+      +   '<div class="ps-row"><span>سعر الاشتراك الشهري:</span><span>' + moneyDisplay(subPrice) + ' ج.م</span></div>'
+      +   '<div class="ps-row" style="color:#15803d"><span>إجمالي المدفوع:</span><span>' + moneyDisplay(totalPaid) + ' ج.م</span></div>'
+      +   '<div class="ps-row" style="color:' + (remaining > 0 ? '#b91c1c' : '#15803d') + '"><span>المتبقي:</span><span>' + (remaining > 0 ? moneyDisplay(remaining) + ' ج.م' : 'تم السداد بالكامل ✅') + '</span></div>'
+      + '</div>'
+      + '<div class="payments-ledger">';
+
+    if(payments.length === 0){
+      paymentsHTML += '<div class="muted" style="font-size:11px;padding:6px 0;text-align:center">' + (student.paid ? 'تم تحديد دفع كامل الاشتراك من الجدول.' : 'لا توجد حركات دفع مسجلة بعد.') + '</div>';
+    } else {
+      payments.forEach(p => {
+        paymentsHTML += '<div class="ledger-item">'
+          + '<div class="ledger-meta">'
+          +   '<span class="ledger-type ' + (typeClass[p.type]||'lt-other') + '">' + esc(typeLabel[p.type]||p.type) + '</span>'
+          +   '<span style="font-weight:800;color:#15803d">' + moneyDisplay(p.amount) + ' ج.م</span>'
+          +   '<span class="muted" style="font-size:11px">(' + esc(p.date) + ')</span>'
+          +   (p.note ? '<span style="font-size:11px;color:var(--muted)">- ' + esc(p.note) + '</span>' : '')
+          + '</div>'
+          + '<button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px" data-del-pay="' + p.id + '" title="حذف هذه الدفعة">🗑️</button>'
+          + '</div>';
+      });
+    }
+    paymentsHTML += '</div></div>';
+  }
+
   const html = '<div class="profile-card">'
     + '<div class="profile-avatar-wrap">' + avatarHTML + '</div>'
     + '<div class="profile-name">' + esc(student.name) + '</div>'
@@ -2764,6 +3625,7 @@ function openStudentProfile(student, lesson){
     + '</div>'
     + (contactsHTML ? '<div class="profile-section"><div class="profile-sec-title">📞 معلومات الاتصال</div>' + contactsHTML + '</div>' : '')
     + (personalHTML ? '<div class="profile-section"><div class="profile-sec-title">👤 البيانات الشخصية</div>' + personalHTML + '</div>' : '')
+    + paymentsHTML
     + notesHTML
     + '</div>'
     + '<div class="modal-actions">'
@@ -2777,6 +3639,27 @@ function openStudentProfile(student, lesson){
     closeModal();
     studentForm(lesson, student);
   };
+
+  const addPayBtn = $('#prof_add_payment');
+  if(addPayBtn){
+    addPayBtn.onclick = () => {
+      closeModal();
+      openAddPaymentModal(student, lesson);
+    };
+  }
+  $$('#modalBody [data-del-pay]').forEach(btn => {
+    btn.onclick = (e) => {
+      const payId = e.currentTarget.dataset.delPay;
+      if(!confirm('هل أنت متأكد من حذف هذه الدفعة؟')) return;
+      student.payments = (student.payments || []).filter(x => x.id !== payId);
+      const newTotal = (student.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+      if(lesson.price > 0) student.paid = (newTotal >= lesson.price);
+      saveState();
+      renderLessonDetail();
+      openStudentProfile(student, lesson);
+      showToastMessage('تم حذف الدفعة.');
+    };
+  });
 }
 
 function studentForm(lesson, student){
@@ -3100,6 +3983,33 @@ function bindEvents(){
   $('#editLessonBtn').onclick = () => { const L = curLesson(); if(L) lessonForm(L); };
   $('#exportLessonBtn').onclick = () => { const L = curLesson(); if(L) exportLesson(L); };
   $('#archiveLessonBtn').onclick = () => { const L = curLesson(); if(L) archiveLessonMonth(L); };
+
+  /* v30: تبويبات الحضور والاختبارات */
+  if($('#subtabAttendance')) $('#subtabAttendance').onclick = () => { currentLessonSubtab = 'attendance'; renderLessonDetail(); };
+  if($('#subtabExams')) $('#subtabExams').onclick = () => { currentLessonSubtab = 'exams'; renderLessonDetail(); };
+
+  /* v30: التحديد المتعدد */
+  if($('#bulkSelectBtn')) $('#bulkSelectBtn').onclick = () => {
+    isBulkSelecting = !isBulkSelecting;
+    if(!isBulkSelecting) selectedStudentIds.clear();
+    renderLessonDetail();
+  };
+  if($('#bulkCancelBtn')) $('#bulkCancelBtn').onclick = () => {
+    isBulkSelecting = false;
+    selectedStudentIds.clear();
+    renderLessonDetail();
+  };
+  if($('#bulkMoveBtn')) $('#bulkMoveBtn').onclick = () => { const L = curLesson(); if(L) bulkMoveStudentsModal(L, false); };
+  if($('#bulkCopyBtn')) $('#bulkCopyBtn').onclick = () => { const L = curLesson(); if(L) bulkMoveStudentsModal(L, true); };
+
+  /* v30: المراسلة التسلسلية وإضافة الاختبار والنسخ السحابي */
+  if($('#seqMsgBtn')) $('#seqMsgBtn').onclick = () => { const L = curLesson(); if(L) openSequentialMessagingModal(L); };
+  if($('#addExamBtn')) $('#addExamBtn').onclick = () => { const L = curLesson(); if(L) addExamModal(L, null); };
+  if($('#cloudShareBtn')) $('#cloudShareBtn').onclick = cloudShareBackup;
+  if($('#tgBackupBtn')) $('#tgBackupBtn').onclick = telegramBackup;
+  if($('#set_tgBotToken')) $('#set_tgBotToken').addEventListener('change', (e) => { state.settings.tgBotToken = e.target.value.trim(); saveState(); });
+  if($('#set_tgChatId')) $('#set_tgChatId').addEventListener('change', (e) => { state.settings.tgChatId = e.target.value.trim(); saveState(); });
+  if($('#openAnalyticsBtn')) $('#openAnalyticsBtn').onclick = openAnalyticsModal;
 
   $('#weeklyMsgBtn').onclick = weeklyMessage;
   $('#monthlyMsgBtn').onclick = () => { const L = curLesson(); if(L) monthlyReportMessage(L); };
@@ -3454,6 +4364,33 @@ function bindEvents(){
         saveState(); after();
       }
     }
+    else if(act === 'bulk-attendance'){
+      const L = curLesson();
+      const s = L && L.sessions.find(x => x.id === id);
+      if(L && s) openBulkAttendanceModal(L, s);
+    }
+    else if(act === 'open-payments'){
+      const L = curLesson();
+      const st = L && L.students.find(x => x.id === id);
+      if(L && st) openStudentProfile(st, L);
+    }
+    else if(act === 'edit-exam'){
+      const L = curLesson();
+      const ex = L && (L.exams||[]).find(x => x.id === id);
+      if(L && ex) addExamModal(L, ex);
+    }
+    else if(act === 'del-exam'){
+      const L = curLesson();
+      const ex = L && (L.exams||[]).find(x => x.id === id);
+      if(L && ex && window.confirm('حذف «' + ex.name + '» وكل درجات الطلاب فيه؟')){
+        L.exams = L.exams.filter(x => x.id !== id);
+        if(L.examScores){
+          Object.keys(L.examScores).forEach(sid => { delete L.examScores[sid][id]; });
+        }
+        saveState();
+        renderExamsTable(L);
+      }
+    }
     else if(act === 'open-archive'){ renderArchiveDetail(parseInt(idx,10)); }
     else if(act === 'analytics'){
       const a = state.archive[parseInt(idx,10)];
@@ -3627,6 +4564,56 @@ function bindEvents(){
       } else {
         renderLessonDetail();
       }
+    }
+    else if(e.target.id === 'bulkSelectAll'){
+      const L = curLesson();
+      if(!L) return;
+      if(e.target.checked){
+        L.students.forEach(st => selectedStudentIds.add(st.id));
+      } else {
+        selectedStudentIds.clear();
+      }
+      renderLessonDetail();
+    }
+    else if(e.target.matches('.bulk-student-check')){
+      const sid = e.target.dataset.id;
+      if(e.target.checked){
+        selectedStudentIds.add(sid);
+      } else {
+        selectedStudentIds.delete(sid);
+      }
+      const cntEl = $('#bulkSelectedCount');
+      if(cntEl) cntEl.textContent = selectedStudentIds.size;
+      const allChk = $('#bulkSelectAll');
+      const L = curLesson();
+      if(allChk && L){
+        allChk.checked = L.students.length > 0 && L.students.every(st => selectedStudentIds.has(st.id));
+      }
+    }
+    else if(e.target.matches('.exam-input')){
+      const L = curLesson();
+      if(!L) return;
+      const sid = e.target.dataset.sid;
+      const eid = e.target.dataset.eid;
+      const ex = (L.exams||[]).find(x => x.id === eid);
+      const val = e.target.value.trim();
+
+      if(!L.examScores) L.examScores = {};
+      if(!L.examScores[sid]) L.examScores[sid] = {};
+
+      if(val === '' || isNaN(Number(val))){
+        delete L.examScores[sid][eid];
+      } else {
+        let num = Number(val);
+        if(ex && ex.maxScore > 0){
+          if(num < 0) num = 0;
+          if(num > ex.maxScore) num = ex.maxScore;
+        }
+        L.examScores[sid][eid] = num;
+        e.target.value = num;
+      }
+      saveState();
+      renderExamsTable(L);
     }
   });
 

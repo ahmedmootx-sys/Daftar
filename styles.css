@@ -570,3 +570,93 @@ th.col-drop-target-right{border-right:3px solid var(--primary)!important}
   padding:3px 7px;font-size:11px;font-weight:700;cursor:pointer;
 }
 .status-edit-row .btn-move:disabled{opacity:.3;cursor:default}
+
+/* ===== v30: لوحة المؤشرات (Dashboard) ===== */
+.dashboard-card{
+  background:linear-gradient(135deg,#f8faff 0%,#eef2ff 100%);
+  border:1px solid #c7d2fe;border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:16px;box-shadow:0 2px 8px rgba(46,58,135,.06);
+}
+.dash-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.dash-title{font-size:14px;font-weight:800;color:var(--primary);display:flex;align-items:center;gap:6px}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.dash-metric{
+  background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px;
+  text-align:center;position:relative;box-shadow:0 1px 3px rgba(0,0,0,.03);
+}
+.dash-val{font-size:18px;font-weight:800;color:var(--primary);line-height:1.2}
+.dash-lbl{font-size:11px;font-weight:700;color:var(--muted);margin-top:4px}
+.dash-today-list{margin-top:10px;padding-top:10px;border-top:1px dashed #c7d2fe;font-size:12px}
+.dash-today-item{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #c7d2fe;border-radius:6px;padding:3px 8px;margin:2px 4px 2px 0;font-weight:700}
+.dash-chart-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+.dash-chart-title{font-size:13px;font-weight:800;color:var(--primary);margin-bottom:8px}
+
+/* ===== v30: تبويبات الدرس الفرعية (حضور / درجات) ===== */
+.lesson-subtabs{display:flex;gap:6px;margin-bottom:12px;border-bottom:2px solid var(--border);padding-bottom:6px}
+.subtab-btn{
+  background:#f1f5f9;border:1px solid var(--border);border-radius:8px;
+  padding:6px 14px;font-size:13px;font-weight:800;cursor:pointer;color:var(--muted);transition:.15s;
+}
+.subtab-btn:hover{color:var(--text);background:#e2e8f0}
+.subtab-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+/* ===== v30: درجات الاختبارات ===== */
+.exams-view{margin-top:10px}
+.exams-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap}
+.exam-input{
+  width:50px;text-align:center;font-weight:800;border:1px solid var(--border);
+  border-radius:6px;padding:3px 2px;font-size:12px;font-family:inherit;
+}
+.exam-input:focus{outline:2px solid var(--primary-light);border-color:var(--primary)}
+.exam-pct{font-size:10px;font-weight:700;color:var(--muted);display:block;margin-top:2px}
+.exam-max-badge{display:block;font-size:9px;color:var(--muted);font-weight:700}
+
+/* ===== v30: التحديد المتعدد وشريط الإجراءات الجماعية ===== */
+.bulk-select-cell{width:32px;text-align:center}
+.bulk-select-cell input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--primary)}
+.bulk-action-bar{
+  position:sticky;bottom:12px;z-index:65;
+  background:rgba(255,255,255,.96);backdrop-filter:blur(8px);
+  border:2px solid var(--primary);border-radius:14px;padding:10px 16px;
+  box-shadow:0 8px 30px rgba(46,58,135,.25);display:flex;justify-content:space-between;
+  align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;animation:slideUp .2s ease;
+}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.bulk-info{font-size:13px;font-weight:800;color:var(--primary)}
+.bulk-btns{display:flex;gap:8px;align-items:center}
+
+/* ===== v30: شارات وسجل مدفوعات الطالب ===== */
+.pay-pill{
+  display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;
+  border-radius:999px;padding:2px 7px;white-space:nowrap;margin-top:3px;cursor:pointer;
+}
+.pay-pill-full{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.pay-pill-part{background:#ffedd5;color:#9a3412;border:1px solid #fed7aa}
+.pay-pill-none{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+.payments-ledger{margin-top:10px}
+.ledger-item{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;
+  margin-bottom:6px;font-size:12px;
+}
+.ledger-meta{display:flex;gap:6px;align-items:center}
+.ledger-type{font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px}
+.lt-sub{background:#e0e7ff;color:#3730a3}
+.lt-book{background:#fef3c7;color:#92400e}
+.lt-other{background:#f1f5f9;color:#475569}
+.pay-summary-box{
+  background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;
+  border-radius:10px;padding:10px 12px;margin-top:8px;font-size:12px;
+}
+.ps-row{display:flex;justify-content:space-between;margin-bottom:4px;font-weight:700}
+.ps-row:last-child{margin-bottom:0;border-top:1px dashed #cbd5e1;padding-top:4px}
+
+/* ===== v30: المراسلة التسلسلية الذكية ===== */
+.seq-box{text-align:center;padding:12px 6px}
+.seq-progress-wrap{background:#e2e8f0;border-radius:999px;height:8px;overflow:hidden;margin:10px 0 16px}
+.seq-progress-bar{background:var(--primary);height:100%;width:0;transition:.25s ease}
+.seq-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.04);text-align:right}
+.seq-name{font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px}
+.seq-phone{font-size:12px;font-weight:700;color:var(--muted);direction:ltr;display:inline-block}
+.seq-preview{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;line-height:1.5;margin-top:10px;white-space:pre-wrap}
+

@@ -54,7 +54,9 @@
       <div id="todayBanner" class="today-banner" hidden></div>
       <div class="toolbar">
         <button id="addLessonBtn" class="btn">➕ درس جديد</button>
+        <button id="openAnalyticsBtn" class="btn btn-outline" title="شاشة التحليلات والرسوم البيانية">📊 الإحصائيات العامة</button>
       </div>
+      <div id="dashboardOverview" class="dashboard-card"></div>
       <div class="search-box">
         <input id="globalSearch" type="text" placeholder="🔍 بحث عن طالب في كل الدروس…">
         <div id="globalSearchResults" class="search-results"></div>
@@ -71,8 +73,14 @@
           <div class="lesson-income" id="lessonIncome"></div>
         </div>
       </div>
+      <div class="lesson-subtabs">
+        <button id="subtabAttendance" class="subtab-btn active">📅 جدول الحضور</button>
+        <button id="subtabExams" class="subtab-btn">📝 درجات الاختبارات</button>
+      </div>
       <div class="toolbar">
         <button id="addStudentBtn" class="btn btn-primary">➕ عضو جديد</button>
+        <button id="bulkSelectBtn" class="btn btn-outline" title="تحديد متعدد لنقل أو تكرار الطلاب">☑️ تحديد متعدد</button>
+        <button id="seqMsgBtn" class="btn btn-outline" title="مراسلة تسلسلية عبر واتساب">📲 مراسلة جماعية</button>
         <div class="toolbar-dropdown">
           <button class="btn btn-outline" id="reportsMenuBtn">📊 التقارير ▾</button>
           <div class="dropdown-menu" id="reportsMenu" hidden>
@@ -86,7 +94,7 @@
           <button class="btn btn-outline" id="manageMenuBtn">⚙️ إدارة ▾</button>
           <div class="dropdown-menu" id="manageMenu" hidden>
             <button id="addSessionBtn" class="dropdown-item">➕ حصة</button>
-            <button id="regenSessionsBtn"! class="dropdown-item">🔄 توليد الحصص</button>
+            <button id="regenSessionsBtn" class="dropdown-item">🔄 توليد الحصص</button>
             <button id="changeMonthBtn" class="dropdown-item">🗓️ تغيير الشهر</button>
             <button id="editLessonBtn" class="dropdown-item">✏️ تعديل الدرس</button>
             <button id="lessonStatusesBtn" class="dropdown-item">🏷️ حالات هذا الدرس</button>
@@ -101,15 +109,41 @@
         <input id="lessonSearch" type="text" placeholder="🔍 بحث داخل هذا الدرس…" class="lesson-search">
         <select id="groupFilter" class="group-filter" title="تصفية حسب المجموعة"></select>
       </div>
-      <div class="table-wrap">
+      <div id="attendanceWrap" class="table-wrap">
         <table id="attendanceTable">
           <thead id="tableHead"></thead>
           <tbody id="tableBody"></tbody>
           <tfoot id="tableFoot"></tfoot>
         </table>
       </div>
-      <div class="legend" id="statusLegend"></div>
-      <p class="hint">💡 اضغط على خلية الحالة لاختيارها. زر 📝 يفتح ملاحظة لهذا اليوم تحديداً (مثل سبب الغياب). اسحب الجدول يمين/يسار بالماوس لعرض كل الأسابيع، واكتب رقم ترتيب الطالب في البحث للوصول إليه مباشرة.</p>
+      <div id="attendanceLegend" class="legend"></div>
+      <p id="attendanceHint" class="hint">💡 اضغط على خلية الحالة لاختيارها. زر 📝 يفتح ملاحظة لهذا اليوم تحديداً. اضغط على رأس الحصة للتحضير السريع الجماعي.</p>
+
+      <!-- جدول درجات الاختبارات المستقل -->
+      <div id="examsView" class="exams-view" style="display:none">
+        <div class="exams-toolbar">
+          <button id="addExamBtn" class="btn btn-primary btn-sm">➕ إضافة اختبار جديد</button>
+          <div id="examsMeta" class="muted" style="font-size:12px;font-weight:700"></div>
+        </div>
+        <div class="table-wrap">
+          <table id="examsTable">
+            <thead id="examsHead"></thead>
+            <tbody id="examsBody"></tbody>
+            <tfoot id="examsFoot"></tfoot>
+          </table>
+        </div>
+        <p class="hint">💡 أدخل الدرجة مباشرة في خانة كل طالب، وتُحسب النسبة المئوية تلقائياً. تُدمج درجات الاختبارات أيضاً في تقرير الشهر ورسائل الواتساب.</p>
+      </div>
+
+      <!-- شريط الإجراءات الجماعية للتحديد المتعدد -->
+      <div id="bulkActionBar" class="bulk-action-bar" style="display:none">
+        <div class="bulk-info"><span id="bulkSelectedCount">0</span> طالب محدد</div>
+        <div class="bulk-btns">
+          <button id="bulkMoveBtn" class="btn btn-primary btn-sm">🔄 نقل إلى درس/مجموعة...</button>
+          <button id="bulkCopyBtn" class="btn btn-outline btn-sm">📋 نسخ إلى درس آخر...</button>
+          <button id="bulkCancelBtn" class="btn btn-outline btn-sm">إلغاء التحديد</button>
+        </div>
+      </div>
     </div>
 
   </section>
@@ -232,6 +266,30 @@
         <input id="encryptImportFile" type="file" accept="application/json,.json,.enc" hidden>
         <input id="importLessonFile" type="file" accept="application/json,.json" hidden>
         <input id="importArchiveFile" type="file" accept="application/json,.json" hidden>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>النسخ الاحتياطي السحابي (Google Drive / Telegram)</h3>
+      <p class="muted">احفظ بياناتك في السحاب للرجوع إليها في أي وقت ومن أي جهاز وحمايتها من الضياع.</p>
+      <div class="row-actions" style="margin-bottom:12px">
+        <button id="cloudShareBtn" class="btn btn-primary">📲 مشاركة سريعة (Google Drive / تطبيقات)</button>
+      </div>
+      <div style="border-top:1px dashed var(--border);padding-top:12px;margin-top:8px">
+        <div style="font-size:13px;font-weight:800;color:var(--primary);margin-bottom:4px">🤖 النسخ التلقائي إلى تيليجرام (Telegram Bot)</div>
+        <p class="muted" style="font-size:12px;margin-bottom:8px">يرسل ملف النسخة الاحتياطية كاملاً ومشفراً لمحادثتك على تيليجرام كأرشيف سحابي دائم مجاني.</p>
+        <div class="grid2">
+          <label>Bot Token
+            <input id="set_tgBotToken" type="password" placeholder="123456:ABC-DEF..." dir="ltr">
+          </label>
+          <label>Chat ID
+            <input id="set_tgChatId" type="text" placeholder="مثال: 987654321" dir="ltr">
+          </label>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
+          <button id="tgBackupBtn" class="btn btn-outline btn-sm">🚀 إرسال نسخة إلى تيليجرام الآن</button>
+          <span id="tgStatus" class="muted" style="font-size:12px;font-weight:700"></span>
+        </div>
       </div>
     </div>
   </section>
