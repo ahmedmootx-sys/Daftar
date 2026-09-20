@@ -660,3 +660,15 @@ th.col-drop-target-right{border-right:3px solid var(--primary)!important}
 .seq-phone{font-size:12px;font-weight:700;color:var(--muted);direction:ltr;display:inline-block}
 .seq-preview{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;line-height:1.5;margin-top:10px;white-space:pre-wrap}
 
+/* ===== v30: إعادة الضبط (Reset) ===== */
+.danger-card{border:1px solid #fecaca;background:linear-gradient(135deg,#fff,#fef2f2)}
+.reset-box{text-align:right}
+.reset-options-list{display:flex;flex-direction:column;gap:12px}
+.reset-opt-card{
+  background:#fff;border:1px solid var(--border);border-radius:12px;
+  padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.03);
+}
+.reset-opt-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.reset-opt-title{font-size:14px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px}
+.reset-opt-desc{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6}
+

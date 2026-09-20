@@ -42,7 +42,8 @@ const CHANGELOG = {
     '📝 جدول درجات الاختبارات المستقل: رصد درجات الامتحانات والواجبات في جدول مخصص ومدمج في تقارير الشهر والواتساب',
     '📊 لوحة المؤشرات والتحليلات: نظرة سريعة في الرئيسية لإجمالي الطلاب والحصص ونسب الحضور مع رسوم بيانية ومقارنات',
     '☑️ التحديد المتعدد ونقل الطلاب: تحديد عدة طلاب ونقلهم أو تكرارهم بين المجموعات والدروس مع خيار ترحيل سجل الحضور',
-    '☁️ النسخ الاحتياطي السحابي الهجين: مشاركة سريعة عبر Google Drive وتطبيقات الهاتف، وإرسال تلقائي لمحادثة تيليجرام'
+    '☁️ النسخ الاحتياطي السحابي الهجين: مشاركة سريعة عبر Google Drive وتطبيقات الهاتف، وإرسال تلقائي لمحادثة تيليجرام',
+    '🔄 إعادة الضبط والبدء من جديد: تصفير كلمة سر الدخل، أو تفريغ درس محدد، أو استرجاع الإعدادات، أو تصفير شامل مع رسائل تأكيد لحماية البيانات'
   ],
   v29: [
     '👤 ملف الطالب (Profile): بطاقة شخصية متكاملة للطالب بصورته ومهنته/وظيفته وعنوانه وعمره وإيميله وملاحظاته الخاصة وإحصائيات حضوره',
@@ -252,6 +253,7 @@ function defaultStatuses(){
   ];
 }
 function nowMonth(){ return { monthNumber: new Date().getMonth()+1, year: new Date().getFullYear() }; }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 function defaultState(){
   const m = nowMonth();
@@ -1412,10 +1414,10 @@ function bulkMoveStudentsModal(lesson, isCopy){
 async function cloudShareBackup(){
   const json = JSON.stringify(state, null, 2);
   const fn = 'daftar-backup-' + todayStr() + '.json';
-  const file = new File([json], fn, { type: 'application/json' });
 
-  if(navigator.canShare && navigator.canShare({ files: [file] })){
-    try {
+  try {
+    const file = new File([json], fn, { type: 'application/json' });
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
       await navigator.share({
         files: [file],
         title: 'نسخة احتياطية - تطبيق دفتر',
@@ -1423,12 +1425,14 @@ async function cloudShareBackup(){
       });
       showToastMessage('✅ تمت المشاركة السحابية بنجاح.');
       return;
-    } catch(err) {
-      if(err.name === 'AbortError') return;
     }
+  } catch(err) {
+    if(err.name === 'AbortError') return;
   }
-  // Fallback: download
+
+  // Fallback: تنزيل الملف للجهاز مع إشعار للمستخدم
   downloadBlob(json, fn, 'application/json');
+  showToastMessage('⬇️ تم تنزيل النسخة الاحتياطية. يمكنك رفعها لـ Google Drive أو حفظها.');
 }
 
 async function telegramBackup(){
@@ -1437,22 +1441,22 @@ async function telegramBackup(){
   const statusEl = $('#tgStatus');
 
   if(!token || !chatId){
-    alert('يرجى كتابة Bot Token و Chat ID الخاصين بك على تيليجرام أولاً من خانات الإعدادات.');
+    alert('يرجى كتابة Bot Token و Chat ID الخاصين بك على تيليجرام أولاً من خانات الإعدادات بالأسفل.');
     return;
   }
 
   if(statusEl) statusEl.textContent = '⏳ جاري إرسال النسخة إلى تيليجرام...';
 
+  const json = JSON.stringify(state, null, 2);
+  const fn = 'daftar-backup-' + todayStr() + '.json';
+  const blob = new Blob([json], { type: 'application/json' });
+
+  const fd = new FormData();
+  fd.append('chat_id', chatId);
+  fd.append('caption', '📦 نسخة احتياطية سحابية من تطبيق دفتر\n📅 التاريخ: ' + todayStr() + '\n📚 عدد الدروس: ' + state.lessons.length);
+  fd.append('document', blob, fn);
+
   try {
-    const json = JSON.stringify(state, null, 2);
-    const fn = 'daftar-backup-' + todayStr() + '.json';
-    const blob = new Blob([json], { type: 'application/json' });
-
-    const fd = new FormData();
-    fd.append('chat_id', chatId);
-    fd.append('caption', '📦 نسخة احتياطية سحابية من تطبيق دفتر\n📅 التاريخ: ' + todayStr() + '\n📚 عدد الدروس: ' + state.lessons.length);
-    fd.append('document', blob, fn);
-
     const res = await fetch('https://api.telegram.org/bot' + token + '/sendDocument', {
       method: 'POST',
       body: fd
@@ -1462,14 +1466,186 @@ async function telegramBackup(){
     if(data.ok){
       if(statusEl) statusEl.textContent = '✅ تم الإرسال بنجاح!';
       showToastMessage('✅ تم إرسال النسخة الاحتياطية لمحادثتك على تيليجرام!');
+      return;
     } else {
       if(statusEl) statusEl.textContent = '❌ خطأ: ' + (data.description || 'فشل الإرسال');
-      alert('فشل الإرسال: ' + (data.description || 'تأكد من صحة التوكن والـ Chat ID وبدء المحادثة مع البوت أولاً'));
+      alert('فشل الإرسال: ' + (data.description || 'تأكد من صحة التوكن والـ Chat ID وبدء المحادثة مع البوت أولاً (/start)'));
+      return;
     }
   } catch(err) {
-    if(statusEl) statusEl.textContent = '❌ تعذر الاتصال بتيليجرام';
-    alert('تعذر الاتصال بخوادم تيليجرام. تأكد من اتصالك بالإنترنت.');
+    // تعذر الاتصال المباشر (غالباً بسبب حجب مزود الخدمة المحلي لـ api.telegram.org في مصر)
+    if(statusEl) statusEl.textContent = '❌ تعذر الاتصال المباشر بتيليجرام';
+
+    const modalBody = '<div style="padding:6px">'
+      + '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:12px;margin-bottom:14px;color:#991b1b;font-size:13px;line-height:1.6">'
+      +   '<b>⚠️ تعذر الاتصال المباشر بخوادم تيليجرام:</b><br>'
+      +   'مزودو خدمة الإنترنت في بعض الدول (مثل مصر) يحجبون الاتصال المباشر بـ <code>api.telegram.org</code> داخل المتصفحات.'
+      + '</div>'
+      + '<p style="font-size:13px;font-weight:700;margin-bottom:10px">💡 يمكنك حفظ النسخة بسهولة بإحدى الطريقتين التاليتين:</p>'
+      + '<div style="display:flex;flex-direction:column;gap:10px">'
+      +   '<button class="btn btn-primary" id="tg_alt_share">📲 مشاركة الملف مباشرة لتطبيق Telegram / Drive</button>'
+      +   '<button class="btn btn-outline" id="tg_alt_download">⬇️ تنزيل ملف النسخة لجهازك</button>'
+      + '</div>'
+      + '<div class="modal-actions" style="margin-top:14px">'
+      +   '<button class="btn btn-outline" id="tg_alt_close">إغلاق</button>'
+      + '</div>'
+      + '</div>';
+
+    openModal('🤖 النسخ الاحتياطي عبر تيليجرام', modalBody);
+    $('#tg_alt_close').onclick = closeModal;
+    $('#tg_alt_download').onclick = () => {
+      closeModal();
+      downloadBlob(json, fn, 'application/json');
+    };
+    $('#tg_alt_share').onclick = () => {
+      closeModal();
+      cloudShareBackup();
+    };
   }
+}
+
+/* ---------- 7. إعادة الضبط والبدء من جديد (Reset) ---------- */
+function openResetModal(){
+  const lessons = state.lessons || [];
+
+  let optionsHTML = '<div class="reset-box">'
+    + '<p style="font-size:13px;color:var(--text);margin-bottom:16px;line-height:1.6">'
+    +   'اختر نوع إعادة الضبط المطلوب. لن يتم مسح أي شيء إلا بعد إعطائك رسالة تأكيد واضحة:'
+    + '</p>'
+    + '<div class="reset-options-list">'
+
+    // 1. ريست كلمة سر الدخل
+    + '<div class="reset-opt-card">'
+    +   '<div class="reset-opt-head">'
+    +     '<div class="reset-opt-title">🔑 تصفير كلمة سر قسم الدخل والأمان</div>'
+    +     '<button class="btn btn-sm btn-outline" id="btnResetPassword">تصفير كلمة السر</button>'
+    +   '</div>'
+    +   '<div class="reset-opt-desc">يمحو كلمة سر الدخل الحالية وسؤال الأمان، ويعيد فتح قسم الدخل حتى تتمكن من تعيين كلمة سر جديدة، دون المساس بأي من الدروس أو الطلاب.</div>'
+    + '</div>'
+
+    // 2. ريست درس محدد
+    + '<div class="reset-opt-card">'
+    +   '<div class="reset-opt-title">📚 تصفير درس محدد بالكامل</div>'
+    +   '<div class="reset-opt-desc">يمحو طلاب الدرس وسجل حضورهم وغيابهم ودرجات الاختبارات وسجل المدفوعات، مع الإبقاء على اسم ومواعيد الدرس.</div>'
+    +   (lessons.length > 0
+          ? '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+            + '<select id="reset_target_lesson" style="flex:1;min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border)">'
+            +   lessons.map(l => '<option value="' + l.id + '">' + esc(l.name) + ' (' + (l.students ? l.students.length : 0) + ' طالب)</option>').join('')
+            + '</select>'
+            + '<button class="btn btn-sm btn-danger" id="btnResetLesson">تصفير الدرس المختار</button>'
+            + '</div>'
+          : '<p class="muted" style="font-size:12px;margin-top:6px">لا توجد دروس حالياً.</p>')
+    + '</div>'
+
+    // 3. ريست الإعدادات فقط
+    + '<div class="reset-opt-card">'
+    +   '<div class="reset-opt-head">'
+    +     '<div class="reset-opt-title">⚙️ إعادة ضبط الإعدادات فقط</div>'
+    +     '<button class="btn btn-sm btn-outline" id="btnResetSettings">استرجاع الإعدادات الافتراضية</button>'
+    +   '</div>'
+    +   '<div class="reset-opt-desc">يسترجع الحالات الافتراضية والألوان ومؤشرات الغياب وعناوين الأعمدة الأصلية، مع الحفاظ الكامل على كافة الدروس والطلاب والأرشيف.</div>'
+    + '</div>'
+
+    // 4. ريست شامل للتطبيق
+    + '<div class="reset-opt-card" style="border-color:#fca5a5;background:#fff5f5">'
+    +   '<div class="reset-opt-head">'
+    +     '<div class="reset-opt-title" style="color:#b91c1c">💥 إعادة ضبط المصنع الشاملة</div>'
+    +     '<button class="btn btn-sm btn-danger" id="btnResetAll">تصفير كل شيء</button>'
+    +   '</div>'
+    +   '<div class="reset-opt-desc" style="color:#7f1d1d">يمحو كل البيانات والدروس والأرشيف والإعدادات ويبدأ التطبيق من الصفر تماماً كما لو تم تثبيته لأول مرة.</div>'
+    + '</div>'
+
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:16px"><button class="btn btn-outline" id="reset_close">إغلاق</button></div>'
+    + '</div>';
+
+  openModal('⚠️ خيارات إعادة الضبط (Reset)', optionsHTML);
+  $('#reset_close').onclick = closeModal;
+
+  // 1. تصفير كلمة سر الدخل
+  $('#btnResetPassword').onclick = () => {
+    if(!state.moneyPasswordHash && !state.moneySecurityQ){
+      alert('قسم الدخل غير محمي بكلمة سر حالياً.');
+      return;
+    }
+    if(!confirm('هل أنت متأكد من تصفير كلمة سر قسم الدخل وسؤال الأمان؟ سيصبح قسم الدخل متاحاً دون كلمة سر.')) return;
+    state.moneyPasswordHash = '';
+    state.moneySecurityQ = '';
+    state.moneySecurityA = '';
+    moneyUnlocked = true;
+    saveState();
+    renderAll();
+    closeModal();
+    showToastMessage('✅ تم تصفير كلمة سر الدخل بنجاح.');
+  };
+
+  // 2. تصفير درس محدد
+  const btnResetL = $('#btnResetLesson');
+  if(btnResetL){
+    btnResetL.onclick = () => {
+      const lid = $('#reset_target_lesson').value;
+      const targetL = state.lessons.find(l => l.id === lid);
+      if(!targetL) return;
+
+      const studentCount = targetL.students ? targetL.students.length : 0;
+      const warnMsg = '⚠️ تحذير شديد الأهمية:\n'
+        + 'أنت على وشك تصفير درس «' + targetL.name + '».\n'
+        + 'سيتم حذف جميع الطلاب (' + studentCount + ' طالب)، وسجلات حضورهم وغيابهم، ودرجات الاختبارات، وسجل المدفوعات بالكامل!\n\n'
+        + 'هل تريد المتابعة وتفريغ هذا الدرس؟';
+
+      if(!confirm(warnMsg)) return;
+
+      const confirmText = prompt('لتأكيد تصفير درس «' + targetL.name + '»، اكتب كلمة (تأكيد):');
+      if(confirmText !== 'تأكيد' && confirmText !== 'تاكيد'){
+        alert('لم يتم التصفير لأنك لم تكتب كلمة التأكيد بشكل صحيح.');
+        return;
+      }
+
+      targetL.students = [];
+      targetL.records = {};
+      targetL.exams = [];
+      targetL.examScores = {};
+      fillSessions(targetL);
+
+      saveState();
+      renderAll();
+      closeModal();
+      showToastMessage('✅ تم تصفير درس «' + targetL.name + '» بنجاح.');
+    };
+  }
+
+  // 3. تصفير الإعدادات فقط
+  $('#btnResetSettings').onclick = () => {
+    if(!confirm('هل تريد استرجاع إعدادات التطبيق الافتراضية (الحالات، العناوين، مؤشرات الغياب)؟ لن يتم حذف أي دروس أو طلاب.')) return;
+    const def = defaultState();
+    state.settings.statuses = def.settings.statuses;
+    state.settings.attendanceIndicators = def.settings.attendanceIndicators;
+    state.settings.customFields = [];
+    state.settings.appTitle = def.settings.appTitle;
+    state.settings.monthTitleTemplate = def.settings.monthTitleTemplate;
+    state.settings.studentLabel = def.settings.studentLabel;
+    state.settings.notesLabel = def.settings.notesLabel;
+    saveState();
+    renderAll();
+    closeModal();
+    showToastMessage('✅ تم استرجاع الإعدادات الافتراضية بنجاح.');
+  };
+
+  // 4. تصفير شامل
+  $('#btnResetAll').onclick = () => {
+    const promptAns = prompt('⚠️ تنبيه نهائي: سيتم محو كل البيانات في تطبيق دفتر بالكامل والبدء من الصفر.\n\nلتأكيد مسح كافة البيانات، اكتب كلمة (تأكيد):');
+    if(promptAns !== 'تأكيد' && promptAns !== 'تاكيد'){
+      alert('تم إلغاء التصفير الشامل.');
+      return;
+    }
+    state = defaultState();
+    currentLessonId = null;
+    moneyUnlocked = false;
+    saveState();
+    renderAll();
+    closeModal();
+    showToastMessage('🔄 تم تصفير كافة بيانات التطبيق بالكامل.');
+  };
 }
 
 function renderLessonDetail(){
@@ -1643,8 +1819,9 @@ function renderLessonDetail(){
        +     (st.phone ? '<a class="mini-btn mini-call" href="tel:' + esc(st.phone) + '">📞 اتصال</a>' : '')
        +     (st.phone ? '<button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'">واتساب</button>' : '')
        +     '<button class="mini-btn mini-wa" data-act="student-summary" data-id="'+st.id+'" title="ملخص حضور الطالب وإرساله له">📤 ملخص</button>'
-       +     '<button class="mini-btn mini-edit" data-act="edit-student" data-id="'+st.id+'">✏️</button>'
-       +     '<button class="mini-btn mini-del" data-act="del-student" data-id="'+st.id+'">🗑️</button>'
+       +     (L.subscription ? '<button class="mini-btn" data-act="open-payments" data-id="'+st.id+'" title="سجل مدفوعات ومصروفات الطالب">💰 المصروفات</button>' : '')
+       +     '<button class="mini-btn mini-edit" data-act="edit-student" data-id="'+st.id+'" title="تعديل بيانات الطالب">✏️</button>'
+       +     '<button class="mini-btn mini-del" data-act="del-student" data-id="'+st.id+'" title="حذف الطالب">🗑️</button>'
        +   '</div>'
        +   payPillHTML
        +   (L.subscription ? '<label class="paid-toggle"><input type="checkbox" data-act="paid" data-id="'+st.id+'"'+(st.paid?' checked':'')+'> دفع كامل الاشتراك</label>' : '')
@@ -4010,6 +4187,7 @@ function bindEvents(){
   if($('#set_tgBotToken')) $('#set_tgBotToken').addEventListener('change', (e) => { state.settings.tgBotToken = e.target.value.trim(); saveState(); });
   if($('#set_tgChatId')) $('#set_tgChatId').addEventListener('change', (e) => { state.settings.tgChatId = e.target.value.trim(); saveState(); });
   if($('#openAnalyticsBtn')) $('#openAnalyticsBtn').onclick = openAnalyticsModal;
+  if($('#openResetBtn')) $('#openResetBtn').onclick = openResetModal;
 
   $('#weeklyMsgBtn').onclick = weeklyMessage;
   $('#monthlyMsgBtn').onclick = () => { const L = curLesson(); if(L) monthlyReportMessage(L); };
