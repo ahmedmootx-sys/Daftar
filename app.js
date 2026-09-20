@@ -10,6 +10,7 @@ const STORAGE_KEY = '***';
 /* ---------- بيانات المسؤول الثابتة ---------- */
 const ADMIN_NAME = 'Ahmed Saber Sayed Hamed';
 const ADMIN_PHONE = '+20 12 83279337';
+const MASTER_RESET_CODE = '967925868934670272500351';
 const APP_NAME = 'Daftar';
 
 /* ---------- الحفظ التلقائي في ملف ---------- */
@@ -33,8 +34,13 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v30';
+const APP_VERSION = 'v31';
 const CHANGELOG = {
+  v31: [
+    '🎯 تخصيص تصدير تيليجرام: إمكانية اختيار تصدير النسخة الكاملة أو تحديد درس/دروس معينة قبل إرسال النسخة لمحادثة تيليجرام',
+    '🖼️ إرفاق الصور في المراسلة الجماعية: إرفاق بوستر أو صورة امتحان مع الرسائل المتتابعة ومشاركتها ونسخها بسهولة لواتساب',
+    '🛡️ حماية تصفير كلمة سر الدخل: اشتراط إدخال كود التفعيل المعتمد (المقدم من المطور) لتصفير كلمة المرور لحماية البيانات المالية'
+  ],
   v30: [
     '⚡ التحضير السريع الجماعي: تعيين حالة لجميع طلاب الحصة بنقرة واحدة (تحضير الكل / تغييب الكل / اعتذار / تفريغ)',
     '📲 المراسلة التسلسلية الذكية: إرسال رسائل فردية سريعة ومتتابعة للغائبين أو لجميع الطلاب عبر واتساب بقوالب مخصصة',
@@ -173,6 +179,31 @@ function waHref(phone, text){
     return 'https://api.whatsapp.com/send?phone=' + num + (text ? '&text=' + encodeURIComponent(text) : '');
   }
   return 'https://wa.me/' + num + (text ? '?text=' + encodeURIComponent(text) : '');
+}
+
+/* نسخ الصورة إلى حافظة المتصفح للصق المباشر في واتساب */
+async function copyImageToClipboard(imgObj){
+  if(!imgObj || !navigator.clipboard || !window.ClipboardItem) return false;
+  try {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = imgObj.dataUrl;
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    if(!pngBlob) return false;
+    await navigator.clipboard.write([
+      new ClipboardItem({ 'image/png': pngBlob })
+    ]);
+    return true;
+  } catch(e) {
+    console.warn('Clipboard image copy failed:', e);
+    return false;
+  }
 }
 function b64(buf){ return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))); }
 function unb64(s){ const bin = atob(s); const a = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) a[i]=bin.charCodeAt(i); return a; }
@@ -640,21 +671,80 @@ async function setupMoneyPassword(){
 
 async function forgotMoneyPassword(){
   if(!state.moneySecurityQ || !state.moneySecurityA){
-    alert('لم يتم إعداد سؤال أمان، فلا يمكن استرجاع كلمة السر تلقائياً.');
+    openResetPasswordAuthModal();
     return;
   }
   openModal('🔑 استرجاع كلمة السر',
     '<p class="muted">سؤال الأمان: <b>' + esc(state.moneySecurityQ) + '</b></p>'
     + '<div class="form-row"><label>إجابتك<input id="mp_ans" type="text"></label></div>'
+    + '<div style="margin:10px 0;text-align:center"><button class="btn btn-outline btn-sm" id="mp_use_master" type="button">🔑 ناسي الإجابة؟ تصفير عبر كود تفعيل المطور</button></div>'
     + '<div class="modal-actions"><button class="btn" id="mp_verify">تحقق</button><button class="btn btn-outline" id="mp_cancel">إلغاء</button></div>');
-  const ans = await new Promise(resolve => {
-    $('#mp_verify').onclick = () => { const v = $('#mp_ans').value; closeModal(); resolve(v); };
+  const action = await new Promise(resolve => {
+    $('#mp_verify').onclick = () => { const v = $('#mp_ans').value; closeModal(); resolve({ type:'verify', val:v }); };
+    $('#mp_use_master').onclick = () => { closeModal(); resolve({ type:'master' }); };
     $('#mp_cancel').onclick = () => { closeModal(); resolve(null); };
   });
-  if(ans == null) return;
-  const h = await sha256Hex(normalizeForSearch(ans));
+  if(!action) return;
+  if(action.type === 'master'){
+    openResetPasswordAuthModal();
+    return;
+  }
+  const h = await sha256Hex(normalizeForSearch(action.val));
   if(h !== state.moneySecurityA){ alert('الإجابة غير صحيحة.'); return; }
   await setNewMoneyPassword();
+}
+
+/* تصفير كلمة سر قسم الدخل عبر كود التفعيل المعتمد من المطور */
+function openResetPasswordAuthModal(){
+  if(!state.moneyPasswordHash && !state.moneySecurityQ){
+    alert('قسم الدخل غير محمي بكلمة سر حالياً.');
+    return;
+  }
+  const modalHTML = '<div class="reset-box" style="line-height:1.6;text-align:right">'
+    + '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px;color:#1e40af;font-size:13px">'
+    +   '<b>🛡️ حماية مشددة لسجلات الدخل والأمان:</b><br>'
+    +   'لحماية خصوصية الإيرادات وسجلات المصروفات، لا يمكن تصفير أو استرجاع كلمة السر وسؤال الأمان إلا بإدخال <b>كود إعادة التفعيل المعتمد</b>.'
+    + '</div>'
+    + '<div style="background:#fefce8;border:1px solid #fef08a;border-radius:10px;padding:12px;margin-bottom:14px;color:#854d0e;font-size:12px">'
+    +   '📞 <b>للحصول على كود التفعيل:</b><br>'
+    +   'يرجى التواصل مباشرة مع المطور <b>' + esc(ADMIN_NAME) + '</b> على الرقم:<br>'
+    +   '<span style="direction:ltr;display:inline-block;font-weight:800;font-size:14px;color:#1e293b;margin:4px 0">' + ADMIN_PHONE + '</span><br>'
+    +   '<a href="https://wa.me/' + digits(ADMIN_PHONE) + '?text=' + encodeURIComponent('مرحباً، أود الحصول على كود إعادة تفعيل وتصفير كلمة سر قسم الدخل في تطبيق دفتر.') + '" target="_blank" rel="noopener" class="btn btn-sm btn-whatsapp" style="margin-top:6px;display:inline-flex;align-items:center;gap:6px">'
+    +     '💬 مراسلة المطور عبر واتساب للحصول على الكود'
+    +   '</a>'
+    + '</div>'
+    + '<div class="form-row">'
+    +   '<label style="font-weight:800;font-size:13px">أدخل كود إعادة التفعيل المعتمد (24 رقماً):'
+    +     '<input id="reset_master_code_input" type="text" placeholder="مثال: 967925868934670272500351" style="direction:ltr;text-align:center;font-family:monospace;letter-spacing:1.5px;font-size:15px;margin-top:6px" autocomplete="off">'
+    +   '</label>'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:16px">'
+    +   '<button class="btn btn-danger" id="btn_do_master_reset">تأكيد وتصفير كلمة السر 🔓</button>'
+    +   '<button class="btn btn-outline" id="btn_cancel_master_reset">إلغاء</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('🔑 تصفير كلمة سر قسم الدخل والأمان', modalHTML);
+  $('#btn_cancel_master_reset').onclick = closeModal;
+  $('#btn_do_master_reset').onclick = () => {
+    const entered = ($('#reset_master_code_input').value || '').trim().replace(/[\s\-]+/g, '');
+    if(!entered){
+      alert('يرجى كتابة كود التفعيل أولاً.');
+      return;
+    }
+    if(entered !== MASTER_RESET_CODE){
+      alert('❌ كود إعادة التفعيل غير صحيح!\nيرجى التأكد من الكود المكتوب أو التواصل مع المطور على الرقم الموضح (' + ADMIN_PHONE + ') للحصول على كود التفعيل المعتمد.');
+      return;
+    }
+    state.moneyPasswordHash = '';
+    state.moneySecurityQ = '';
+    state.moneySecurityA = '';
+    moneyUnlocked = true;
+    saveState();
+    renderAll();
+    closeModal();
+    showToastMessage('✅ تم تصفير كلمة سر الدخل وسؤال الأمان بنجاح عبر كود التفعيل.');
+  };
 }
 
 async function setNewMoneyPassword(){
@@ -999,12 +1089,61 @@ function openSequentialMessagingModal(lesson){
     + '</div>'
     + '<div class="form-row"><label>نص قالب الرسالة (المتغيرات: {name}، {lesson}، {date}، {group})'
     + '<textarea id="seq_tmpl" rows="4" dir="rtl"></textarea></label></div>'
+    + '<div class="form-row" style="margin-top:8px"><label>🖼️ إرفاق صورة مع الرسالة (اختياري - مثلاً: بوستر امتحان، جدول، تنبيه)'
+    + '<input type="file" id="seq_img_input" accept="image/*" style="margin-top:6px;display:block;width:100%">'
+    + '</label>'
+    + '<div id="seq_img_preview" style="display:none;margin-top:8px;padding:8px 10px;background:var(--bg-card);border:1px dashed var(--border);border-radius:8px;align-items:center;gap:10px">'
+    +   '<img id="seq_img_thumb" src="" style="width:50px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">'
+    +   '<div style="flex:1;min-width:0;text-align:right">'
+    +     '<div id="seq_img_name" style="font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>'
+    +     '<div id="seq_img_size" class="muted" style="font-size:11px"></div>'
+    +   '</div>'
+    +   '<button type="button" class="btn btn-sm btn-outline btn-danger" id="seq_img_remove">❌ إزالة</button>'
+    + '</div>'
+    + '</div>'
     + '<div class="modal-actions">'
     +   '<button class="btn btn-whatsapp" id="seq_start">بدء الإرسال المتتابع 🚀</button>'
     +   '<button class="btn btn-outline" id="seq_close">إلغاء</button>'
     + '</div>';
 
   openModal('📲 مراسلة جماعية مخصصة', html);
+
+  let attachedImage = null;
+  const imgInput = $('#seq_img_input');
+  const imgPreview = $('#seq_img_preview');
+  const imgThumb = $('#seq_img_thumb');
+  const imgName = $('#seq_img_name');
+  const imgSize = $('#seq_img_size');
+  const imgRemove = $('#seq_img_remove');
+
+  if(imgInput){
+    imgInput.onchange = (e) => {
+      const file = e.target.files && e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        attachedImage = {
+          file: file,
+          dataUrl: ev.target.result,
+          name: file.name,
+          size: file.size,
+          type: file.type
+        };
+        if(imgThumb) imgThumb.src = attachedImage.dataUrl;
+        if(imgName) imgName.textContent = file.name;
+        if(imgSize) imgSize.textContent = Math.round(file.size / 1024) + ' KB';
+        if(imgPreview) imgPreview.style.display = 'flex';
+      };
+      reader.readAsDataURL(file);
+    };
+  }
+  if(imgRemove){
+    imgRemove.onclick = () => {
+      attachedImage = null;
+      if(imgInput) imgInput.value = '';
+      if(imgPreview) imgPreview.style.display = 'none';
+    };
+  }
 
   const defaultTemplates = {
     absent: 'السلام عليكم ورحمة الله وبركاته،\nنحيطكم علماً بغياب الطالب/ة {name} عن حصة {lesson} بتاريخ {date}.\nنرجو الاطمئنان ومتابعة ما فاته.',
@@ -1074,11 +1213,11 @@ function openSequentialMessagingModal(lesson){
       return;
     }
 
-    startSequentialQueue(queue, waType);
+    startSequentialQueue(queue, waType, attachedImage);
   };
 }
 
-function startSequentialQueue(queue, waType){
+function startSequentialQueue(queue, waType, attachedImage){
   let currIdx = 0;
 
   function renderStep(){
@@ -1097,6 +1236,25 @@ function startSequentialQueue(queue, waType){
     const item = queue[currIdx];
     const pct = Math.round(((currIdx + 1) / queue.length) * 100);
 
+    let imageCardHTML = '';
+    if(attachedImage){
+      imageCardHTML = '<div class="seq-img-card" style="margin-top:10px;padding:8px 10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;display:flex;align-items:center;gap:10px;text-align:right">'
+        + '<img src="' + attachedImage.dataUrl + '" style="width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid #94a3b8;cursor:pointer" id="seq_step_img_thumb" title="انقر لمعاينة الصورة">'
+        + '<div style="flex:1;min-width:0">'
+        +   '<div style="font-size:12px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🖼️ ' + esc(attachedImage.name) + '</div>'
+        +   '<div style="font-size:11px;color:#64748b;margin-top:2px">جاهزة للمشاركة أو اللصق في شات الطالب</div>'
+        + '</div>'
+        + '<div style="display:flex;gap:4px">'
+        +   '<button class="btn btn-outline btn-sm" id="seq_copy_img_btn" style="font-size:11px;padding:3px 8px" title="نسخ الصورة للحافظة">📋 نسخ الصورة</button>'
+        + '</div>'
+        + '</div>'
+        + '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 10px;margin-top:8px;font-size:11px;color:#166534;line-height:1.4">'
+        +   '💡 <b>طريقة إرسال الصورة:</b> عند فتح المحادثة، اضغط مباشرة على <b>لصق (Ctrl+V)</b> لإرفاق الصورة فوراً مع النص، أو استخدم زر المشاركة المباشرة للهواتف.'
+        + '</div>';
+    }
+
+    const canNativeShare = !!(attachedImage && navigator.share && navigator.canShare && navigator.canShare({ files: [attachedImage.file] }));
+
     const html = '<div class="seq-box">'
       + '<div style="font-size:13px;font-weight:800;color:var(--primary);display:flex;justify-content:space-between">'
       +   '<span>الرسالة رقم ' + (currIdx + 1) + ' من ' + queue.length + '</span>'
@@ -1107,12 +1265,14 @@ function startSequentialQueue(queue, waType){
       +   '<div class="seq-name">' + esc(item.targetLabel) + '</div>'
       +   '<div class="seq-phone">📱 ' + esc(localPhone(item.phone)) + '</div>'
       +   '<div class="seq-preview">' + esc(item.text) + '</div>'
+      +   imageCardHTML
       + '</div>'
       + '<div class="modal-actions" style="justify-content:space-between;flex-wrap:wrap;gap:8px">'
-      +   '<div style="display:flex;gap:6px">'
+      +   '<div style="display:flex;gap:6px;flex-wrap:wrap">'
       +     (currIdx > 0 ? '<button class="btn btn-outline btn-sm" id="seq_prev">⏪ السابق</button>' : '')
       +     '<button class="btn btn-outline btn-sm" id="seq_skip">تخطي ⏭️</button>'
-      +     '<button class="btn btn-outline btn-sm" id="seq_copy_text">📋 نسخ</button>'
+      +     '<button class="btn btn-outline btn-sm" id="seq_copy_text">📋 نسخ النص</button>'
+      +     (canNativeShare ? '<button class="btn btn-whatsapp btn-sm" id="seq_native_share">📲 مشاركة الصورة والنص</button>' : '')
       +   '</div>'
       +   '<div style="display:flex;gap:6px">'
       +     '<button class="btn btn-whatsapp" id="seq_send_next">🚀 إرسال لواتساب والتالي ⏩</button>'
@@ -1127,6 +1287,37 @@ function startSequentialQueue(queue, waType){
     $('#seq_skip').onclick = () => { currIdx++; renderStep(); };
     $('#seq_stop').onclick = closeModal;
 
+    if($('#seq_copy_img_btn')){
+      $('#seq_copy_img_btn').onclick = async () => {
+        const ok = await copyImageToClipboard(attachedImage);
+        if(ok) showToastMessage('✅ تم نسخ الصورة للحافظة! يمكنك الآن لصقها (Ctrl+V) في شات واتساب.');
+        else showToastMessage('⚠️ تعذر نسخ الصورة للحافظة في هذا المتصفح. يمكنك إرفاقها من الزائد في واتساب.');
+      };
+    }
+    if($('#seq_step_img_thumb')){
+      $('#seq_step_img_thumb').onclick = () => {
+        const w = window.open('');
+        if(w){
+          w.document.write('<body style="margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;height:100vh"><img src="' + attachedImage.dataUrl + '" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px"></body>');
+        }
+      };
+    }
+    if($('#seq_native_share')){
+      $('#seq_native_share').onclick = () => {
+        if(navigator.share){
+          navigator.share({
+            files: [attachedImage.file],
+            title: item.targetLabel,
+            text: item.text
+          }).then(() => {
+            showToastMessage('✅ تم فتح المشاركة بنجاح');
+            currIdx++;
+            renderStep();
+          }).catch(()=>{});
+        }
+      };
+    }
+
     $('#seq_copy_text').onclick = () => {
       if(navigator.clipboard && navigator.clipboard.writeText){
         navigator.clipboard.writeText(item.text).then(() => showToastMessage('تم نسخ نص الرسالة'));
@@ -1134,11 +1325,13 @@ function startSequentialQueue(queue, waType){
     };
 
     $('#seq_send_next').onclick = () => {
-      const url = waHrefNumber(item.phone, item.text, waType);
-      window.open(url, '_blank', 'noopener');
-      if(navigator.clipboard && navigator.clipboard.writeText){
+      if(attachedImage){
+        copyImageToClipboard(attachedImage).catch(()=>{});
+      } else if(navigator.clipboard && navigator.clipboard.writeText){
         navigator.clipboard.writeText(item.text).catch(()=>{});
       }
+      const url = waHrefNumber(item.phone, item.text, waType);
+      window.open(url, '_blank', 'noopener');
       currIdx++;
       renderStep();
     };
@@ -1445,15 +1638,130 @@ async function telegramBackup(){
     return;
   }
 
+  const lessons = state.lessons || [];
+  const totalStudents = lessons.reduce((sum, l) => sum + (l.students ? l.students.length : 0), 0);
+
+  let modalHTML = '<div class="reset-box" style="line-height:1.6;text-align:right">'
+    + '<p style="font-size:13px;color:var(--text);margin-bottom:14px">'
+    +   'حدد البيانات التي ترغب في تصديرها وإرسالها إلى محادثتك على تيليجرام:'
+    + '</p>'
+    + '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">'
+    +   '<label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px">'
+    +     '<input type="radio" name="tg_scope" value="all" checked id="tg_scope_all" style="margin-top:3px">'
+    +     '<div>'
+    +       '<div style="font-weight:800;font-size:13px;color:var(--text)">📦 النسخة الكاملة للتطبيق</div>'
+    +       '<div class="muted" style="font-size:11px;margin-top:2px">تشمل كل الدروس (' + lessons.length + ')، وجميع الطلاب (' + totalStudents + ')، والأرشيف، والإعدادات.</div>'
+    +     '</div>'
+    +   '</label>'
+    +   '<label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px">'
+    +     '<input type="radio" name="tg_scope" value="selected" id="tg_scope_selected" style="margin-top:3px">'
+    +     '<div>'
+    +       '<div style="font-weight:800;font-size:13px;color:var(--text)">📚 تحديد درس أو دروس معينة فقط</div>'
+    +       '<div class="muted" style="font-size:11px;margin-top:2px">اختر درساً محدداً أو عدة دروس لتصديرها كملف مستقل دون باقي البيانات.</div>'
+    +     '</div>'
+    +   '</label>'
+    + '</div>'
+    + '<div id="tg_lessons_picker" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:14px">'
+    +   (lessons.length === 0
+          ? '<p class="muted" style="font-size:12px;margin:0">لا توجد دروس حالياً للاختيار منها.</p>'
+          : '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+            + '<span style="font-size:12px;font-weight:800">قائمة الدروس:</span>'
+            + '<div style="display:flex;gap:6px">'
+            +   '<button type="button" class="btn btn-sm btn-outline" id="tg_btn_select_all" style="font-size:11px;padding:2px 8px">تحديد الكل</button>'
+            +   '<button type="button" class="btn btn-sm btn-outline" id="tg_btn_deselect_all" style="font-size:11px;padding:2px 8px">إلغاء التحديد</button>'
+            + '</div>'
+            + '</div>'
+            + '<div style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">'
+            +   lessons.map(l => '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:#fff;border:1px solid var(--border);cursor:pointer">'
+                + '<input type="checkbox" class="tg-lesson-cb" value="' + l.id + '" checked>'
+                + '<span style="font-size:12px;font-weight:700">' + esc(l.name) + ' <small class="muted">(' + (l.students ? l.students.length : 0) + ' طالب · ' + (l.sessions ? l.sessions.length : 0) + ' حصة)</small></span>'
+                + '</label>').join('')
+            + '</div>')
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:16px">'
+    +   '<button class="btn btn-primary" id="tg_btn_proceed">🚀 إرسال النسخة المحددة إلى تيليجرام</button>'
+    +   '<button class="btn btn-outline" id="tg_btn_cancel">إلغاء</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('🤖 تصدير نسخة إلى تيليجرام', modalHTML);
+
+  const scopeAll = $('#tg_scope_all');
+  const scopeSel = $('#tg_scope_selected');
+  const picker = $('#tg_lessons_picker');
+
+  function updatePickerVis(){
+    if(picker) picker.style.display = (scopeSel && scopeSel.checked) ? 'block' : 'none';
+  }
+  if(scopeAll) scopeAll.onchange = updatePickerVis;
+  if(scopeSel) scopeSel.onchange = updatePickerVis;
+
+  if($('#tg_btn_select_all')){
+    $('#tg_btn_select_all').onclick = () => {
+      $$('.tg-lesson-cb').forEach(cb => { cb.checked = true; });
+    };
+  }
+  if($('#tg_btn_deselect_all')){
+    $('#tg_btn_deselect_all').onclick = () => {
+      $$('.tg-lesson-cb').forEach(cb => { cb.checked = false; });
+    };
+  }
+  $('#tg_btn_cancel').onclick = closeModal;
+
+  $('#tg_btn_proceed').onclick = () => {
+    const isSelected = scopeSel && scopeSel.checked;
+    let exportData, fn, caption;
+
+    if(isSelected){
+      const checkedIds = $$('.tg-lesson-cb:checked').map(cb => cb.value);
+      if(checkedIds.length === 0){
+        alert('يرجى تحديد درس واحد على الأقل لتصديره إلى تيليجرام.');
+        return;
+      }
+      const selectedLessons = lessons.filter(l => checkedIds.includes(l.id));
+      exportData = {
+        type: 'daftar_lessons_export',
+        version: state.version || 6,
+        exportedAt: new Date().toISOString(),
+        lessons: selectedLessons,
+        settings: state.settings
+      };
+      if(selectedLessons.length === 1){
+        const singleL = selectedLessons[0];
+        const safeName = (singleL.name || 'lesson').replace(/[\s\/\\:?*"<>|]+/g, '_');
+        fn = 'daftar-lesson-' + safeName + '-' + todayStr() + '.json';
+        caption = '📦 نسخة درس من تطبيق دفتر: ' + singleL.name
+          + '\n📅 التاريخ: ' + todayStr()
+          + '\n👥 عدد الطلاب: ' + (singleL.students ? singleL.students.length : 0)
+          + '\n🗓️ عدد الحصص: ' + (singleL.sessions ? singleL.sessions.length : 0);
+      } else {
+        fn = 'daftar-' + selectedLessons.length + '-lessons-' + todayStr() + '.json';
+        caption = '📦 نسخة دروس مختارة من تطبيق دفتر (' + selectedLessons.length + ' دروس)'
+          + '\n📅 التاريخ: ' + todayStr()
+          + '\n📚 الدروس: ' + selectedLessons.map(l => l.name).join('، ');
+      }
+    } else {
+      exportData = state;
+      fn = 'daftar-backup-' + todayStr() + '.json';
+      caption = '📦 نسخة احتياطية كاملة من تطبيق دفتر'
+        + '\n📅 التاريخ: ' + todayStr()
+        + '\n📚 عدد الدروس: ' + lessons.length
+        + '\n👥 إجمالي الطلاب: ' + totalStudents;
+    }
+
+    closeModal();
+    executeTelegramUpload(token, chatId, JSON.stringify(exportData, null, 2), fn, caption);
+  };
+}
+
+async function executeTelegramUpload(token, chatId, json, fn, caption){
+  const statusEl = $('#tgStatus');
   if(statusEl) statusEl.textContent = '⏳ جاري إرسال النسخة إلى تيليجرام...';
 
-  const json = JSON.stringify(state, null, 2);
-  const fn = 'daftar-backup-' + todayStr() + '.json';
   const blob = new Blob([json], { type: 'application/json' });
-
   const fd = new FormData();
   fd.append('chat_id', chatId);
-  fd.append('caption', '📦 نسخة احتياطية سحابية من تطبيق دفتر\n📅 التاريخ: ' + todayStr() + '\n📚 عدد الدروس: ' + state.lessons.length);
+  fd.append('caption', caption);
   fd.append('document', blob, fn);
 
   try {
@@ -1465,7 +1773,7 @@ async function telegramBackup(){
 
     if(data.ok){
       if(statusEl) statusEl.textContent = '✅ تم الإرسال بنجاح!';
-      showToastMessage('✅ تم إرسال النسخة الاحتياطية لمحادثتك على تيليجرام!');
+      showToastMessage('✅ تم إرسال النسخة المحددة لمحادثتك على تيليجرام بنجاح!');
       return;
     } else {
       if(statusEl) statusEl.textContent = '❌ خطأ: ' + (data.description || 'فشل الإرسال');
@@ -1473,18 +1781,17 @@ async function telegramBackup(){
       return;
     }
   } catch(err) {
-    // تعذر الاتصال المباشر (غالباً بسبب حجب مزود الخدمة المحلي لـ api.telegram.org في مصر)
     if(statusEl) statusEl.textContent = '❌ تعذر الاتصال المباشر بتيليجرام';
 
-    const modalBody = '<div style="padding:6px">'
+    const modalBody = '<div style="padding:6px;text-align:right">'
       + '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:12px;margin-bottom:14px;color:#991b1b;font-size:13px;line-height:1.6">'
       +   '<b>⚠️ تعذر الاتصال المباشر بخوادم تيليجرام:</b><br>'
       +   'مزودو خدمة الإنترنت في بعض الدول (مثل مصر) يحجبون الاتصال المباشر بـ <code>api.telegram.org</code> داخل المتصفحات.'
       + '</div>'
-      + '<p style="font-size:13px;font-weight:700;margin-bottom:10px">💡 يمكنك حفظ النسخة بسهولة بإحدى الطريقتين التاليتين:</p>'
+      + '<p style="font-size:13px;font-weight:700;margin-bottom:10px">💡 يمكنك حفظ النسخة المحددة بسهولة بإحدى الطريقتين التاليتين:</p>'
       + '<div style="display:flex;flex-direction:column;gap:10px">'
       +   '<button class="btn btn-primary" id="tg_alt_share">📲 مشاركة الملف مباشرة لتطبيق Telegram / Drive</button>'
-      +   '<button class="btn btn-outline" id="tg_alt_download">⬇️ تنزيل ملف النسخة لجهازك</button>'
+      +   '<button class="btn btn-outline" id="tg_alt_download">⬇️ تنزيل ملف النسخة لجهازك (' + esc(fn) + ')</button>'
       + '</div>'
       + '<div class="modal-actions" style="margin-top:14px">'
       +   '<button class="btn btn-outline" id="tg_alt_close">إغلاق</button>'
@@ -1499,7 +1806,16 @@ async function telegramBackup(){
     };
     $('#tg_alt_share').onclick = () => {
       closeModal();
-      cloudShareBackup();
+      if(navigator.share && navigator.canShare){
+        try {
+          const shareFile = new File([blob], fn, { type: 'application/json' });
+          navigator.share({ files: [shareFile], title: 'نسخة دفتر الاحتياطية', text: caption }).catch(()=>{});
+        } catch(e){
+          downloadBlob(json, fn, 'application/json');
+        }
+      } else {
+        downloadBlob(json, fn, 'application/json');
+      }
     };
   }
 }
@@ -1520,7 +1836,7 @@ function openResetModal(){
     +     '<div class="reset-opt-title">🔑 تصفير كلمة سر قسم الدخل والأمان</div>'
     +     '<button class="btn btn-sm btn-outline" id="btnResetPassword">تصفير كلمة السر</button>'
     +   '</div>'
-    +   '<div class="reset-opt-desc">يمحو كلمة سر الدخل الحالية وسؤال الأمان، ويعيد فتح قسم الدخل حتى تتمكن من تعيين كلمة سر جديدة، دون المساس بأي من الدروس أو الطلاب.</div>'
+    +   '<div class="reset-opt-desc">يتطلب إدخال كود التفعيل المعتمد (من المطور) لمحو كلمة سر الدخل الحالية وسؤال الأمان، دون المساس بأي من الدروس أو الطلاب.</div>'
     + '</div>'
 
     // 2. ريست درس محدد
@@ -1568,15 +1884,7 @@ function openResetModal(){
       alert('قسم الدخل غير محمي بكلمة سر حالياً.');
       return;
     }
-    if(!confirm('هل أنت متأكد من تصفير كلمة سر قسم الدخل وسؤال الأمان؟ سيصبح قسم الدخل متاحاً دون كلمة سر.')) return;
-    state.moneyPasswordHash = '';
-    state.moneySecurityQ = '';
-    state.moneySecurityA = '';
-    moneyUnlocked = true;
-    saveState();
-    renderAll();
-    closeModal();
-    showToastMessage('✅ تم تصفير كلمة سر الدخل بنجاح.');
+    openResetPasswordAuthModal();
   };
 
   // 2. تصفير درس محدد
