@@ -37,8 +37,10 @@ const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
 const APP_VERSION = 'v32';
 const CHANGELOG = {
   v32: [
-    '🚫 منع تكرار الطلاب وتأكيد النقل: منع نسخ أو نقل أي طالب إلى درس مسجل به مسبقاً مع رسالة تأكيد تفصيلية توضح عدد الطلاب والأسماء المكررة المتخطاة',
-    '🎯 تخصيص واختيار الطلاب في المراسلة الجماعية: إمكانية اختيار طلاب محددين يدوياً (حاضرين / غائبين / من مجموعات مختلفة) والمراسلة من الدروس الحالية أو الشهور المؤرشفة'
+    '🚫 منع تكرار الطلاب وتأكيد النقل: فحص مسبق للأسماء لمنع تكرار أو نقل أي طالب مسجل مسبقاً في الدرس المستهدف مع رسالة تأكيد تفصيلية توضح عدد الطلاب والأسماء المكررة المتخطاة قبل التنفيذ',
+    '📲 مراسلة جماعية مجمعة من عدة شهور ومصادر: إمكانية تحديد وإرسال الرسائل لطلاب من الشهر الحالي وشهور مؤرشفة معاً في جلسة إرسال متتابع واحدة مع منع تكرار المراسلة للطالب المشترك تلقائياً',
+    '📝 ضبط وتجاوب جدول درجات الاختبارات على الموبايل: إصلاح مشكلة كبر عمود اسم الطالب وثباته لتظهر خانات الدرجات والمتوسط بوضوح وسلاسة مع إمكانية التمرير الأفقي الحر على الهواتف',
+    '🎯 تخصيص واختيار الطلاب في المراسلة الجماعية: إمكانية تحديد الطلاب يدوياً باختيار فردي أو بأزرار سريعة (الحاضرون فقط، الغائبون فقط، تحديد الكل) مع البحث الفوري'
   ],
   v31: [
     '🎯 تخصيص تصدير تيليجرام: إمكانية اختيار تصدير النسخة الكاملة أو تحديد درس/دروس معينة قبل إرسال النسخة لمحادثة تيليجرام',
@@ -1072,6 +1074,7 @@ function openSequentialMessagingModal(initialSource){
       type: 'lesson',
       name: l.name,
       label: '📚 درس: ' + l.name + ' (الشهر الحالي ' + l.monthNumber + '/' + l.year + ')',
+      studentCount: (l.students || []).length,
       raw: l
     });
   });
@@ -1081,6 +1084,7 @@ function openSequentialMessagingModal(initialSource){
       type: 'archive',
       name: a.lessonName,
       label: '🗄️ أرشيف: ' + a.lessonName + ' (شهر ' + a.monthNumber + '/' + a.year + ')',
+      studentCount: archiveStudents(a).length,
       raw: a,
       archIdx: idx
     });
@@ -1106,10 +1110,22 @@ function openSequentialMessagingModal(initialSource){
     }
   }
 
-  let html = '<div class="form-row"><label>📚 مصدر الطلاب (الدرس الحالي أو شهر مؤرشف):'
-    + '<select id="seq_source_select">'
-    +   sources.map(s => '<option value="' + s.id + '" ' + (s.id === defaultSourceId ? 'selected' : '') + '>' + esc(s.label) + '</option>').join('')
-    + '</select></label></div>'
+  let html = '<div class="form-row" style="margin-bottom:10px">'
+    +   '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:4px">'
+    +     '<label style="font-weight:800;font-size:12.5px;color:var(--text);margin:0">📚 مصادر الطلاب (حدد درساً حالياً و/أو شهوراً مؤرشفة معاً):</label>'
+    +     '<span id="seq_sources_summary" style="font-size:11px;font-weight:700;color:var(--primary);background:var(--primary-light);padding:2px 8px;border-radius:6px">1 مصدر محدد</span>'
+    +   '</div>'
+    +   '<div id="seq_sources_box" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:6px 8px;max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">'
+    +     sources.map(s => {
+            const isDef = (s.id === defaultSourceId);
+            return '<label class="seq-source-item" style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#fff;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px">'
+              + '<input type="checkbox" class="seq-source-cb" value="' + s.id + '" ' + (isDef ? 'checked' : '') + ' style="cursor:pointer;accent-color:var(--primary);width:16px;height:16px">'
+              + '<span style="flex:1;min-width:0;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(s.label) + '</span>'
+              + '<span style="font-size:10.5px;color:var(--muted);flex-shrink:0">(' + s.studentCount + ' طالب)</span>'
+              + '</label>';
+          }).join('')
+    +   '</div>'
+    + '</div>'
     + '<div class="form-row"><label>الجمهور المستهدف:'
     + '<select id="seq_audience"></select>'
     + '</label></div>'
@@ -1213,64 +1229,122 @@ function openSequentialMessagingModal(initialSource){
   };
 
   const tmplArea = $('#seq_tmpl');
-  tmplArea.value = defaultTemplates.absent;
+  tmplArea.value = defaultTemplates.all;
 
-  let curSourceData = null;
+  let curCombinedStudents = [];
 
-  function loadSelectedSource(){
-    const sId = $('#seq_source_select').value;
-    const found = sources.find(s => s.id === sId) || sources[0];
-    const isArch = found.type === 'archive';
-    const raw = found.raw;
+  function loadSelectedSources(){
+    const checkedBoxes = $$('.seq-source-cb:checked');
+    const checkedSourceIds = checkedBoxes.map(cb => cb.value);
+    const summaryEl = $('#seq_sources_summary');
+    if(summaryEl){
+      summaryEl.textContent = checkedSourceIds.length + ' مصدر محدد';
+    }
 
-    const name = isArch ? raw.lessonName : raw.name;
-    const students = isArch ? archiveStudents(raw) : (raw.students || []);
-    const sessions = raw.sessions || [];
-    const records = raw.records || {};
-    const parentL = isArch ? state.lessons.find(x => x.id === raw.lessonId) : raw;
-    const groups = (parentL && parentL.groups) || [];
-    const past = pastSessions(sessions);
-    const lastSession = past.length ? past[past.length - 1] : (sessions[0] || null);
+    if(checkedSourceIds.length === 0){
+      curCombinedStudents = [];
+      const audSel = $('#seq_audience');
+      if(audSel) audSel.innerHTML = '<option value="all">لا توجد مصادر محددة</option>';
+      renderStudentList();
+      return;
+    }
 
-    curSourceData = {
-      isArchive: isArch,
-      name,
-      students,
-      sessions,
-      records,
-      groups,
-      lastSession
-    };
+    const selectedSources = sources.filter(s => checkedSourceIds.includes(s.id));
+    const combined = [];
+
+    selectedSources.forEach(src => {
+      const raw = src.raw;
+      const isArch = src.type === 'archive';
+      const lessonName = isArch ? raw.lessonName : raw.name;
+      const students = isArch ? archiveStudents(raw) : (raw.students || []);
+      const sessions = raw.sessions || [];
+      const records = raw.records || {};
+      const parentL = isArch ? state.lessons.find(x => x.id === raw.lessonId) : raw;
+      const groups = (parentL && parentL.groups) || [];
+      const past = pastSessions(sessions);
+      const lastSession = past.length ? past[past.length - 1] : (sessions[0] || null);
+      const srcTag = isArch ? ('أرشيف ' + raw.monthNumber + '/' + raw.year) : 'الحالي';
+
+      students.forEach(st => {
+        const normName = normalizeForSearch(st.name || '');
+        const p1 = digits(st.phone || '');
+        const p2 = digits(st.guardianPhone || '');
+
+        let existing = combined.find(item => {
+          if(st.id && item.student.id === st.id) return true;
+          if(normName && normalizeForSearch(item.student.name || '') === normName){
+            if(p1 && (digits(item.student.phone || '') === p1 || digits(item.student.guardianPhone || '') === p1)) return true;
+            if(p2 && (digits(item.student.phone || '') === p2 || digits(item.student.guardianPhone || '') === p2)) return true;
+            if(!p1 && !p2) return true;
+          }
+          return false;
+        });
+
+        const rec = (lastSession && records[st.id] && records[st.id][lastSession.id]) || {};
+        const stStatus = rec.status || 'none';
+        const grp = groups.find(g => g.id === st.groupId);
+
+        if(existing){
+          if(!existing.sourceTags.includes(srcTag)){
+            existing.sourceTags.push(srcTag);
+          }
+          if(!existing.student.phone && st.phone) existing.student.phone = st.phone;
+          if(!existing.student.guardianPhone && st.guardianPhone) existing.student.guardianPhone = st.guardianPhone;
+          if(stStatus !== 'none' && existing.status === 'none'){
+            existing.status = stStatus;
+            existing.lastSession = lastSession;
+            existing.lessonName = lessonName;
+          }
+          if(!existing.groupName && grp){
+            existing.groupId = st.groupId;
+            existing.groupName = grp.name;
+          }
+        } else {
+          combined.push({
+            uniqueId: 'comb_' + combined.length + '_' + (st.id || uid('st')),
+            student: Object.assign({}, st),
+            status: stStatus,
+            sourceTags: [srcTag],
+            lastSession: lastSession,
+            lessonName: lessonName,
+            groupId: st.groupId,
+            groupName: grp ? grp.name : ''
+          });
+        }
+      });
+    });
+
+    curCombinedStudents = combined;
 
     const audSel = $('#seq_audience');
-    let audOpts = '<option value="custom">🎯 تحديد يدوي مخصص لطلاب معينين (اختيار فردي)</option>'
-      + '<option value="all">جميع طلاب هذا الدرس / الشهر (' + students.length + ' طالب)</option>';
-    if(lastSession){
-      audOpts += '<option value="absent" selected>الطلاب الغائبون فقط (في ' + esc(lastSession.label) + ')</option>'
-        + '<option value="attended">الطلاب الحاضرون فقط (في ' + esc(lastSession.label) + ')</option>';
-    }
-    groups.forEach(g => {
-      audOpts += '<option value="group_' + g.id + '">مجموعة: ' + esc(g.name) + '</option>';
+    let audOpts = '<option value="all" selected>جميع الطلاب المحددين (' + combined.length + ' طالب)</option>'
+      + '<option value="custom">🎯 تحديد يدوي مخصص (اختيار فردي)</option>'
+      + '<option value="absent">الطلاب الغائبون فقط</option>'
+      + '<option value="attended">الطلاب الحاضرون فقط</option>';
+
+    const allGroups = [];
+    combined.forEach(c => {
+      if(c.groupName && !allGroups.includes(c.groupName)){
+        allGroups.push(c.groupName);
+      }
     });
+    allGroups.forEach(gName => {
+      audOpts += '<option value="grp_' + esc(gName) + '">مجموعة: ' + esc(gName) + '</option>';
+    });
+
     audSel.innerHTML = audOpts;
-    audSel.value = 'absent';
-    tmplArea.value = defaultTemplates.absent;
+    audSel.value = 'all';
+    tmplArea.value = defaultTemplates.all;
 
     renderStudentList();
   }
 
   function renderStudentList(){
-    if(!curSourceData) return;
-    const students = curSourceData.students;
-    const records = curSourceData.records;
-    const lastSession = curSourceData.lastSession;
-    const groups = curSourceData.groups;
-
     const listEl = $('#seq_students_list');
     if(!listEl) return;
 
-    if(students.length === 0){
-      listEl.innerHTML = '<p class="muted" style="font-size:12px;text-align:center;margin:10px 0">لا يوجد طلاب مسجلين في هذا الدرس / الشهر.</p>';
+    if(curCombinedStudents.length === 0){
+      listEl.innerHTML = '<p class="muted" style="font-size:12px;text-align:center;margin:10px 0">يرجى تحديد مصدر واحد على الأقل من القائمة أعلاه لعرض الطلاب.</p>';
       updateCountBadge();
       return;
     }
@@ -1278,32 +1352,40 @@ function openSequentialMessagingModal(initialSource){
     const aud = $('#seq_audience').value;
 
     let itemsHTML = '';
-    students.forEach(st => {
-      const rec = (lastSession && records[st.id] && records[st.id][lastSession.id]) || {};
-      const stStatus = rec.status || 'none';
+    curCombinedStudents.forEach(item => {
+      const st = item.student;
+      const stStatus = item.status;
       let statusBadge = '';
-      if(stStatus === 'st_done') statusBadge = '<span style="font-size:10px;background:#dcfce7;color:#166534;padding:1px 6px;border-radius:4px;font-weight:700">🟢 حاضر</span>';
-      else if(stStatus === 'st_noanswer') statusBadge = '<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:4px;font-weight:700">🔴 غائب</span>';
-      else if(stStatus === 'st_apology') statusBadge = '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-weight:700">🟡 اعتذار</span>';
-      else statusBadge = '<span style="font-size:10px;background:#f1f5f9;color:#475569;padding:1px 6px;border-radius:4px">⚪ لم يسجل</span>';
+      if(stStatus === 'st_done') statusBadge = '<span style="font-size:10px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:4px;font-weight:700">🟢 حاضر</span>';
+      else if(stStatus === 'st_noanswer') statusBadge = '<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:1px 5px;border-radius:4px;font-weight:700">🔴 غائب</span>';
+      else if(stStatus === 'st_apology') statusBadge = '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:4px;font-weight:700">🟡 اعتذار</span>';
+      else statusBadge = '<span style="font-size:10px;background:#f1f5f9;color:#475569;padding:1px 5px;border-radius:4px">⚪ لم يسجل</span>';
 
-      const grp = groups.find(g => g.id === st.groupId);
-      const groupBadge = grp ? '<span style="font-size:10px;background:#e0e7ff;color:#3730a3;padding:1px 5px;border-radius:4px;margin-right:4px">' + esc(grp.name) + '</span>' : '';
+      const groupBadge = item.groupName ? '<span style="font-size:10px;background:#e0e7ff;color:#3730a3;padding:1px 5px;border-radius:4px;margin-right:4px">' + esc(item.groupName) + '</span>' : '';
+
+      let sourceBadge = '';
+      if(item.sourceTags.length === 1){
+        const isCur = item.sourceTags[0] === 'الحالي';
+        sourceBadge = '<span style="font-size:9.5px;background:' + (isCur ? '#e0f2fe;color:#0369a1' : '#fef3c7;color:#92400e') + ';padding:1px 5px;border-radius:4px;margin-right:4px;font-weight:700">' + esc(item.sourceTags[0]) + '</span>';
+      } else {
+        sourceBadge = '<span style="font-size:9.5px;background:#dcfce7;color:#15803d;padding:1px 5px;border-radius:4px;margin-right:4px;font-weight:700" title="' + esc(item.sourceTags.join(' + ')) + '">مشترك (' + item.sourceTags.length + ')</span>';
+      }
 
       let checked = false;
       if(aud === 'all') checked = true;
       else if(aud === 'absent') checked = (stStatus === 'st_noanswer');
       else if(aud === 'attended') checked = (stStatus === 'st_done');
-      else if(aud.startsWith('group_')) checked = (st.groupId === aud.replace('group_', ''));
+      else if(aud.startsWith('grp_')) checked = (item.groupName === aud.replace('grp_', ''));
       else if(aud === 'custom') checked = true;
 
       const ph = st.phone || st.guardianPhone || '';
 
       itemsHTML += '<label class="seq-st-item" data-name="' + normalizeForSearch(st.name) + '" data-phone="' + digits(ph) + '" style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:8px;cursor:pointer">'
-        + '<input type="checkbox" class="seq-st-cb" value="' + st.id + '" data-status="' + stStatus + '" ' + (checked ? 'checked' : '') + ' style="cursor:pointer;accent-color:var(--primary)">'
+        + '<input type="checkbox" class="seq-st-cb" value="' + item.uniqueId + '" data-status="' + stStatus + '" ' + (checked ? 'checked' : '') + ' style="cursor:pointer;accent-color:var(--primary)">'
         + '<div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:6px">'
-        +   '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+        +   '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center">'
         +     '<span style="font-size:13px;font-weight:700;color:var(--text)">' + esc(st.name) + '</span>'
+        +     sourceBadge
         +     groupBadge
         +   '</div>'
         +   '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
@@ -1332,27 +1414,32 @@ function openSequentialMessagingModal(initialSource){
     }
   }
 
-  $('#seq_source_select').onchange = loadSelectedSource;
+  $$('.seq-source-cb').forEach(cb => {
+    cb.onchange = () => {
+      const checkedBoxes = $$('.seq-source-cb:checked');
+      if(checkedBoxes.length === 0){
+        cb.checked = true;
+        alert('يجب تحديد مصدر واحد على الأقل للمراسلة.');
+        return;
+      }
+      loadSelectedSources();
+    };
+  });
 
   $('#seq_audience').onchange = (e) => {
     const aud = e.target.value;
     if(defaultTemplates[aud]) tmplArea.value = defaultTemplates[aud];
-    else if(aud.startsWith('group_')) tmplArea.value = defaultTemplates.all;
-
-    const lastSession = curSourceData && curSourceData.lastSession;
-    const records = (curSourceData && curSourceData.records) || {};
-    const students = (curSourceData && curSourceData.students) || [];
+    else if(aud.startsWith('grp_')) tmplArea.value = defaultTemplates.all;
 
     $$('.seq-st-cb').forEach(cb => {
-      const sid = cb.value;
-      const st = students.find(x => x.id === sid);
-      const rec = (lastSession && records[sid] && records[sid][lastSession.id]) || {};
-      const stStatus = rec.status || 'none';
+      const uidVal = cb.value;
+      const item = curCombinedStudents.find(x => x.uniqueId === uidVal);
+      const stStatus = item ? item.status : 'none';
 
       if(aud === 'all') cb.checked = true;
       else if(aud === 'absent') cb.checked = (stStatus === 'st_noanswer');
       else if(aud === 'attended') cb.checked = (stStatus === 'st_done');
-      else if(aud.startsWith('group_')) cb.checked = (st && st.groupId === aud.replace('group_', ''));
+      else if(aud.startsWith('grp_')) cb.checked = (item && item.groupName === aud.replace('grp_', ''));
       else if(aud === 'custom') cb.checked = true;
     });
 
@@ -1407,30 +1494,31 @@ function openSequentialMessagingModal(initialSource){
   $('#seq_close').onclick = closeModal;
 
   $('#seq_start').onclick = () => {
-    if(!curSourceData) return;
+    if(curCombinedStudents.length === 0){
+      alert('لا توجد مصادر أو طلاب محددين للمراسلة.');
+      return;
+    }
     const tgt = $('#seq_target').value;
     const waType = $('#seq_wa_type').value;
     const tmpl = tmplArea.value.trim();
     if(!tmpl){ alert('يرجى كتابة نص الرسالة.'); return; }
 
-    const checkedIds = $$('.seq-st-cb:checked').map(cb => cb.value);
-    if(checkedIds.length === 0){
+    const checkedUids = $$('.seq-st-cb:checked').map(cb => cb.value);
+    if(checkedUids.length === 0){
       alert('يرجى تحديد طالب واحد على الأقل للمراسلة من القائمة.');
       return;
     }
 
-    const students = curSourceData.students.filter(st => checkedIds.includes(st.id));
-    const lastSession = curSourceData.lastSession;
-    const groups = curSourceData.groups;
+    const selectedItems = curCombinedStudents.filter(item => checkedUids.includes(item.uniqueId));
 
     let queue = [];
-    students.forEach(st => {
-      const g = groups.find(x => x.id === st.groupId);
+    selectedItems.forEach(item => {
+      const st = item.student;
       const text = tmpl
         .replace(/\{name\}/g, st.name)
-        .replace(/\{lesson\}/g, curSourceData.name)
-        .replace(/\{date\}/g, (lastSession && lastSession.dateLabel) || todayStr())
-        .replace(/\{group\}/g, g ? g.name : '');
+        .replace(/\{lesson\}/g, item.lessonName)
+        .replace(/\{date\}/g, (item.lastSession && item.lastSession.dateLabel) || todayStr())
+        .replace(/\{group\}/g, item.groupName || '');
 
       if(tgt === 'guardian'){
         const ph = st.guardianPhone || st.phone;
@@ -1451,7 +1539,7 @@ function openSequentialMessagingModal(initialSource){
     startSequentialQueue(queue, waType, attachedImage);
   };
 
-  loadSelectedSource();
+  loadSelectedSources();
 }
 
 function startSequentialQueue(queue, waType, attachedImage){

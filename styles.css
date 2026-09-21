@@ -154,6 +154,7 @@ main{padding:16px;max-width:1100px;margin:0 auto}
 .table-wrap{
   overflow-x:auto;background:var(--surface);border:1px solid var(--border);
   border-radius:var(--radius);box-shadow:var(--shadow);
+  -webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;
 }
 table{border-collapse:collapse;width:100%;min-width:660px}
 th,td{border:1px solid var(--border);padding:8px 10px;text-align:center;vertical-align:middle;font-size:14px}
@@ -611,6 +612,90 @@ th.col-drop-target-right{border-right:3px solid var(--primary)!important}
 .exam-pct{font-size:10px;font-weight:700;color:var(--muted);display:block;margin-top:2px}
 .exam-max-badge{display:block;font-size:9px;color:var(--muted);font-weight:700}
 
+/* إصلاح عرض جدول درجات الاختبارات واستجابته على الموبايل */
+#examsTable{
+  min-width:100%;
+  width:max-content;
+}
+#examsTable th.sticky-col,
+#examsTable td.sticky-col{
+  width:135px;
+  min-width:125px;
+  max-width:145px;
+  box-shadow:-2px 0 5px rgba(0,0,0,0.06);
+}
+#examsTable .student-cell{
+  min-width:125px;
+  max-width:145px;
+  padding:6px 8px;
+}
+#examsTable .student-name{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width:100%;
+}
+#examsTable .st-name-click{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  display:inline-block;
+  max-width:105px;
+  vertical-align:middle;
+}
+#examsTable th:not(.sticky-col),
+#examsTable td:not(.sticky-col){
+  min-width:85px;
+  width:90px;
+  padding:6px 4px;
+}
+#examsTable th:last-child,
+#examsTable td:last-child{
+  min-width:70px;
+  width:75px;
+}
+#examsTable tfoot td.sticky-col{
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+@media (max-width: 560px){
+  #examsTable th.sticky-col,
+  #examsTable td.sticky-col{
+    width:115px;
+    min-width:105px;
+    max-width:120px;
+    font-size:12px;
+    padding:6px 4px;
+  }
+  #examsTable .student-cell{
+    min-width:105px;
+    max-width:120px;
+  }
+  #examsTable .st-name-click{
+    max-width:80px;
+    font-size:12px;
+  }
+  #examsTable .student-num{
+    font-size:11px;
+  }
+  #examsTable th:not(.sticky-col),
+  #examsTable td:not(.sticky-col){
+    min-width:75px;
+    width:80px;
+    font-size:11px;
+    padding:4px 2px;
+  }
+  .exam-input{
+    width:42px;
+    font-size:11px;
+    padding:2px 1px;
+  }
+}
+
 /* ===== v30: التحديد المتعدد وشريط الإجراءات الجماعية ===== */
 .bulk-select-cell{width:32px;text-align:center}
 .bulk-select-cell input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--primary)}
@@ -677,8 +762,11 @@ th.col-drop-target-right{border-right:3px solid var(--primary)!important}
 .seq-img-card{transition:all .2s ease}
 .seq-img-card:hover{border-color:#94a3b8}
 
-/* ===== v32: اختيار الطلاب للمراسلة الجماعية ===== */
+/* ===== v32: اختيار الطلاب والمصادر للمراسلة الجماعية ===== */
 .seq-st-item:hover{border-color:var(--primary);background:#f8fafc}
 .seq-st-cb{cursor:pointer}
+.seq-source-item:hover{border-color:var(--primary);background:#f8fafc}
+.seq-source-cb{cursor:pointer}
+
 
 
