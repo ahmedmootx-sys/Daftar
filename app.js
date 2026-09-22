@@ -34,8 +34,12 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v32';
+const APP_VERSION = 'v33';
 const CHANGELOG = {
+  v33: [
+    '📊 إصلاح وتجاوب التقرير الشامل على الهواتف: ضبط أبعاد الأعمدة وثبات عمود اسم الطالب بدقة مع إمكانية التمرير الأفقي الحر لعرض كافة الشهور ونسب الحضور بوضوح',
+    '📲 تحسين بطاقات الطلاب في المراسلة الجماعية: إعادة تصميم بطاقة الطالب في قائمة المراسلة المخصصة لتظهر الاسم والمجموعات والشارات ورقم الهاتف وحالة الحضور بتنسيق منظم يمنع التداخل والقص على الموبايل'
+  ],
   v32: [
     '🚫 منع تكرار الطلاب وتأكيد النقل: فحص مسبق للأسماء لمنع تكرار أو نقل أي طالب مسجل مسبقاً في الدرس المستهدف مع رسالة تأكيد تفصيلية توضح عدد الطلاب والأسماء المكررة المتخطاة قبل التنفيذ',
     '📲 مراسلة جماعية مجمعة من عدة شهور ومصادر: إمكانية تحديد وإرسال الرسائل لطلاب من الشهر الحالي وشهور مؤرشفة معاً في جلسة إرسال متتابع واحدة مع منع تكرار المراسلة للطالب المشترك تلقائياً',
@@ -1118,10 +1122,10 @@ function openSequentialMessagingModal(initialSource){
     +   '<div id="seq_sources_box" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:6px 8px;max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">'
     +     sources.map(s => {
             const isDef = (s.id === defaultSourceId);
-            return '<label class="seq-source-item" style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#fff;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px">'
-              + '<input type="checkbox" class="seq-source-cb" value="' + s.id + '" ' + (isDef ? 'checked' : '') + ' style="cursor:pointer;accent-color:var(--primary);width:16px;height:16px">'
-              + '<span style="flex:1;min-width:0;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(s.label) + '</span>'
-              + '<span style="font-size:10.5px;color:var(--muted);flex-shrink:0">(' + s.studentCount + ' طالب)</span>'
+            return '<label class="seq-source-item">'
+              + '<input type="checkbox" class="seq-source-cb" value="' + s.id + '" ' + (isDef ? 'checked' : '') + '>'
+              + '<span class="seq-source-label">' + esc(s.label) + '</span>'
+              + '<span class="seq-source-count">(' + s.studentCount + ' طالب)</span>'
               + '</label>';
           }).join('')
     +   '</div>'
@@ -1380,17 +1384,19 @@ function openSequentialMessagingModal(initialSource){
 
       const ph = st.phone || st.guardianPhone || '';
 
-      itemsHTML += '<label class="seq-st-item" data-name="' + normalizeForSearch(st.name) + '" data-phone="' + digits(ph) + '" style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:8px;cursor:pointer">'
-        + '<input type="checkbox" class="seq-st-cb" value="' + item.uniqueId + '" data-status="' + stStatus + '" ' + (checked ? 'checked' : '') + ' style="cursor:pointer;accent-color:var(--primary)">'
-        + '<div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:6px">'
-        +   '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center">'
-        +     '<span style="font-size:13px;font-weight:700;color:var(--text)">' + esc(st.name) + '</span>'
-        +     sourceBadge
-        +     groupBadge
-        +   '</div>'
-        +   '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
-        +     '<span style="font-size:11px;direction:ltr;color:var(--muted)">' + esc(localPhone(ph)) + '</span>'
+      itemsHTML += '<label class="seq-st-item" data-name="' + normalizeForSearch(st.name) + '" data-phone="' + digits(ph) + '">'
+        + '<input type="checkbox" class="seq-st-cb" value="' + item.uniqueId + '" data-status="' + stStatus + '" ' + (checked ? 'checked' : '') + '>'
+        + '<div class="seq-st-info">'
+        +   '<div class="seq-st-top">'
+        +     '<span class="seq-st-name">' + esc(st.name) + '</span>'
         +     statusBadge
+        +   '</div>'
+        +   '<div class="seq-st-bottom">'
+        +     '<div class="seq-st-badges">'
+        +       sourceBadge
+        +       groupBadge
+        +     '</div>'
+        +     '<span class="seq-st-phone">' + esc(localPhone(ph)) + '</span>'
         +   '</div>'
         + '</div>'
         + '</label>';
@@ -3216,12 +3222,12 @@ function showComprehensiveReport(lesson){
       return;
     }
     const { months, rows } = curData;
-    let t = '<div class="table-wrap" style="max-height:52vh;overflow:auto"><table class="stats-table comp-table"><thead><tr><th class="sticky-col">الطالب</th>';
+    let t = '<div class="table-wrap" style="max-height:55vh;overflow:auto"><table class="stats-table comp-table"><thead><tr><th class="sticky-col">الطالب</th>';
     months.forEach(a => t += '<th>' + a.monthNumber + '/' + a.year + '</th>');
     t += '<th>النسبة الكلية</th></tr></thead><tbody>';
     rows.forEach(r => {
-      t += '<tr><td class="sticky-col" style="text-align:right;font-weight:700">' + esc(r.st.name) + '<br><span style="font-weight:400;color:#64748b;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
-      r.per.forEach(p => t += '<td><span class="comp-count">' + p.done + '/' + p.total + '</span><br><b>' + p.pct + '%</b></td>');
+      t += '<tr><td class="sticky-col"><span class="comp-st-name">' + esc(r.st.name) + '</span><span class="comp-st-phone">' + esc(localPhone(r.st.phone)) + '</span></td>';
+      r.per.forEach(p => t += '<td><span class="comp-count">' + p.done + '/' + p.total + '</span><b>' + p.pct + '%</b></td>');
       t += '<td><b>' + r.pct + '%</b></td></tr>';
     });
     t += '</tbody></table></div>';
