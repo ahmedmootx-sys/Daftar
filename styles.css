@@ -1049,3 +1049,103 @@ th.col-drop-target-right{border-right:3px solid var(--primary)!important}
   display:block;
 }
 
+/* ===== Desktop & Laptop High-Performance & Pro UX Enhancements ===== */
+@media (min-width: 900px) {
+  main {
+    max-width: 1440px;
+    padding: 20px 28px;
+  }
+  .modal {
+    max-width: 720px;
+  }
+  .modal:has(.comp-table),
+  .modal:has(.stats-table),
+  .modal:has(.seq-st-list),
+  .modal:has(.bulk-select-list) {
+    max-width: 960px;
+  }
+  .lessons-list {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .table-wrap {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, .06);
+    border-radius: 12px;
+  }
+  th.sticky-col, td.sticky-col {
+    min-width: 220px;
+    max-width: 290px;
+  }
+  .student-cell {
+    min-width: 220px;
+  }
+  .student-name {
+    font-size: 14.5px;
+  }
+  .student-phone {
+    font-size: 12px;
+  }
+  #attendanceTable tbody tr:hover,
+  #examsTable tbody tr:hover,
+  .comp-table tbody tr:hover,
+  .stats-table tbody tr:hover {
+    background-color: #f8fafc !important;
+  }
+  #attendanceTable tbody tr:hover td.sticky-col,
+  #examsTable tbody tr:hover td.sticky-col,
+  .comp-table tbody tr:hover td.sticky-col {
+    background-color: #f1f5f9 !important;
+  }
+  .exam-td {
+    transition: background-color .15s ease;
+  }
+  .exam-td:hover {
+    background-color: #e2e8f0;
+  }
+  .day-note-mini {
+    max-width: 180px;
+  }
+  .exam-note-text-preview {
+    max-width: 160px;
+  }
+  .toolbar .btn {
+    flex: 0 0 auto;
+    min-width: 120px;
+  }
+  .detail-filters {
+    align-items: center;
+  }
+  .lesson-search {
+    max-width: 380px;
+  }
+}
+
+@media (min-width: 1400px) {
+  main {
+    max-width: 1680px;
+  }
+  .modal:has(.comp-table),
+  .modal:has(.stats-table) {
+    max-width: 1120px;
+  }
+}
+
+/* Custom Sleek Scrollbars on Desktop */
+@media (hover: hover) and (pointer: fine) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+

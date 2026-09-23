@@ -3912,7 +3912,7 @@ function exportComprehensiveCSV(lesson, data, mode){
   rows.forEach((r, i) => {
     const row = [i + 1, '"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
     if(compMode === 'attendance'){
-      r.per.forEach(p => row.push('"' + p.done + '/' + p.total + '\n' + p.pct + '%"'));
+      r.per.forEach(p => row.push('"' + p.done + ' من ' + p.total + '\n' + p.pct + '%"'));
       row.push('"' + r.pct + '%"');
     } else if(compMode === 'exams'){
       r.per.forEach(p => {
@@ -3924,7 +3924,7 @@ function exportComprehensiveCSV(lesson, data, mode){
     } else { // combined
       r.per.forEach(p => {
         const exStr = p.isHiddenFromExams ? 'مستبعد' : (p.examAvgPct !== null ? p.examAvgPct + '%' : '-');
-        row.push('"حضور: ' + p.done + '/' + p.total + ' (' + p.pct + '%)\nاختبارات: ' + exStr + '"');
+        row.push('"حضور: ' + p.done + ' من ' + p.total + ' (' + p.pct + '%)\nاختبارات: ' + exStr + '"');
       });
       row.push('"حضور: ' + r.pct + '%\nاختبارات: ' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '"');
     }
@@ -4006,7 +4006,7 @@ function exportExamsCSV(lesson){
   const lines = [];
   const head = ['م', 'اسم الطالب (الرقم تحته)'];
   exams.forEach(ex => head.push(ex.name + ' (من ' + ex.maxScore + ')'));
-  head.push('المتوسط %');
+  head.push('إجمالي المجموع (المتوسط %)');
   head.push('ملاحظات الاختبارات');
   lines.push(head.join(','));
 
@@ -4016,7 +4016,7 @@ function exportExamsCSV(lesson){
     const notes = (lesson.examNotes && lesson.examNotes[st.id]) || {};
 
     const row = [idx + 1, '"' + String(st.name).replace(/"/g,'""') + '\n' + String(localPhone(st.phone)).replace(/"/g,'""') + '"'];
-    let totalPct = 0, count = 0;
+    let totalScoreSum = 0, totalMaxSum = 0, totalPct = 0, count = 0;
     const studentNotes = [];
 
     exams.forEach(ex => {
@@ -4027,22 +4027,31 @@ function exportExamsCSV(lesson){
       if(noteText) studentNotes.push(ex.name + ': ' + noteText);
 
       if(isExcluded){
-        row.push('"🚫 لم يدخل"');
+        row.push('"🚫 لم يدخل الاختبار"');
       } else if(scoreVal !== undefined && scoreVal !== '' && !isNaN(Number(scoreVal))){
         const sNum = Number(scoreVal);
+        const pct = ex.maxScore > 0 ? Math.round((sNum / ex.maxScore) * 100) : 0;
         if(ex.maxScore > 0){
-          totalPct += Math.round((sNum / ex.maxScore) * 100);
+          totalScoreSum += sNum;
+          totalMaxSum += ex.maxScore;
+          totalPct += pct;
           count++;
         }
-        row.push('"' + sNum + ' / ' + ex.maxScore + (noteText ? '\n[' + noteText + ']' : '') + '"');
+        // استخدمنا "من" بدلاً من "/" لمنع برنامج Excel من تحويل القيم تلقائياً إلى تواريخ مثل 10-Oct أو 10-Jul
+        row.push('"' + sNum + ' من ' + ex.maxScore + ' (' + pct + '%)' + (noteText ? '\n[ملاحظة: ' + noteText + ']' : '') + '"');
       } else {
         row.push('"-"');
       }
     });
 
-    const avgPct = count > 0 ? Math.round(totalPct / count) : null;
-    row.push('"' + (avgPct !== null ? avgPct + '%' : '-') + '"');
-    row.push('"' + String(studentNotes.join(' | ')).replace(/"/g,'""') + '"');
+    if(count > 0){
+      const avgPct = Math.round(totalPct / count);
+      row.push('"' + totalScoreSum + ' من ' + totalMaxSum + ' (' + avgPct + '%)"');
+    } else {
+      row.push('"-"');
+    }
+
+    row.push('"' + String(studentNotes.join(' | ') || '-').replace(/"/g,'""') + '"');
     lines.push(row.join(','));
   });
 
@@ -6534,6 +6543,42 @@ function bindEvents(){
   $('#modalClose').onclick = closeModal;
   $('#modalOverlay').addEventListener('click', (e) => {
     if(e.target === $('#modalOverlay')) closeModal();
+  });
+
+  /* اختصارات لوحة المفاتيح للكمبيوتر واللابتوب (Desktop / Laptop Pro Shortcuts) */
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape'){
+      if($('#modalOverlay') && !$('#modalOverlay').hidden){
+        closeModal();
+        e.preventDefault();
+        return;
+      }
+      if($('#notifPanel') && !$('#notifPanel').hidden){
+        $('#notifPanel').hidden = true;
+        e.preventDefault();
+        return;
+      }
+      $$('.dropdown-menu').forEach(m => { m.hidden = true; });
+    }
+
+    if((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')){
+      if(currentLessonId && $('#lessonSearch')){
+        e.preventDefault();
+        $('#lessonSearch').focus();
+        $('#lessonSearch').select();
+      } else if($('#globalSearch')){
+        e.preventDefault();
+        $('#globalSearch').focus();
+        $('#globalSearch').select();
+      }
+    }
+
+    if((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')){
+      e.preventDefault();
+      saveState(true);
+      if(fileHandle) saveToFile();
+      showToastMessage('💾 تم حفظ جميع البيانات بنجاح.');
+    }
   });
 }
 
