@@ -1011,3 +1011,41 @@ th.col-drop-target-right{border-right:3px solid var(--primary)!important}
 .r-exams-title{font-size:12px;font-weight:800;color:#1e293b;border-bottom:1.5px solid #cbd5e1;padding-bottom:3px;margin-bottom:6px}
 .r-exam-note{font-size:7px;color:#b45309;display:block}
 .r-exam-exc{color:#b91c1c;font-weight:700;font-size:7.5px}
+
+/* ===== v34: شريط تبديل التقرير الشامل التفاعلي ===== */
+.comp-mode-tabs{
+  display:flex;
+  gap:4px;
+  background:#f1f5f9;
+  padding:3px;
+  border-radius:10px;
+  margin-bottom:12px;
+  border:1px solid var(--border);
+}
+.comp-mode-btn{
+  flex:1;
+  border:none;
+  background:transparent;
+  padding:6px 8px;
+  border-radius:8px;
+  font-family:inherit;
+  font-size:12px;
+  font-weight:700;
+  color:var(--muted);
+  cursor:pointer;
+  transition:.15s ease;
+  white-space:nowrap;
+  text-align:center;
+}
+.comp-mode-btn.active{
+  background:#fff;
+  color:var(--primary);
+  box-shadow:0 1px 3px rgba(0,0,0,.08);
+}
+.comp-exam-score{
+  font-size:11px;
+  color:#15803d;
+  font-weight:800;
+  display:block;
+}
+

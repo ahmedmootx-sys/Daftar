@@ -34,8 +34,13 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v33';
+const APP_VERSION = 'v34';
 const CHANGELOG = {
+  v34: [
+    '🚫 استبعاد وإخفاء الطلاب من قسم الاختبارات: إمكانية إخفاء أي طالب لا يشارك في الاختبارات تماماً من جدول الاختبارات حتى لا يشغل مساحة، مع زر إدارة واستعادة للطلاب المستبعدين في أي وقت دون المساس بسجلات الحضور',
+    '📊 التقرير الشامل التفاعلي مع درجات الاختبارات: شريط تبديل ثلاثي (نسب الحضور / درجات الاختبارات / عرض مدمج) لعرض وتحليل أداء الطلاب في الشهور السابقة والحالية مع دعم التصدير',
+    '📄 تصدير تقرير الاختبارات المنفرد (PDF و Excel): أزرار مخصصة لطباعة وتصدير درجات الاختبارات والملاحظات كتقرير مستقل تماماً أو مدمج مع تقرير الشهر'
+  ],
   v33: [
     '🤖 إدارة بوتات تيليجرام المتعددة: حفظ قائمة بالبوتات والمحادثات بالأسماء مع إمكانية التبديل السريع وتحديد الوجهة مباشرة من نافذة الإرسال',
     '📝 ملاحظات الاختبارات واستبعاد الطلاب: تدوين ملاحظات تفصيلية لكل طالب في كل اختبار مع خيار استبعاد الطالب (لم يدخل الاختبار 🚫) من حساب المتوسط وتوثيقه',
@@ -475,6 +480,7 @@ function normalizeState(raw){
         examScores: (L.examScores && typeof L.examScores === 'object') ? L.examScores : {},
         examNotes: (L.examNotes && typeof L.examNotes === 'object') ? L.examNotes : {},
         examExclusions: (L.examExclusions && typeof L.examExclusions === 'object') ? L.examExclusions : {},
+        hiddenExamStudents: Array.isArray(L.hiddenExamStudents) ? L.hiddenExamStudents : [],
         lastExportAt: L.lastExportAt || null
       };
     });
@@ -496,7 +502,12 @@ function normalizeState(raw){
       monthNumber: (raw.currentMonth && raw.currentMonth.monthNumber) || m.monthNumber,
       year: (raw.currentMonth && raw.currentMonth.year) || m.year,
       sessions: (raw.currentMonth && raw.currentMonth.weeks) || [],
-      records: (raw.currentMonth && raw.currentMonth.records) || {}
+      records: (raw.currentMonth && raw.currentMonth.records) || {},
+      exams: [],
+      examScores: {},
+      examNotes: {},
+      examExclusions: {},
+      hiddenExamStudents: []
     }];
   }
   if(lessons.length === 0) lessons = JSON.parse(JSON.stringify(base.lessons));
@@ -506,6 +517,7 @@ function normalizeState(raw){
     if(!Array.isArray(L.sessions)) L.sessions = [];
     if(!Array.isArray(L.groups)) L.groups = [];
     if(!L.records || typeof L.records !== 'object') L.records = {};
+    if(!Array.isArray(L.hiddenExamStudents)) L.hiddenExamStudents = [];
     if(L.sessions.length === 0) fillSessions(L);
   });
 
@@ -521,6 +533,11 @@ function normalizeState(raw){
       students: Array.isArray(a.students) ? a.students.map(normalizeStudent) : [],
       sessions: (Array.isArray(a.sessions) ? a.sessions : a.weeks) || [],
       records: a.records || {},
+      exams: Array.isArray(a.exams) ? a.exams.map(normalizeExam) : [],
+      examScores: (a.examScores && typeof a.examScores === 'object') ? a.examScores : {},
+      examNotes: (a.examNotes && typeof a.examNotes === 'object') ? a.examNotes : {},
+      examExclusions: (a.examExclusions && typeof a.examExclusions === 'object') ? a.examExclusions : {},
+      hiddenExamStudents: Array.isArray(a.hiddenExamStudents) ? a.hiddenExamStudents : [],
       archivedAt: a.archivedAt || new Date().toISOString()
     }));
   }
@@ -1822,6 +1839,19 @@ function renderExamsTable(lesson, filteredStudents){
   const meta = $('#examsMeta');
   if(!head || !body) return;
 
+  if(!Array.isArray(lesson.hiddenExamStudents)) lesson.hiddenExamStudents = [];
+  const hiddenList = lesson.hiddenExamStudents;
+  const hiddenBtn = $('#hiddenExamStudentsBtn');
+  const hiddenCountEl = $('#hiddenExamCount');
+  if(hiddenBtn && hiddenCountEl){
+    if(hiddenList.length > 0){
+      hiddenBtn.style.display = 'inline-flex';
+      hiddenCountEl.textContent = hiddenList.length;
+    } else {
+      hiddenBtn.style.display = 'none';
+    }
+  }
+
   if(meta) meta.textContent = exams.length + ' اختبار مسجل';
 
   let h = '<tr><th class="sticky-col">اسم الطالب</th>';
@@ -1837,7 +1867,7 @@ function renderExamsTable(lesson, filteredStudents){
   h += '<th>المتوسط %</th></tr>';
   head.innerHTML = h;
 
-  let students = filteredStudents || lesson.students;
+  let students = (filteredStudents || lesson.students).filter(st => !hiddenList.includes(st.id));
   let b = '';
   students.forEach((st, idx) => {
     const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
@@ -1900,10 +1930,13 @@ function renderExamsFoot(lesson){
   const foot = $('#examsFoot');
   if(!foot) return;
   const exams = lesson.exams || [];
+  const hiddenList = lesson.hiddenExamStudents || [];
+  const activeStudents = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+
   let f = '<tr class="count-row"><td class="sticky-col">متوسط درجات الطلاب</td>';
   exams.forEach(ex => {
     let sum = 0, cnt = 0;
-    lesson.students.forEach(st => {
+    activeStudents.forEach(st => {
       const isExcluded = (lesson.examExclusions && lesson.examExclusions[st.id] && lesson.examExclusions[st.id][ex.id]);
       if(isExcluded) return;
       const v = (lesson.examScores && lesson.examScores[st.id] && lesson.examScores[st.id][ex.id]);
@@ -1960,7 +1993,10 @@ function updateExamColFootAvg(eid, lesson){
   const ex = (lesson.exams || []).find(x => x.id === eid);
   if(!footCell || !ex) return;
   let sum = 0, cnt = 0;
-  lesson.students.forEach(st => {
+  const hiddenList = lesson.hiddenExamStudents || [];
+  const activeStudents = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+
+  activeStudents.forEach(st => {
     const isExcluded = (lesson.examExclusions && lesson.examExclusions[st.id] && lesson.examExclusions[st.id][eid]);
     if(isExcluded) return;
     const v = (lesson.examScores && lesson.examScores[st.id] && lesson.examScores[st.id][eid]);
@@ -1986,8 +2022,8 @@ function openExamNoteModal(student, exam, lesson){
     + '<div class="form-row" style="margin-bottom:12px">'
     +   '<label class="switch-row" style="padding:6px 0;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px">'
     +     '<div>'
-    +       '<div class="switch-label" style="color:#dc2626;font-weight:800">🚫 لم يدخل الاختبار (استبعاد الطالب)</div>'
-    +       '<div class="muted" style="font-size:11px">استبعاد الطالب من حساب متوسط الدرجات ونسب النجاح، مع توثيق الحالة في التقارير.</div>'
+    +       '<div class="switch-label" style="color:#dc2626;font-weight:800">🚫 لم يدخل هذا الاختبار (استبعاد مؤقت)</div>'
+    +       '<div class="muted" style="font-size:11px">استبعاد الطالب من هذا الاختبار تحديداً وتوثيق الحالة دون التأثير على متوسطه.</div>'
     +     '</div>'
     +     '<label class="switch"><input type="checkbox" id="ex_note_excluded"' + (curExcluded ? ' checked' : '') + '><span class="switch-slider"></span></label>'
     +   '</label>'
@@ -1997,7 +2033,14 @@ function openExamNoteModal(student, exam, lesson){
     +     '<textarea id="ex_note_text" rows="3" placeholder="مثال: غائب بعذر مرضي، حل المسائل بتميز، يحتاج مراجعة القوانين...">' + esc(curNote) + '</textarea>'
     +   '</label>'
     + '</div>'
-    + '<div class="modal-actions">'
+    + '<div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--border);display:flex;justify-content:space-between;align-items:center">'
+    +   '<div>'
+    +     '<div style="font-size:12px;font-weight:800;color:#dc2626">🗑️ إخفاء الطالب من قسم الاختبارات بالكامل</div>'
+    +     '<div class="muted" style="font-size:11px">إخفاء هذا الطالب من جدول الاختبارات حتى لا يأخذ مساحة (سيبقى مسجلاً في جدول الحضور).</div>'
+    +   '</div>'
+    +   '<button type="button" class="btn btn-sm btn-danger" id="ex_hide_student" style="font-size:11px;padding:4px 10px">إخفاء من الاختبارات 🚫</button>'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:16px">'
     +   '<button class="btn btn-primary" id="ex_note_save">حفظ الملاحظة</button>'
     +   (curNote || curExcluded ? '<button class="btn btn-outline" id="ex_note_clear">مسح الملاحظة وإلغاء الاستبعاد</button>' : '')
     +   '<button class="btn btn-outline" id="ex_note_cancel">إلغاء</button>'
@@ -2042,6 +2085,83 @@ function openExamNoteModal(student, exam, lesson){
       showToastMessage('✅ تم مسح الملاحظة وإلغاء الاستبعاد.');
     };
   }
+
+  if($('#ex_hide_student')){
+    $('#ex_hide_student').onclick = () => {
+      confirmDangerModal({
+        title: '⚠️ إخفاء الطالب من قسم الاختبارات',
+        message: 'هل أنت متأكد من رغبتك في إخفاء الطالب «' + student.name + '» من قسم الاختبارات؟',
+        itemName: student.name + ' (سيبقى مسجلاً في جدول الحضور طبيعياً)',
+        dangerNote: 'يمكنك استعادة الطالب إلى جدول الاختبارات في أي وقت عبر زر «👥 المستبعدون».',
+        confirmText: 'نعم، إخفاء من الاختبارات 🚫',
+        onConfirm: () => {
+          if(!Array.isArray(lesson.hiddenExamStudents)) lesson.hiddenExamStudents = [];
+          if(!lesson.hiddenExamStudents.includes(sid)){
+            lesson.hiddenExamStudents.push(sid);
+          }
+          saveState();
+          closeModal();
+          renderExamsTable(lesson);
+          showToastMessage('🚫 تم إخفاء الطالب من جدول الاختبارات.');
+        }
+      });
+    };
+  }
+}
+
+function openHiddenExamStudentsModal(lesson){
+  if(!lesson) return;
+  if(!Array.isArray(lesson.hiddenExamStudents)) lesson.hiddenExamStudents = [];
+  const hiddenList = lesson.hiddenExamStudents;
+  const hiddenStudents = (lesson.students || []).filter(st => hiddenList.includes(st.id));
+
+  let html = '<div class="reset-box" style="text-align:right">';
+  if(hiddenStudents.length === 0){
+    html += '<p class="muted" style="text-align:center;padding:12px 0">لا يوجد طلاب مستبعدون من قسم الاختبارات حالياً.</p>';
+  } else {
+    html += '<p style="font-size:12.5px;color:var(--text);margin-bottom:12px">قائمة الطلاب المخفيين من جدول الاختبارات في هذا الدرس:</p>'
+      + '<div style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;padding:2px">'
+      + hiddenStudents.map((st, i) =>
+          '<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px 12px">'
+          + '<div>'
+          +   '<div style="font-weight:800;font-size:13px">' + (i+1) + '. ' + esc(st.name) + '</div>'
+          +   (st.phone ? '<div class="muted" style="font-size:11px;direction:ltr;text-align:right">' + esc(localPhone(st.phone)) + '</div>' : '')
+          + '</div>'
+          + '<button class="btn btn-sm btn-outline" data-act="restore-exam-student" data-id="' + st.id + '" style="font-size:11px;color:#15803d;border-color:#86efac">🔄 استعادة للاختبارات</button>'
+          + '</div>'
+        ).join('')
+      + '</div>'
+      + '<div style="margin-top:14px;text-align:center">'
+      +   '<button class="btn btn-outline btn-sm" id="restore_all_exam_students" style="font-size:11.5px">🔄 استعادة جميع الطلاب المستبعدين</button>'
+      + '</div>';
+  }
+  html += '<div class="modal-actions" style="margin-top:16px">'
+    + '<button class="btn" id="hidden_ex_close">إغلاق</button>'
+    + '</div></div>';
+
+  openModal('👥 الطلاب المستبعدون من الاختبارات', html);
+  $('#hidden_ex_close').onclick = closeModal;
+
+  if($('#restore_all_exam_students')){
+    $('#restore_all_exam_students').onclick = () => {
+      lesson.hiddenExamStudents = [];
+      saveState();
+      renderExamsTable(lesson);
+      closeModal();
+      showToastMessage('✅ تم استعادة جميع الطلاب إلى جدول الاختبارات.');
+    };
+  }
+
+  $$('#modalBody [data-act="restore-exam-student"]').forEach(btn => {
+    btn.onclick = (e) => {
+      const sid = e.currentTarget.dataset.id;
+      lesson.hiddenExamStudents = (lesson.hiddenExamStudents || []).filter(x => x !== sid);
+      saveState();
+      renderExamsTable(lesson);
+      openHiddenExamStudentsModal(lesson);
+      showToastMessage('✅ تمت استعادة الطالب إلى جدول الاختبارات.');
+    };
+  });
 }
 
 function addExamModal(lesson, examToEdit){
@@ -3542,7 +3662,7 @@ function showAnalytics(students, sessions, records, title, statuses){
   $('#analyticsClose').onclick = closeModal;
 }
 
-/* ---------- التقرير الشامل عبر الشهور المؤرشفة ---------- */
+/* ---------- التقرير الشامل عبر الشهور المؤرشفة والدرجات (v34) ---------- */
 function comprehensiveData(lesson, fromDate, toDate){
   const inRange = (s) => {
     if(!s.date) return true;
@@ -3550,16 +3670,50 @@ function comprehensiveData(lesson, fromDate, toDate){
     if(toDate && s.date > toDate) return false;
     return true;
   };
+  const inRangeExam = (ex) => {
+    if(!ex.date) return true;
+    if(fromDate && ex.date < fromDate) return false;
+    if(toDate && ex.date > toDate) return false;
+    return true;
+  };
+
   const months = state.archive
     .filter(a => a.lessonId === lesson.id)
     .sort((a,b) => (a.year - b.year) || (a.monthNumber - b.monthNumber))
-    .map(a => ({ label: 'شهر ' + a.monthNumber + '/' + a.year, monthNumber: a.monthNumber, year: a.year, sessions: (a.sessions||[]).filter(inRange), records: a.records||{}, students: archiveStudents(a) }))
-    .filter(m => pastSessions(m.sessions).length > 0);
+    .map(a => ({
+      label: 'شهر ' + a.monthNumber + '/' + a.year,
+      monthNumber: a.monthNumber,
+      year: a.year,
+      sessions: (a.sessions||[]).filter(inRange),
+      records: a.records||{},
+      students: archiveStudents(a),
+      exams: (a.exams || []).filter(inRangeExam),
+      examScores: a.examScores || {},
+      examNotes: a.examNotes || {},
+      examExclusions: a.examExclusions || {},
+      hiddenExamStudents: a.hiddenExamStudents || []
+    }))
+    .filter(m => pastSessions(m.sessions).length > 0 || m.exams.length > 0);
+
   /* الشهر الحالي (إلى لحظة توقف الدرس) */
-  if(lesson && pastSessions((lesson.sessions||[]).filter(inRange)).length){
-    months.push({ label: 'شهر ' + lesson.monthNumber + '/' + lesson.year, monthNumber: lesson.monthNumber, year: lesson.year, sessions: (lesson.sessions||[]).filter(inRange), records: lesson.records||{}, students: lesson.students||[] });
+  if(lesson && (pastSessions((lesson.sessions||[]).filter(inRange)).length || (lesson.exams||[]).filter(inRangeExam).length)){
+    months.push({
+      label: 'شهر ' + lesson.monthNumber + '/' + lesson.year,
+      monthNumber: lesson.monthNumber,
+      year: lesson.year,
+      sessions: (lesson.sessions||[]).filter(inRange),
+      records: lesson.records||{},
+      students: lesson.students||[],
+      exams: (lesson.exams || []).filter(inRangeExam),
+      examScores: lesson.examScores || {},
+      examNotes: lesson.examNotes || {},
+      examExclusions: lesson.examExclusions || {},
+      hiddenExamStudents: lesson.hiddenExamStudents || []
+    });
   }
+
   if(!months.length) return null;
+
   const studentMap = {};
   months.forEach(m => {
     m.students.forEach(st => {
@@ -3567,34 +3721,78 @@ function comprehensiveData(lesson, fromDate, toDate){
       else { if(st.name) studentMap[st.id].name = st.name; if(st.phone) studentMap[st.id].phone = st.phone; }
     });
   });
+
   const rows = Object.keys(studentMap).map(id => {
     const st = studentMap[id];
+    let totalExamPctSum = 0;
+    let totalExamCount = 0;
+
     const per = months.map(m => {
+      // 1. Attendance stats
       const recs = (m.records && m.records[st.id]) || {};
       const ps = pastSessions(m.sessions);
       let done = 0;
       ps.forEach(s => { if(recs[s.id] && recs[s.id].status === 'st_done') done++; });
       const total = ps.length;
       const pct = total ? Math.round(done / total * 100) : 0;
-      return { done: done, total: total, pct: pct };
+
+      // 2. Exam stats for this month
+      let mExamPctSum = 0;
+      let mExamCount = 0;
+      const isHidden = (m.hiddenExamStudents || []).includes(st.id);
+      if(!isHidden){
+        (m.exams || []).forEach(ex => {
+          const isExcluded = !!(m.examExclusions && m.examExclusions[st.id] && m.examExclusions[st.id][ex.id]);
+          if(isExcluded) return;
+          const scoreVal = (m.examScores && m.examScores[st.id] && m.examScores[st.id][ex.id]);
+          if(scoreVal !== undefined && scoreVal !== '' && !isNaN(Number(scoreVal)) && ex.maxScore > 0){
+            mExamPctSum += Math.round((Number(scoreVal) / ex.maxScore) * 100);
+            mExamCount++;
+          }
+        });
+      }
+      const examAvgPct = mExamCount > 0 ? Math.round(mExamPctSum / mExamCount) : null;
+      if(examAvgPct !== null){
+        totalExamPctSum += examAvgPct;
+        totalExamCount++;
+      }
+
+      return {
+        done: done,
+        total: total,
+        pct: pct,
+        examAvgPct: examAvgPct,
+        examCount: mExamCount,
+        isHiddenFromExams: isHidden
+      };
     });
+
     const tot = per.reduce((acc,p) => ({ done: acc.done + p.done, total: acc.total + p.total }), { done:0, total:0 });
     const pct = tot.total ? Math.round(tot.done / tot.total * 100) : 0;
-    return { st: st, per: per, tot: tot, pct: pct };
+    const totExamPct = totalExamCount > 0 ? Math.round(totalExamPctSum / totalExamCount) : null;
+
+    return { st: st, per: per, tot: tot, pct: pct, totExamPct: totExamPct, totalExamCount: totalExamCount };
   });
+
   rows.sort((x,y) => y.pct - x.pct);
   return { months: months, rows: rows, range: { from: fromDate || '', to: toDate || '' } };
 }
 
-function showComprehensiveReport(lesson){
-  /* اجمع كل الحصص من الأرشيف + الشهر الحالي لتحديد حدود الفترة */
-  const allSessions = [];
-  state.archive.filter(a => a.lessonId === lesson.id).forEach(a => (a.sessions||[]).forEach(s => allSessions.push(s)));
-  (lesson.sessions||[]).forEach(s => allSessions.push(s));
-  const dated = allSessions.filter(s => s.date);
-  const minDate = dated.length ? dated.reduce((a,b) => a.date < b.date ? a : b).date : '';
-  const maxDate = dated.length ? dated.reduce((a,b) => a.date > b.date ? a : b).date : '';
-  const hasDates = dated.length > 0;
+function showComprehensiveReport(lesson, initialMode){
+  /* اجمع كل الحصص والاختبارات من الأرشيف + الشهر الحالي لتحديد حدود الفترة */
+  const allDates = [];
+  state.archive.filter(a => a.lessonId === lesson.id).forEach(a => {
+    (a.sessions||[]).forEach(s => { if(s.date) allDates.push(s.date); });
+    (a.exams||[]).forEach(ex => { if(ex.date) allDates.push(ex.date); });
+  });
+  (lesson.sessions||[]).forEach(s => { if(s.date) allDates.push(s.date); });
+  (lesson.exams||[]).forEach(ex => { if(ex.date) allDates.push(ex.date); });
+
+  const minDate = allDates.length ? allDates.reduce((a,b) => a < b ? a : b) : '';
+  const maxDate = allDates.length ? allDates.reduce((a,b) => a > b ? a : b) : '';
+  const hasDates = allDates.length > 0;
+
+  let currentCompMode = initialMode || 'attendance'; // 'attendance' | 'exams' | 'combined'
 
   const filterHTML = hasDates
     ? '<div class="range-filter"><span>📅 فترة التقرير:</span>'
@@ -3602,7 +3800,14 @@ function showComprehensiveReport(lesson){
       + '<label>إلى <input type="date" id="compRangeTo" value="'+maxDate+'"></label>'
       + '</div>'
     : '';
-  openModal('📊 تقرير شامل - ' + esc(lesson.name), filterHTML + '<div id="compTableWrap"></div>');
+
+  const modeTabsHTML = '<div class="comp-mode-tabs">'
+    + '<button type="button" class="comp-mode-btn' + (currentCompMode === 'attendance' ? ' active' : '') + '" data-mode="attendance">📅 نسب الحضور</button>'
+    + '<button type="button" class="comp-mode-btn' + (currentCompMode === 'exams' ? ' active' : '') + '" data-mode="exams">📝 درجات الاختبارات</button>'
+    + '<button type="button" class="comp-mode-btn' + (currentCompMode === 'combined' ? ' active' : '') + '" data-mode="combined">📊 عرض مدمج (حضور + اختبارات)</button>'
+    + '</div>';
+
+  openModal('📊 تقرير شامل - ' + esc(lesson.name), filterHTML + modeTabsHTML + '<div id="compTableWrap"></div>');
   const actions = document.createElement('div');
   actions.className = 'modal-actions';
   actions.innerHTML = '<button class="btn btn-outline" id="compCsv">⬇️ Excel (CSV)</button><button class="btn btn-outline" id="compPdf">🖨️ PDF (A4)</button><button class="btn" id="compClose">إغلاق</button>';
@@ -3614,67 +3819,357 @@ function showComprehensiveReport(lesson){
     const to = $('#compRangeTo') ? $('#compRangeTo').value : '';
     curData = comprehensiveData(lesson, from, to);
     if(!curData){
-      $('#compTableWrap').innerHTML = '<p class="muted">لا توجد شهور مؤرشفة ولا حصص سابقة في هذه الفترة.</p>';
+      $('#compTableWrap').innerHTML = '<p class="muted">لا توجد شهور مؤرشفة ولا حصص أو اختبارات في هذه الفترة.</p>';
       return;
     }
     const { months, rows } = curData;
     let t = '<div class="table-wrap" style="max-height:55vh;overflow:auto"><table class="stats-table comp-table"><thead><tr><th class="sticky-col">الطالب</th>';
     months.forEach(a => t += '<th>' + a.monthNumber + '/' + a.year + '</th>');
-    t += '<th>النسبة الكلية</th></tr></thead><tbody>';
-    rows.forEach(r => {
-      t += '<tr><td class="sticky-col"><span class="comp-st-name">' + esc(r.st.name) + '</span><span class="comp-st-phone">' + esc(localPhone(r.st.phone)) + '</span></td>';
-      r.per.forEach(p => t += '<td><span class="comp-count">' + p.done + '/' + p.total + '</span><b>' + p.pct + '%</b></td>');
-      t += '<td><b>' + r.pct + '%</b></td></tr>';
-    });
+    
+    if(currentCompMode === 'attendance'){
+      t += '<th>النسبة الكلية</th></tr></thead><tbody>';
+      rows.forEach(r => {
+        t += '<tr><td class="sticky-col"><span class="comp-st-name">' + esc(r.st.name) + '</span><span class="comp-st-phone">' + esc(localPhone(r.st.phone)) + '</span></td>';
+        r.per.forEach(p => t += '<td><span class="comp-count">' + p.done + '/' + p.total + '</span><b>' + p.pct + '%</b></td>');
+        t += '<td><b>' + r.pct + '%</b></td></tr>';
+      });
+    } else if(currentCompMode === 'exams'){
+      t += '<th>متوسط الاختبارات</th></tr></thead><tbody>';
+      rows.forEach(r => {
+        t += '<tr><td class="sticky-col"><span class="comp-st-name">' + esc(r.st.name) + '</span><span class="comp-st-phone">' + esc(localPhone(r.st.phone)) + '</span></td>';
+        r.per.forEach(p => {
+          if(p.isHiddenFromExams){
+            t += '<td><span class="muted" style="font-size:10px">🚫 مستبعد</span></td>';
+          } else if(p.examAvgPct !== null){
+            const clr = p.examAvgPct >= 50 ? '#15803d' : '#b91c1c';
+            t += '<td><span class="comp-count">' + p.examCount + ' اختبار</span><b style="color:' + clr + '">' + p.examAvgPct + '%</b></td>';
+          } else {
+            t += '<td><span class="muted">-</span></td>';
+          }
+        });
+        const totClr = r.totExamPct !== null ? (r.totExamPct >= 50 ? '#15803d' : '#b91c1c') : 'var(--muted)';
+        t += '<td><b style="color:' + totClr + '">' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '</b></td></tr>';
+      });
+    } else { // combined
+      t += '<th>الإجمالي (حضور / اختبارات)</th></tr></thead><tbody>';
+      rows.forEach(r => {
+        t += '<tr><td class="sticky-col"><span class="comp-st-name">' + esc(r.st.name) + '</span><span class="comp-st-phone">' + esc(localPhone(r.st.phone)) + '</span></td>';
+        r.per.forEach(p => {
+          const exText = p.isHiddenFromExams ? '<span class="muted" style="font-size:10px">🚫 مستبعد</span>' : (p.examAvgPct !== null ? '<b style="color:' + (p.examAvgPct >= 50 ? '#15803d' : '#b91c1c') + '">' + p.examAvgPct + '%</b>' : '<span class="muted">-</span>');
+          t += '<td>'
+            + '<div style="font-size:11px">📅 ' + p.done + '/' + p.total + ' (<b>' + p.pct + '%</b>)</div>'
+            + '<div class="comp-exam-score" style="font-size:11px;margin-top:2px">📝 ' + exText + '</div>'
+            + '</td>';
+        });
+        const totExText = r.totExamPct !== null ? '<b style="color:' + (r.totExamPct >= 50 ? '#15803d' : '#b91c1c') + '">' + r.totExamPct + '%</b>' : '<span class="muted">-</span>';
+        t += '<td>'
+          + '<div style="font-size:11px">📅 <b>' + r.pct + '%</b></div>'
+          + '<div class="comp-exam-score" style="font-size:11px;margin-top:2px">📝 ' + totExText + '</div>'
+          + '</td></tr>';
+      });
+    }
+
     t += '</tbody></table></div>';
     $('#compTableWrap').innerHTML = t;
   }
   applyRange();
+
+  $$('.comp-mode-btn').forEach(btn => {
+    btn.onclick = () => {
+      $$('.comp-mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentCompMode = btn.dataset.mode;
+      applyRange();
+    };
+  });
+
   if($('#compRangeFrom')) $('#compRangeFrom').onchange = applyRange;
   if($('#compRangeTo')) $('#compRangeTo').onchange = applyRange;
 
-  $('#compCsv').onclick = () => { if(curData) exportComprehensiveCSV(lesson, curData); };
-  $('#compPdf').onclick = () => { if(curData) printComprehensiveReport(lesson, curData); };
+  $('#compCsv').onclick = () => { if(curData) exportComprehensiveCSV(lesson, curData, currentCompMode); };
+  $('#compPdf').onclick = () => { if(curData) printComprehensiveReport(lesson, curData, currentCompMode); };
   $('#compClose').onclick = closeModal;
 }
 
-function exportComprehensiveCSV(lesson, data){
+function exportComprehensiveCSV(lesson, data, mode){
+  const compMode = mode || 'attendance';
   const { months, rows } = data;
   const lines = [];
   const head = ['م', 'اسم الطالب (الرقم تحته)'];
-  months.forEach(a => head.push('شهر ' + a.monthNumber + '/' + a.year));
-  head.push('النسبة الكلية %');
+  
+  if(compMode === 'attendance'){
+    months.forEach(a => head.push('شهر ' + a.monthNumber + '/' + a.year));
+    head.push('النسبة الكلية %');
+  } else if(compMode === 'exams'){
+    months.forEach(a => head.push('اختبارات ' + a.monthNumber + '/' + a.year));
+    head.push('متوسط الاختبارات الكلي %');
+  } else { // combined
+    months.forEach(a => head.push('شهر ' + a.monthNumber + '/' + a.year + ' (حضور / اختبارات)'));
+    head.push('الإجمالي (حضور % / اختبارات %)');
+  }
   lines.push(head.join(','));
+
   rows.forEach((r, i) => {
     const row = [i + 1, '"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
-    r.per.forEach(p => row.push('"' + p.done + '/' + p.total + '\n' + p.pct + '%"'));
-    row.push('"' + r.pct + '%"');
+    if(compMode === 'attendance'){
+      r.per.forEach(p => row.push('"' + p.done + '/' + p.total + '\n' + p.pct + '%"'));
+      row.push('"' + r.pct + '%"');
+    } else if(compMode === 'exams'){
+      r.per.forEach(p => {
+        if(p.isHiddenFromExams) row.push('"🚫 مستبعد"');
+        else if(p.examAvgPct !== null) row.push('"' + p.examAvgPct + '%\n(' + p.examCount + ' اختبار)"');
+        else row.push('"-"');
+      });
+      row.push('"' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '"');
+    } else { // combined
+      r.per.forEach(p => {
+        const exStr = p.isHiddenFromExams ? 'مستبعد' : (p.examAvgPct !== null ? p.examAvgPct + '%' : '-');
+        row.push('"حضور: ' + p.done + '/' + p.total + ' (' + p.pct + '%)\nاختبارات: ' + exStr + '"');
+      });
+      row.push('"حضور: ' + r.pct + '%\nاختبارات: ' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '"');
+    }
     lines.push(row.join(','));
   });
+
   const safe = (lesson.name || 'درس').replace(/[^\w\u0600-\u06FF ]/g, '');
-  downloadBlob('\uFEFF' + lines.join('\r\n'), 'تقرير_شامل_' + safe + '_' + new Date().toISOString().slice(0,10) + '.csv', 'text/csv;charset=utf-8');
+  const modeSuffix = compMode === 'exams' ? '_اختبارات' : (compMode === 'combined' ? '_مدمج' : '_حضور');
+  downloadBlob('\uFEFF' + lines.join('\r\n'), 'تقرير_شامل_' + safe + modeSuffix + '_' + new Date().toISOString().slice(0,10) + '.csv', 'text/csv;charset=utf-8');
 }
 
-function printComprehensiveReport(lesson, data){
+function printComprehensiveReport(lesson, data, mode){
+  const compMode = mode || 'attendance';
   const { months, rows } = data;
   $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
   let html = '<div class="report compact" dir="rtl">';
   html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
-  html += '<div class="r-sub">تقرير شامل - ' + esc(lesson.name) + ' - نسبة الحضور عبر ' + months.length + ' شهر' + (data.range && (data.range.from || data.range.to) ? ' (من ' + (data.range.from || 'البداية') + ' إلى ' + (data.range.to || 'الآن') + ')' : '') + '</div>';
+  
+  const modeTitle = compMode === 'exams' ? 'درجات ومتوسط الاختبارات' : (compMode === 'combined' ? 'نسب الحضور ودرجات الاختبارات (مدمج)' : 'نسبة الحضور');
+  html += '<div class="r-sub">تقرير شامل - ' + esc(lesson.name) + ' - ' + modeTitle + ' عبر ' + months.length + ' شهر' + (data.range && (data.range.from || data.range.to) ? ' (من ' + (data.range.from || 'البداية') + ' إلى ' + (data.range.to || 'الآن') + ')' : '') + '</div>';
+  
   html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">الطالب</th>';
   months.forEach(a => html += '<th>' + a.monthNumber + '/' + a.year + '</th>');
-  html += '<th>النسبة الكلية</th></tr></thead><tbody>';
-  rows.forEach((r, i) => {
-    html += '<tr><td class="ord-col">' + (i+1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
-    r.per.forEach(p => html += '<td>' + p.done + '/' + p.total + '<br><b>' + p.pct + '%</b></td>');
-    html += '<td><b>' + r.pct + '%</b></td></tr>';
-  });
+  
+  if(compMode === 'attendance'){
+    html += '<th>النسبة الكلية</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      html += '<tr><td class="ord-col">' + (i+1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+      r.per.forEach(p => html += '<td>' + p.done + '/' + p.total + '<br><b>' + p.pct + '%</b></td>');
+      html += '<td><b>' + r.pct + '%</b></td></tr>';
+    });
+  } else if(compMode === 'exams'){
+    html += '<th>متوسط الاختبارات</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      html += '<tr><td class="ord-col">' + (i+1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+      r.per.forEach(p => {
+        if(p.isHiddenFromExams) html += '<td><span style="font-size:7px;color:#b91c1c">مستبعد</span></td>';
+        else if(p.examAvgPct !== null) html += '<td><b>' + p.examAvgPct + '%</b><br><span style="font-size:6.5px;color:#64748b">' + p.examCount + ' اخت.</span></td>';
+        else html += '<td><span style="color:#94a3b8">-</span></td>';
+      });
+      html += '<td><b>' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '</b></td></tr>';
+    });
+  } else { // combined
+    html += '<th>الإجمالي</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      html += '<tr><td class="ord-col">' + (i+1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+      r.per.forEach(p => {
+        const exHtml = p.isHiddenFromExams ? '<span style="font-size:6.5px;color:#b91c1c">مستبعد</span>' : (p.examAvgPct !== null ? '<b style="color:#15803d">' + p.examAvgPct + '%</b>' : '<span style="color:#94a3b8">-</span>');
+        html += '<td style="line-height:1.2">ح: ' + p.done + '/' + p.total + ' (<b>' + p.pct + '%</b>)<br>اخت: ' + exHtml + '</td>';
+      });
+      const totExHtml = r.totExamPct !== null ? '<b style="color:#15803d">' + r.totExamPct + '%</b>' : '<span style="color:#94a3b8">-</span>';
+      html += '<td style="line-height:1.2">ح: <b>' + r.pct + '%</b><br>اخت: ' + totExHtml + '</td></tr>';
+    });
+  }
+
   html += '</tbody></table>';
   html += '<div class="r-foot">عدد الشهور: ' + months.length + ' · عدد الطلاب: ' + rows.length + '</div>';
   html += '</div>';
   $('#printArea').innerHTML = html;
   window.print();
   $('#printPageRule').textContent = '';
+}
+
+/* ---------- تصدير وطباعة تقرير الاختبارات المنفرد (v34) ---------- */
+function exportExamsCSV(lesson){
+  if(!lesson) return;
+  const exams = lesson.exams || [];
+  if(exams.length === 0){
+    showToastMessage('⚠️ لا توجد اختبارات مسجلة لتصديرها.');
+    return;
+  }
+  const hiddenList = lesson.hiddenExamStudents || [];
+  const activeStudents = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+  if(activeStudents.length === 0){
+    showToastMessage('⚠️ لا يوجد طلاب نشطون في قسم الاختبارات.');
+    return;
+  }
+
+  const lines = [];
+  const head = ['م', 'اسم الطالب (الرقم تحته)'];
+  exams.forEach(ex => head.push(ex.name + ' (من ' + ex.maxScore + ')'));
+  head.push('المتوسط %');
+  head.push('ملاحظات الاختبارات');
+  lines.push(head.join(','));
+
+  activeStudents.forEach((st, idx) => {
+    const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
+    const exclusions = (lesson.examExclusions && lesson.examExclusions[st.id]) || {};
+    const notes = (lesson.examNotes && lesson.examNotes[st.id]) || {};
+
+    const row = [idx + 1, '"' + String(st.name).replace(/"/g,'""') + '\n' + String(localPhone(st.phone)).replace(/"/g,'""') + '"'];
+    let totalPct = 0, count = 0;
+    const studentNotes = [];
+
+    exams.forEach(ex => {
+      const isExcluded = !!exclusions[ex.id];
+      const noteText = notes[ex.id] || '';
+      const scoreVal = studentScores[ex.id];
+
+      if(noteText) studentNotes.push(ex.name + ': ' + noteText);
+
+      if(isExcluded){
+        row.push('"🚫 لم يدخل"');
+      } else if(scoreVal !== undefined && scoreVal !== '' && !isNaN(Number(scoreVal))){
+        const sNum = Number(scoreVal);
+        if(ex.maxScore > 0){
+          totalPct += Math.round((sNum / ex.maxScore) * 100);
+          count++;
+        }
+        row.push('"' + sNum + ' / ' + ex.maxScore + (noteText ? '\n[' + noteText + ']' : '') + '"');
+      } else {
+        row.push('"-"');
+      }
+    });
+
+    const avgPct = count > 0 ? Math.round(totalPct / count) : null;
+    row.push('"' + (avgPct !== null ? avgPct + '%' : '-') + '"');
+    row.push('"' + String(studentNotes.join(' | ')).replace(/"/g,'""') + '"');
+    lines.push(row.join(','));
+  });
+
+  const safe = (lesson.name || 'درس').replace(/[^\w\u0600-\u06FF ]/g, '');
+  downloadBlob('\uFEFF' + lines.join('\r\n'), 'درجات_اختبارات_' + safe + '_شهر_' + lesson.monthNumber + '_' + lesson.year + '.csv', 'text/csv;charset=utf-8');
+}
+
+function printExamsReport(lesson){
+  if(!lesson) return;
+  const exams = lesson.exams || [];
+  if(exams.length === 0){
+    showToastMessage('⚠️ لا توجد اختبارات مسجلة للطباعة.');
+    return;
+  }
+  const hiddenList = lesson.hiddenExamStudents || [];
+  const activeStudents = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+  if(activeStudents.length === 0){
+    showToastMessage('⚠️ لا يوجد طلاب نشطون في قسم الاختبارات.');
+    return;
+  }
+
+  $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
+  let html = '<div class="report compact" dir="rtl">';
+  html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
+  html += '<div class="r-sub">تقرير درجات وملاحظات الاختبارات - ' + esc(lesson.name) + ' - شهر ' + lesson.monthNumber + '/' + lesson.year + '</div>';
+  
+  html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">الطالب</th>';
+  exams.forEach(ex => {
+    html += '<th>' + esc(ex.name) + '<br><span style="font-size:7px;font-weight:400">من ' + ex.maxScore + (ex.date ? ' (' + esc(ex.date) + ')' : '') + '</span></th>';
+  });
+  html += '<th>المتوسط</th><th>الملاحظات</th></tr></thead><tbody>';
+
+  activeStudents.forEach((st, idx) => {
+    const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
+    const exclusions = (lesson.examExclusions && lesson.examExclusions[st.id]) || {};
+    const notes = (lesson.examNotes && lesson.examNotes[st.id]) || {};
+
+    let totalPct = 0, count = 0;
+    const studentNotes = [];
+
+    html += '<tr><td class="ord-col">' + (idx + 1) + '</td><td class="r-name">' + esc(st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(st.phone)) + '</span></td>';
+
+    exams.forEach(ex => {
+      const isExcluded = !!exclusions[ex.id];
+      const noteText = notes[ex.id] || '';
+      const scoreVal = studentScores[ex.id];
+
+      if(noteText) studentNotes.push('<span class="r-exam-note"><b>' + esc(ex.name) + ':</b> ' + esc(noteText) + '</span>');
+
+      if(isExcluded){
+        html += '<td><span class="r-exam-exc">🚫 لم يدخل</span></td>';
+      } else if(scoreVal !== undefined && scoreVal !== '' && !isNaN(Number(scoreVal))){
+        const sNum = Number(scoreVal);
+        if(ex.maxScore > 0){
+          totalPct += Math.round((sNum / ex.maxScore) * 100);
+          count++;
+        }
+        const pct = ex.maxScore > 0 ? Math.round((sNum / ex.maxScore) * 100) : 0;
+        const clr = pct >= 50 ? '#15803d' : '#b91c1c';
+        html += '<td><b style="color:' + clr + '">' + sNum + '</b><br><span style="font-size:6.5px;color:#64748b">' + pct + '%</span></td>';
+      } else {
+        html += '<td><span style="color:#94a3b8">-</span></td>';
+      }
+    });
+
+    const avgPct = count > 0 ? Math.round(totalPct / count) : null;
+    const avgClr = avgPct !== null ? (avgPct >= 50 ? '#15803d' : '#b91c1c') : 'var(--muted)';
+    html += '<td><b style="color:' + avgClr + '">' + (avgPct !== null ? avgPct + '%' : '-') + '</b></td>';
+    html += '<td style="text-align:right;font-size:7.5px;max-width:140px">' + (studentNotes.length > 0 ? studentNotes.join('') : '<span style="color:#94a3b8">-</span>') + '</td></tr>';
+  });
+
+  // Footer row for averages
+  html += '<tr style="background:#f8fafc;font-weight:800"><td colspan="2" style="text-align:center">متوسط درجات الاختبار</td>';
+  exams.forEach(ex => {
+    let sum = 0, cnt = 0;
+    activeStudents.forEach(st => {
+      const isExcluded = (lesson.examExclusions && lesson.examExclusions[st.id] && lesson.examExclusions[st.id][ex.id]);
+      if(isExcluded) return;
+      const v = (lesson.examScores && lesson.examScores[st.id] && lesson.examScores[st.id][ex.id]);
+      if(v !== undefined && v !== '' && !isNaN(Number(v))){ sum += Number(v); cnt++; }
+    });
+    const avg = cnt > 0 ? (sum / cnt).toFixed(1) : '-';
+    html += '<td>' + avg + (cnt > 0 ? '<br><span style="font-size:6.5px;font-weight:400">/ ' + ex.maxScore + '</span>' : '') + '</td>';
+  });
+  html += '<td colspan="2"></td></tr>';
+
+  html += '</tbody></table>';
+  html += '<div class="r-foot">عدد الاختبارات: ' + exams.length + ' · عدد الطلاب: ' + activeStudents.length + '</div>';
+  html += '</div>';
+
+  $('#printArea').innerHTML = html;
+  window.print();
+  $('#printPageRule').textContent = '';
+}
+
+function openExamReportModal(lesson){
+  if(!lesson) return;
+  const exams = lesson.exams || [];
+  if(exams.length === 0){
+    showToastMessage('⚠️ لا توجد اختبارات مسجلة في هذا الشهر.');
+    return;
+  }
+  const html = '<div class="reset-box" style="text-align:right">'
+    + '<p style="font-size:13px;font-weight:700;margin-bottom:12px">اختر صيغة أو نوع التقرير المطلوب لدرجات الاختبارات:</p>'
+    + '<div style="display:flex;flex-direction:column;gap:10px">'
+    +   '<button class="btn btn-outline" id="ex_rep_pdf" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;font-weight:800">'
+    +     '<span>🖨️ طباعة تقرير الاختبارات (PDF منفرد)</span>'
+    +     '<span class="muted" style="font-size:11px;font-weight:400">ورقي A4 مضغوط</span>'
+    +   '</button>'
+    +   '<button class="btn btn-outline" id="ex_rep_csv" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;font-weight:800">'
+    +     '<span>⬇️ تصدير درجات الاختبارات (Excel CSV منفرد)</span>'
+    +     '<span class="muted" style="font-size:11px;font-weight:400">ملف جاهز للتعديل</span>'
+    +   '</button>'
+    +   '<button class="btn btn-outline" id="ex_rep_comp" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;font-weight:800">'
+    +     '<span>📊 التقرير الشامل لدرجات الاختبارات (عبر كل الشهور)</span>'
+    +     '<span class="muted" style="font-size:11px;font-weight:400">تفاعلي + تصدير</span>'
+    +   '</button>'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:16px">'
+    +   '<button class="btn" id="ex_rep_close">إغلاق</button>'
+    + '</div></div>';
+
+  openModal('📝 تقارير درجات الاختبارات - ' + esc(lesson.name), html);
+  $('#ex_rep_close').onclick = closeModal;
+  $('#ex_rep_pdf').onclick = () => { closeModal(); printExamsReport(lesson); };
+  $('#ex_rep_csv').onclick = () => { closeModal(); exportExamsCSV(lesson); };
+  $('#ex_rep_comp').onclick = () => { closeModal(); showComprehensiveReport(lesson, 'exams'); };
 }
 
 /* ---------- تصدير CSV ---------- */
@@ -5263,6 +5758,7 @@ function bindEvents(){
   $('#addSessionBtn').onclick = () => { const L = curLesson(); if(L){ addSessionModal(L); } };
   $('#regenSessionsBtn').onclick = () => { const L = curLesson(); if(L){ genSessions(L, true); renderAll(); } };
   $('#lessonReportBtn').onclick = () => { const L = curLesson(); if(L) showAnalytics(L.students, pastSessions(L.sessions), L.records, L.name + ' - ' + buildMonthTitle(L.monthNumber), effectiveStatuses(L)); };
+  if($('#examReportBtn')) $('#examReportBtn').onclick = () => { const L = curLesson(); if(L) openExamReportModal(L); };
   $('#sortAttendanceBtn').onclick = () => sortByAttendance();
   $('#lessonStatusesBtn').onclick = () => { const L = curLesson(); if(L) lessonStatusesEditor(L); };
   $('#compReportBtn').onclick = () => { const L = curLesson(); if(L) showComprehensiveReport(L); };
@@ -5274,6 +5770,11 @@ function bindEvents(){
   /* v30: تبويبات الحضور والاختبارات */
   if($('#subtabAttendance')) $('#subtabAttendance').onclick = () => { currentLessonSubtab = 'attendance'; renderLessonDetail(); };
   if($('#subtabExams')) $('#subtabExams').onclick = () => { currentLessonSubtab = 'exams'; renderLessonDetail(); };
+
+  /* v34: أزرار قسم الاختبارات والتقارير المنفردة */
+  if($('#printExamsReportBtn')) $('#printExamsReportBtn').onclick = () => { const L = curLesson(); if(L) printExamsReport(L); };
+  if($('#exportExamsCsvBtn')) $('#exportExamsCsvBtn').onclick = () => { const L = curLesson(); if(L) exportExamsCSV(L); };
+  if($('#hiddenExamStudentsBtn')) $('#hiddenExamStudentsBtn').onclick = () => { const L = curLesson(); if(L) openHiddenExamStudentsModal(L); };
 
   /* v30: التحديد المتعدد */
   if($('#bulkSelectBtn')) $('#bulkSelectBtn').onclick = () => {
