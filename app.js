@@ -37,8 +37,12 @@ const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
 const APP_VERSION = 'v33';
 const CHANGELOG = {
   v33: [
-    '📊 إصلاح وتجاوب التقرير الشامل على الهواتف: ضبط أبعاد الأعمدة وثبات عمود اسم الطالب بدقة مع إمكانية التمرير الأفقي الحر لعرض كافة الشهور ونسب الحضور بوضوح',
-    '📲 تحسين بطاقات الطلاب في المراسلة الجماعية: إعادة تصميم بطاقة الطالب في قائمة المراسلة المخصصة لتظهر الاسم والمجموعات والشارات ورقم الهاتف وحالة الحضور بتنسيق منظم يمنع التداخل والقص على الموبايل'
+    '🤖 إدارة بوتات تيليجرام المتعددة: حفظ قائمة بالبوتات والمحادثات بالأسماء مع إمكانية التبديل السريع وتحديد الوجهة مباشرة من نافذة الإرسال',
+    '📝 ملاحظات الاختبارات واستبعاد الطلاب: تدوين ملاحظات تفصيلية لكل طالب في كل اختبار مع خيار استبعاد الطالب (لم يدخل الاختبار 🚫) من حساب المتوسط وتوثيقه',
+    '⚡ تسريع التطبيق وتخفيف التعليق على الهواتف: تصفية فورية بالـ DOM أثناء البحث دون إعادة بناء الجداول، وتحديث الخلايا موضعياً، وحفظ تلقائي ذكي آمن 100%',
+    '📊 درجات الاختبارات في التقارير والرسائل: قسم وجدول منسق لنتائج الاختبارات في تقرير الشهر المطبوع (PDF)، وبند مفصل في رسالة الواتساب، ومتوسط الاختبارات بالشامل، ومتغير {exams} بالأسبوعية',
+    '🛡️ نوافذ تأكيد الحذف المخصصة والآمنة: نافذة تحذيرية موحدة وأنيقة توضح تفاصيل وعواقب الحذف قبل حذف أي طالب أو حصة أو درس أو شهر أو اختبار أو مدفوعات',
+    '📱 إصلاح وتجاوب التقرير الشامل وبطاقات المراسلة على الهواتف'
   ],
   v32: [
     '🚫 منع تكرار الطلاب وتأكيد النقل: فحص مسبق للأسماء لمنع تكرار أو نقل أي طالب مسجل مسبقاً في الدرس المستهدف مع رسالة تأكيد تفصيلية توضح عدد الطلاب والأسماء المكررة المتخطاة قبل التنفيذ',
@@ -312,6 +316,8 @@ function defaultState(){
       warnFutureAttendance: true,
       tgBotToken: '',
       tgChatId: '',
+      tgBots: [],
+      activeTgBotId: '',
       hideDashboardMoney: false,
       messageTemplate: 'السلام عليكم ورحمة الله وبركاته\n\nأخباركم إن شاء الله تكونو بخير\n\nبنأكد على معاد النهاردة الساعة {time} وجزاكم الله خيراً',
       ownerName: ADMIN_NAME,
@@ -392,6 +398,36 @@ function normalizeState(raw){
   settings.warnFutureAttendance = settings.warnFutureAttendance !== false;
   settings.tgBotToken = (raw.settings && typeof raw.settings.tgBotToken === 'string') ? raw.settings.tgBotToken : '';
   settings.tgChatId = (raw.settings && typeof raw.settings.tgChatId === 'string') ? raw.settings.tgChatId : '';
+
+  /* إدارة بوتات ومحادثات تيليجرام المتعددة */
+  if(!Array.isArray(settings.tgBots)) settings.tgBots = [];
+  settings.tgBots = settings.tgBots.map(b => ({
+    id: b.id || uid('bot'),
+    name: (b.name || 'بوت تيليجرام').trim(),
+    token: (b.token || '').trim(),
+    chatId: (b.chatId || '').trim()
+  })).filter(b => b.token || b.chatId);
+
+  // ترحيل القيم القديمة تلقائياً إن كانت قائمة البوتات فارغة
+  if(settings.tgBots.length === 0 && (settings.tgBotToken || settings.tgChatId)){
+    const defBot = {
+      id: uid('bot'),
+      name: 'البوت الأساسي',
+      token: settings.tgBotToken,
+      chatId: settings.tgChatId
+    };
+    settings.tgBots.push(defBot);
+    settings.activeTgBotId = defBot.id;
+  }
+  if(!settings.activeTgBotId && settings.tgBots.length > 0){
+    settings.activeTgBotId = settings.tgBots[0].id;
+  }
+  const curActBot = settings.tgBots.find(b => b.id === settings.activeTgBotId) || settings.tgBots[0];
+  if(curActBot){
+    settings.tgBotToken = curActBot.token;
+    settings.tgChatId = curActBot.chatId;
+  }
+
   settings.hideDashboardMoney = !!(raw.settings && raw.settings.hideDashboardMoney);
   settings.ownerName = ADMIN_NAME;
   settings.ownerPhone = ADMIN_PHONE;
@@ -437,6 +473,8 @@ function normalizeState(raw){
         records: (L.records && typeof L.records === 'object') ? L.records : ((cur.records && typeof cur.records === 'object') ? cur.records : {}),
         exams: Array.isArray(L.exams) ? L.exams.map(normalizeExam) : [],
         examScores: (L.examScores && typeof L.examScores === 'object') ? L.examScores : {},
+        examNotes: (L.examNotes && typeof L.examNotes === 'object') ? L.examNotes : {},
+        examExclusions: (L.examExclusions && typeof L.examExclusions === 'object') ? L.examExclusions : {},
         lastExportAt: L.lastExportAt || null
       };
     });
@@ -501,13 +539,59 @@ function loadState(){
     return null;
   }
 }
-function saveState(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  scheduleAutoSave();
+let stateSaveTimer = null;
+function saveState(immediate = false){
+  if(immediate){
+    clearTimeout(stateSaveTimer);
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){ console.error('saveState error', e); }
+    scheduleAutoSave();
+    return;
+  }
+  clearTimeout(stateSaveTimer);
+  stateSaveTimer = setTimeout(() => {
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){ console.error('saveState error', e); }
+    scheduleAutoSave();
+  }, 250);
+}
+window.addEventListener('beforeunload', () => saveState(true));
+window.addEventListener('pagehide', () => saveState(true));
+
+/* ---------- نافذة تأكيد الحذف المخصصة والآمنة ---------- */
+function confirmDangerModal(options){
+  const title = options.title || '⚠️ تأكيد الحذف';
+  const msg = options.message || 'هل أنت متأكد من رغبتك في حذف هذا العنصر نهائياً؟';
+  const item = options.itemName || '';
+  const note = options.dangerNote || 'لا يمكن التراجع عن هذا الإجراء بعد إتمامه.';
+  const confirmText = options.confirmText || 'نعم، تأكيد الحذف 🗑️';
+  const cancelText = options.cancelText || 'إلغاء وتراجع';
+
+  const html = '<div class="danger-modal-box">'
+    + '<div class="danger-modal-icon">⚠️</div>'
+    + '<div class="danger-modal-title">' + esc(title) + '</div>'
+    + '<div class="danger-modal-desc">' + esc(msg) + '</div>'
+    + (item ? '<div class="danger-modal-item">' + esc(item) + '</div>' : '')
+    + '<p class="muted" style="font-size:11.5px;margin-bottom:16px;color:#dc2626;font-weight:700">❗ ' + esc(note) + '</p>'
+    + '<div class="danger-modal-actions">'
+    +   '<button class="btn btn-danger" id="cfm_danger_ok">' + esc(confirmText) + '</button>'
+    +   '<button class="btn btn-outline" id="cfm_danger_cancel">' + esc(cancelText) + '</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal(title, html);
+
+  $('#cfm_danger_cancel').onclick = closeModal;
+  $('#cfm_danger_ok').onclick = () => {
+    closeModal();
+    if(typeof options.onConfirm === 'function') options.onConfirm();
+  };
 }
 
 let state = loadState() || defaultState();
-saveState();
+saveState(true);
 
 /* ---------- توليد الحصص ---------- */
 function sessionDates(year, monthNumber, schedule){
@@ -1729,7 +1813,7 @@ function openAddPaymentModal(student, lesson){
   };
 }
 
-/* ---------- 4. درجات الاختبارات (Exams View) ---------- */
+/* ---------- 4. درجات الاختبارات (Exams View - v33) ---------- */
 function renderExamsTable(lesson, filteredStudents){
   const exams = lesson.exams || [];
   const head = $('#examsHead');
@@ -1757,9 +1841,11 @@ function renderExamsTable(lesson, filteredStudents){
   let b = '';
   students.forEach((st, idx) => {
     const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
+    const exclusions = (lesson.examExclusions && lesson.examExclusions[st.id]) || {};
+    const notes = (lesson.examNotes && lesson.examNotes[st.id]) || {};
     let totalPct = 0, examCount = 0;
 
-    b += '<tr><td class="sticky-col student-cell">'
+    b += '<tr data-sid="' + st.id + '"><td class="sticky-col student-cell">'
       +   '<div class="student-name">'
       +     '<span class="student-num">' + (idx + 1) + '.</span> '
       +     '<span class="st-name-click" data-act="view-student" data-id="' + st.id + '">' + esc(st.name) + '</span>'
@@ -1767,18 +1853,19 @@ function renderExamsTable(lesson, filteredStudents){
       + '</td>';
 
     exams.forEach(ex => {
+      const isExcluded = !!exclusions[ex.id];
+      const noteText = notes[ex.id] || '';
       const scoreVal = studentScores[ex.id] !== undefined ? studentScores[ex.id] : '';
-      const pct = (scoreVal !== '' && ex.maxScore > 0) ? Math.round((Number(scoreVal) / ex.maxScore) * 100) : null;
+      const pct = (!isExcluded && scoreVal !== '' && ex.maxScore > 0) ? Math.round((Number(scoreVal) / ex.maxScore) * 100) : null;
       if(pct !== null){ totalPct += pct; examCount++; }
 
-      b += '<td style="text-align:center">'
-        +   '<input type="number" step="0.5" min="0" max="' + ex.maxScore + '" value="' + (scoreVal !== '' ? scoreVal : '') + '" class="exam-input" data-sid="' + st.id + '" data-eid="' + ex.id + '" placeholder="-">'
-        +   (pct !== null ? '<span class="exam-pct" style="color:' + (pct >= 50 ? '#15803d' : '#b91c1c') + '">' + pct + '%</span>' : '')
+      b += '<td class="exam-td" data-sid="' + st.id + '" data-eid="' + ex.id + '" style="text-align:center">'
+        +   buildExamCellHTML(st.id, ex.id, scoreVal, isExcluded, noteText, ex.maxScore, pct)
         + '</td>';
     });
 
     const avgPct = examCount > 0 ? Math.round(totalPct / examCount) : null;
-    b += '<td style="text-align:center;font-weight:800;color:' + (avgPct !== null ? (avgPct >= 50 ? '#15803d' : '#b91c1c') : 'var(--muted)') + '">'
+    b += '<td class="exam-row-avg" data-sid="' + st.id + '" style="text-align:center;font-weight:800;color:' + (avgPct !== null ? (avgPct >= 50 ? '#15803d' : '#b91c1c') : 'var(--muted)') + '">'
       + (avgPct !== null ? avgPct + '%' : '-')
       + '</td></tr>';
   });
@@ -1788,18 +1875,173 @@ function renderExamsTable(lesson, filteredStudents){
   }
   body.innerHTML = b;
 
+  renderExamsFoot(lesson);
+}
+
+function buildExamCellHTML(sid, eid, scoreVal, isExcluded, noteText, maxScore, pct){
+  if(isExcluded){
+    return '<div class="exam-cell-wrap">'
+      + '<span class="exam-excluded-badge" data-act="exam-note" data-sid="' + sid + '" data-eid="' + eid + '" title="اضغط لتعديل الملاحظة أو إلغاء الاستبعاد">🚫 لم يدخل</span>'
+      + (noteText ? '<span class="exam-note-text-preview" title="' + esc(noteText) + '">📝 ' + esc(noteText) + '</span>' : '')
+      + '</div>';
+  }
+
+  return '<div class="exam-cell-wrap">'
+    + '<div class="exam-input-row">'
+    +   '<input type="number" step="0.5" min="0" max="' + maxScore + '" value="' + (scoreVal !== '' ? scoreVal : '') + '" class="exam-input" data-sid="' + sid + '" data-eid="' + eid + '" placeholder="-">'
+    +   '<button type="button" class="exam-note-btn ' + (noteText ? 'has-note' : '') + '" data-act="exam-note" data-sid="' + sid + '" data-eid="' + eid + '" title="' + (noteText ? esc(noteText) : 'إضافة ملاحظة / استبعاد') + '">📝</button>'
+    + '</div>'
+    + (pct !== null ? '<span class="exam-pct" style="color:' + (pct >= 50 ? '#15803d' : '#b91c1c') + '">' + pct + '%</span>' : '')
+    + (noteText ? '<span class="exam-note-text-preview" title="' + esc(noteText) + '">' + esc(noteText) + '</span>' : '')
+    + '</div>';
+}
+
+function renderExamsFoot(lesson){
+  const foot = $('#examsFoot');
+  if(!foot) return;
+  const exams = lesson.exams || [];
   let f = '<tr class="count-row"><td class="sticky-col">متوسط درجات الطلاب</td>';
   exams.forEach(ex => {
     let sum = 0, cnt = 0;
     lesson.students.forEach(st => {
+      const isExcluded = (lesson.examExclusions && lesson.examExclusions[st.id] && lesson.examExclusions[st.id][ex.id]);
+      if(isExcluded) return;
       const v = (lesson.examScores && lesson.examScores[st.id] && lesson.examScores[st.id][ex.id]);
       if(v !== undefined && v !== '' && !isNaN(Number(v))){ sum += Number(v); cnt++; }
     });
     const avg = cnt > 0 ? (sum / cnt).toFixed(1) : '-';
-    f += '<td><b>' + avg + (cnt > 0 ? ' / ' + ex.maxScore : '') + '</b></td>';
+    f += '<td data-foot-eid="' + ex.id + '"><b>' + avg + (cnt > 0 ? ' / ' + ex.maxScore : '') + '</b></td>';
   });
   f += '<td></td></tr>';
-  if(foot) foot.innerHTML = f;
+  foot.innerHTML = f;
+}
+
+/* تحديث خلية الاختبار ومتوسط الطالب ومعدل العمود موضعياً بالـ DOM بدون إعادة بناء الجدول */
+function updateExamCellUI(sid, eid, lesson){
+  const td = document.querySelector('.exam-td[data-sid="' + sid + '"][data-eid="' + eid + '"]');
+  const ex = (lesson.exams || []).find(x => x.id === eid);
+  if(!td || !ex) return;
+
+  const scoreVal = (lesson.examScores && lesson.examScores[sid] && lesson.examScores[sid][eid]) !== undefined ? lesson.examScores[sid][eid] : '';
+  const isExcluded = !!(lesson.examExclusions && lesson.examExclusions[sid] && lesson.examExclusions[sid][eid]);
+  const noteText = (lesson.examNotes && lesson.examNotes[sid] && lesson.examNotes[sid][eid]) || '';
+  const pct = (!isExcluded && scoreVal !== '' && ex.maxScore > 0) ? Math.round((Number(scoreVal) / ex.maxScore) * 100) : null;
+
+  td.innerHTML = buildExamCellHTML(sid, eid, scoreVal, isExcluded, noteText, ex.maxScore, pct);
+
+  // تحديث متوسط الطالب في نهاية الصف
+  updateStudentExamRowAvg(sid, lesson);
+
+  // تحديث متوسط العمود في تذييل الجدول
+  updateExamColFootAvg(eid, lesson);
+}
+
+function updateStudentExamRowAvg(sid, lesson){
+  const avgCell = document.querySelector('.exam-row-avg[data-sid="' + sid + '"]');
+  if(!avgCell) return;
+  const exams = lesson.exams || [];
+  let totalPct = 0, examCount = 0;
+  exams.forEach(ex => {
+    const isExcluded = !!(lesson.examExclusions && lesson.examExclusions[sid] && lesson.examExclusions[sid][ex.id]);
+    if(isExcluded) return;
+    const scoreVal = (lesson.examScores && lesson.examScores[sid] && lesson.examScores[sid][ex.id]);
+    if(scoreVal !== undefined && scoreVal !== '' && !isNaN(Number(scoreVal)) && ex.maxScore > 0){
+      totalPct += Math.round((Number(scoreVal) / ex.maxScore) * 100);
+      examCount++;
+    }
+  });
+  const avgPct = examCount > 0 ? Math.round(totalPct / examCount) : null;
+  avgCell.textContent = (avgPct !== null ? avgPct + '%' : '-');
+  avgCell.style.color = (avgPct !== null ? (avgPct >= 50 ? '#15803d' : '#b91c1c') : 'var(--muted)');
+}
+
+function updateExamColFootAvg(eid, lesson){
+  const footCell = document.querySelector('td[data-foot-eid="' + eid + '"]');
+  const ex = (lesson.exams || []).find(x => x.id === eid);
+  if(!footCell || !ex) return;
+  let sum = 0, cnt = 0;
+  lesson.students.forEach(st => {
+    const isExcluded = (lesson.examExclusions && lesson.examExclusions[st.id] && lesson.examExclusions[st.id][eid]);
+    if(isExcluded) return;
+    const v = (lesson.examScores && lesson.examScores[st.id] && lesson.examScores[st.id][eid]);
+    if(v !== undefined && v !== '' && !isNaN(Number(v))){ sum += Number(v); cnt++; }
+  });
+  const avg = cnt > 0 ? (sum / cnt).toFixed(1) : '-';
+  footCell.innerHTML = '<b>' + avg + (cnt > 0 ? ' / ' + ex.maxScore : '') + '</b>';
+}
+
+function openExamNoteModal(student, exam, lesson){
+  if(!student || !exam || !lesson) return;
+  const sid = student.id;
+  const eid = exam.id;
+
+  if(!lesson.examExclusions) lesson.examExclusions = {};
+  if(!lesson.examNotes) lesson.examNotes = {};
+
+  const curExcluded = !!(lesson.examExclusions[sid] && lesson.examExclusions[sid][eid]);
+  const curNote = (lesson.examNotes[sid] && lesson.examNotes[sid][eid]) || '';
+
+  const html = '<div class="reset-box" style="text-align:right">'
+    + '<p style="font-size:13px;font-weight:700;margin-bottom:12px">الطالب: <b style="color:var(--primary)">' + esc(student.name) + '</b> · الاختبار: <b>' + esc(exam.name) + '</b></p>'
+    + '<div class="form-row" style="margin-bottom:12px">'
+    +   '<label class="switch-row" style="padding:6px 0;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px">'
+    +     '<div>'
+    +       '<div class="switch-label" style="color:#dc2626;font-weight:800">🚫 لم يدخل الاختبار (استبعاد الطالب)</div>'
+    +       '<div class="muted" style="font-size:11px">استبعاد الطالب من حساب متوسط الدرجات ونسب النجاح، مع توثيق الحالة في التقارير.</div>'
+    +     '</div>'
+    +     '<label class="switch"><input type="checkbox" id="ex_note_excluded"' + (curExcluded ? ' checked' : '') + '><span class="switch-slider"></span></label>'
+    +   '</label>'
+    + '</div>'
+    + '<div class="form-row">'
+    +   '<label>الملاحظة على درجة الطالب أو سبب الاستبعاد (اختياري)'
+    +     '<textarea id="ex_note_text" rows="3" placeholder="مثال: غائب بعذر مرضي، حل المسائل بتميز، يحتاج مراجعة القوانين...">' + esc(curNote) + '</textarea>'
+    +   '</label>'
+    + '</div>'
+    + '<div class="modal-actions">'
+    +   '<button class="btn btn-primary" id="ex_note_save">حفظ الملاحظة</button>'
+    +   (curNote || curExcluded ? '<button class="btn btn-outline" id="ex_note_clear">مسح الملاحظة وإلغاء الاستبعاد</button>' : '')
+    +   '<button class="btn btn-outline" id="ex_note_cancel">إلغاء</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('📝 ملاحظات ودرجة الاختبار', html);
+  $('#ex_note_cancel').onclick = closeModal;
+
+  $('#ex_note_save').onclick = () => {
+    const isExc = $('#ex_note_excluded').checked;
+    const txt = ($('#ex_note_text').value || '').trim();
+
+    if(!lesson.examExclusions[sid]) lesson.examExclusions[sid] = {};
+    if(!lesson.examNotes[sid]) lesson.examNotes[sid] = {};
+
+    if(isExc){
+      lesson.examExclusions[sid][eid] = true;
+    } else {
+      delete lesson.examExclusions[sid][eid];
+    }
+
+    if(txt){
+      lesson.examNotes[sid][eid] = txt;
+    } else {
+      delete lesson.examNotes[sid][eid];
+    }
+
+    saveState();
+    updateExamCellUI(sid, eid, lesson);
+    closeModal();
+    showToastMessage('✅ تم حفظ ملاحظة الاختبار بنجاح.');
+  };
+
+  if($('#ex_note_clear')){
+    $('#ex_note_clear').onclick = () => {
+      if(lesson.examExclusions && lesson.examExclusions[sid]) delete lesson.examExclusions[sid][eid];
+      if(lesson.examNotes && lesson.examNotes[sid]) delete lesson.examNotes[sid][eid];
+      saveState();
+      updateExamCellUI(sid, eid, lesson);
+      closeModal();
+      showToastMessage('✅ تم مسح الملاحظة وإلغاء الاستبعاد.');
+    };
+  }
 }
 
 function addExamModal(lesson, examToEdit){
@@ -1986,21 +2228,117 @@ async function cloudShareBackup(){
   showToastMessage('⬇️ تم تنزيل النسخة الاحتياطية. يمكنك رفعها لـ Google Drive أو حفظها.');
 }
 
-async function telegramBackup(){
-  const token = (state.settings.tgBotToken || '').trim();
-  const chatId = (state.settings.tgChatId || '').trim();
-  const statusEl = $('#tgStatus');
+/* ---------- إدارة بوتات ومحادثات تيليجرام المتعددة (v33) ---------- */
+function renderTgBotsList(){
+  const listEl = $('#tgBotsList');
+  if(!listEl) return;
+  const bots = state.settings.tgBots || [];
+  const activeId = state.settings.activeTgBotId;
 
-  if(!token || !chatId){
-    alert('يرجى كتابة Bot Token و Chat ID الخاصين بك على تيليجرام أولاً من خانات الإعدادات بالأسفل.');
+  if(bots.length === 0){
+    listEl.innerHTML = '<p class="muted" style="font-size:12px;margin:6px 0">لا توجد بوتات محفوظة حالياً. اضغط على «➕ إضافة بوت أو محادثة» لحفظ بيانات البوت والدردشة.</p>';
     return;
+  }
+
+  listEl.innerHTML = bots.map(b => {
+    const isActive = (b.id === activeId);
+    const tokenPreview = b.token ? (b.token.slice(0, 7) + '...' + b.token.slice(-4)) : 'بدون توكن';
+    return '<div class="tg-bot-card ' + (isActive ? 'active' : '') + '">'
+      + '<div class="tg-bot-info">'
+      +   '<div class="tg-bot-name">'
+      +     '🤖 ' + esc(b.name)
+      +     (isActive ? '<span class="tg-bot-badge">النشط حالياً ⭐</span>' : '')
+      +   '</div>'
+      +   '<div class="tg-bot-meta">Chat ID: ' + esc(b.chatId || '-') + ' · Token: ' + esc(tokenPreview) + '</div>'
+      + '</div>'
+      + '<div class="tg-bot-actions">'
+      +   (!isActive ? '<button class="btn btn-sm btn-outline" data-act="set-active-bot" data-id="' + b.id + '" title="تعيين كافتراضي">⭐ تعيين</button>' : '')
+      +   '<button class="mini-btn mini-edit" data-act="edit-bot" data-id="' + b.id + '" title="تعديل">✏️</button>'
+      +   '<button class="mini-btn mini-del" data-act="del-bot" data-id="' + b.id + '" title="حذف">🗑️</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function addTgBotModal(botToEdit){
+  const isEdit = !!botToEdit;
+  const html = '<div class="form-row"><label>اسم البوت أو الدردشة<input id="bot_name" type="text" value="' + esc(isEdit ? botToEdit.name : '') + '" placeholder="مثال: بوت الحصص الأساسي / محادثة المشرف..."></label></div>'
+    + '<div class="form-row"><label>Telegram Bot Token<input id="bot_token" type="text" dir="ltr" value="' + esc(isEdit ? botToEdit.token : '') + '" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"></label></div>'
+    + '<div class="form-row"><label>Chat ID (معرف الدردشة أو القناة)<input id="bot_chat" type="text" dir="ltr" value="' + esc(isEdit ? botToEdit.chatId : '') + '" placeholder="مثال: 987654321 أو -100123456789"></label></div>'
+    + '<div class="modal-actions">'
+    +   '<button class="btn btn-primary" id="bot_save">' + (isEdit ? 'حفظ التعديلات' : 'إضافة البوت') + '</button>'
+    +   '<button class="btn btn-outline" id="bot_cancel">إلغاء</button>'
+    + '</div>';
+
+  openModal(isEdit ? '✏️ تعديل بوت تيليجرام' : '➕ إضافة بوت / محادثة تيليجرام', html);
+  $('#bot_cancel').onclick = closeModal;
+
+  $('#bot_save').onclick = () => {
+    const name = ($('#bot_name').value || '').trim();
+    const token = ($('#bot_token').value || '').trim();
+    const chatId = ($('#bot_chat').value || '').trim();
+
+    if(!name){ alert('يرجى كتابة اسم تعريفي للبوت أو الدردشة.'); return; }
+    if(!token || !chatId){ alert('يرجى إدخال كل من Bot Token و Chat ID.'); return; }
+
+    if(!Array.isArray(state.settings.tgBots)) state.settings.tgBots = [];
+
+    if(isEdit){
+      botToEdit.name = name;
+      botToEdit.token = token;
+      botToEdit.chatId = chatId;
+    } else {
+      const newBot = { id: uid('bot'), name, token, chatId };
+      state.settings.tgBots.push(newBot);
+      if(state.settings.tgBots.length === 1 || !state.settings.activeTgBotId){
+        state.settings.activeTgBotId = newBot.id;
+      }
+    }
+
+    const curAct = state.settings.tgBots.find(b => b.id === state.settings.activeTgBotId) || state.settings.tgBots[0];
+    if(curAct){
+      state.settings.tgBotToken = curAct.token;
+      state.settings.tgChatId = curAct.chatId;
+    }
+
+    saveState();
+    renderTgBotsList();
+    closeModal();
+    showToastMessage('✅ تم حفظ بيانات البوت بنجاح.');
+  };
+}
+
+async function telegramBackup(){
+  const bots = state.settings.tgBots || [];
+  if(bots.length === 0 && (!state.settings.tgBotToken || !state.settings.tgChatId)){
+    addTgBotModal();
+    return;
+  }
+
+  let activeBot = bots.find(b => b.id === state.settings.activeTgBotId) || bots[0];
+  if(!activeBot && state.settings.tgBotToken && state.settings.tgChatId){
+    activeBot = { id: 'default', name: 'البوت الأساسي', token: state.settings.tgBotToken, chatId: state.settings.tgChatId };
   }
 
   const lessons = state.lessons || [];
   const totalStudents = lessons.reduce((sum, l) => sum + (l.students ? l.students.length : 0), 0);
 
+  let botSelectorHTML = '';
+  if(bots.length > 0){
+    botSelectorHTML = '<div class="form-row" style="margin-bottom:12px">'
+      + '<label style="font-weight:800;font-size:12.5px;display:flex;justify-content:space-between;align-items:center">'
+      +   '<span>🤖 إرسال عبر البوت / المحادثة:</span>'
+      +   '<button type="button" class="btn btn-sm btn-outline" id="tg_modal_add_bot" style="font-size:11px;padding:2px 8px">➕ إضافة بوت آخر</button>'
+      + '</label>'
+      + '<select id="tg_modal_bot_select" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-weight:700">'
+      +   bots.map(b => '<option value="' + b.id + '"' + (b.id === (activeBot ? activeBot.id : '') ? ' selected' : '') + '>' + esc(b.name) + ' (Chat ID: ' + esc(b.chatId) + ')</option>').join('')
+      + '</select>'
+      + '</div>';
+  }
+
   let modalHTML = '<div class="reset-box" style="line-height:1.6;text-align:right">'
-    + '<p style="font-size:13px;color:var(--text);margin-bottom:14px">'
+    + botSelectorHTML
+    + '<p style="font-size:13px;color:var(--text);margin-bottom:12px">'
     +   'حدد البيانات التي ترغب في تصديرها وإرسالها إلى محادثتك على تيليجرام:'
     + '</p>'
     + '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">'
@@ -2044,6 +2382,13 @@ async function telegramBackup(){
 
   openModal('🤖 تصدير نسخة إلى تيليجرام', modalHTML);
 
+  if($('#tg_modal_add_bot')){
+    $('#tg_modal_add_bot').onclick = () => {
+      closeModal();
+      addTgBotModal();
+    };
+  }
+
   const scopeAll = $('#tg_scope_all');
   const scopeSel = $('#tg_scope_selected');
   const picker = $('#tg_lessons_picker');
@@ -2067,6 +2412,27 @@ async function telegramBackup(){
   $('#tg_btn_cancel').onclick = closeModal;
 
   $('#tg_btn_proceed').onclick = () => {
+    let chosenToken = state.settings.tgBotToken || '';
+    let chosenChatId = state.settings.tgChatId || '';
+
+    const botSel = $('#tg_modal_bot_select');
+    if(botSel && botSel.value){
+      const foundBot = bots.find(b => b.id === botSel.value);
+      if(foundBot){
+        chosenToken = foundBot.token;
+        chosenChatId = foundBot.chatId;
+        state.settings.activeTgBotId = foundBot.id;
+        state.settings.tgBotToken = foundBot.token;
+        state.settings.tgChatId = foundBot.chatId;
+        saveState();
+      }
+    }
+
+    if(!chosenToken || !chosenChatId){
+      alert('يرجى تحديد أو إضافة بوت صالح به Bot Token و Chat ID.');
+      return;
+    }
+
     const isSelected = scopeSel && scopeSel.checked;
     let exportData, fn, caption;
 
@@ -2108,7 +2474,7 @@ async function telegramBackup(){
     }
 
     closeModal();
-    executeTelegramUpload(token, chatId, JSON.stringify(exportData, null, 2), fn, caption);
+    executeTelegramUpload(chosenToken, chosenChatId, JSON.stringify(exportData, null, 2), fn, caption);
   };
 }
 
@@ -2312,6 +2678,34 @@ function openResetModal(){
     closeModal();
     showToastMessage('🔄 تم تصفير كافة بيانات التطبيق بالكامل.');
   };
+}
+
+/* تصفية فورية وسريعة بالـ DOM لجدول الدرس بدون إعادة البناء */
+function fastFilterLessonSearch(){
+  const fq = (lessonFilterQuery || '').trim().toLowerCase();
+  const fqN = normalizeForSearch(lessonFilterQuery || '');
+  const L = curLesson();
+  if(!L) return;
+
+  if(currentLessonSubtab === 'exams'){
+    const rows = $$('#examsTable tbody tr[data-sid]');
+    rows.forEach(tr => {
+      const sid = tr.dataset.sid;
+      const st = L.students.find(x => x.id === sid);
+      if(!st || !fq){ tr.style.display = ''; return; }
+      const match = normalizeForSearch(st.name).includes(fqN) || (st.phone||'').includes(fq) || (st.guardianPhone||'').includes(fq);
+      tr.style.display = match ? '' : 'none';
+    });
+  } else {
+    const rows = $$('#tableBody tr.student-row');
+    rows.forEach(tr => {
+      const sid = tr.dataset.dragId;
+      const st = L.students.find(x => x.id === sid);
+      if(!st || !fq){ tr.style.display = ''; return; }
+      const match = normalizeForSearch(st.name).includes(fqN) || (st.phone||'').includes(fq) || (st.guardianPhone||'').includes(fq) || (st.extraPhones||[]).some(p => p.includes(fq)) || (st.guardianExtraPhones||[]).some(p => p.includes(fq));
+      tr.style.display = match ? '' : 'none';
+    });
+  }
 }
 
 function renderLessonDetail(){
@@ -2715,6 +3109,8 @@ function renderSettings(){
     + '<input type="number" value="'+ind.minPct+'" data-act="ind-pct" data-id="'+ind.id+'" min="0" max="100" style="width:55px" title="الحد الأدنى لنسبة الحضور %">%'
     + '</div>'
   ).join('') || '<p class="muted">لا توجد مؤشرات.</p>';
+
+  renderTgBotsList();
 }
 
 /* ---------- الإشعارات والتذكيرات ---------- */
@@ -3470,13 +3866,19 @@ function buildReportHTML(students, sessions, records, rows, title, statuses){
       html += '<tr><td class="ord-col">'+(i+1)+'</td><td class="r-name">'+esc(st.name)+'</td>';
       let tot = 0, ecnt = 0;
       curL.exams.forEach(ex => {
+        const isExcluded = (curL.examExclusions && curL.examExclusions[st.id] && curL.examExclusions[st.id][ex.id]);
+        const note = (curL.examNotes && curL.examNotes[st.id] && curL.examNotes[st.id][ex.id]) || '';
         const sc = (curL.examScores && curL.examScores[st.id] && curL.examScores[st.id][ex.id]);
-        if(sc !== undefined && sc !== '' && !isNaN(Number(sc))){
-          tot += (Number(sc) / ex.maxScore) * 100;
+        if(isExcluded){
+          html += '<td style="color:#dc2626;font-size:7px;font-weight:700">🚫 لم يدخل' + (note ? '<br><span style="color:#64748b;font-weight:normal">📝 '+esc(note)+'</span>' : '') + '</td>';
+        } else if(sc !== undefined && sc !== '' && !isNaN(Number(sc))){
+          const numSc = Number(sc);
+          tot += (numSc / ex.maxScore) * 100;
           ecnt++;
-          html += '<td>' + sc + '</td>';
+          const isPass = (numSc / ex.maxScore) >= 0.5;
+          html += '<td style="color:' + (isPass ? '#15803d' : '#b91c1c') + ';font-weight:700">' + sc + (note ? '<br><span style="color:#64748b;font-weight:normal;font-size:7px">📝 '+esc(note)+'</span>' : '') + '</td>';
         } else {
-          html += '<td>-</td>';
+          html += '<td style="color:#94a3b8">-' + (note ? '<br><span style="color:#64748b;font-size:7px">📝 '+esc(note)+'</span>' : '') + '</td>';
         }
       });
       const avg = ecnt > 0 ? Math.round(tot / ecnt) + '%' : '-';
@@ -4023,7 +4425,17 @@ function weeklyMessage(){
   function currentType(){ return $('#msgType').value === 'business' ? 'business' : 'normal'; }
   function currentText(){
     const time = timeInput.value.trim();
-    return sd.messageTemplate.replace(/\{time\}/g, time || '');
+    let txt = sd.messageTemplate.replace(/\{time\}/g, time || '');
+    if(txt.includes('{exams}')){
+      const curL = curLesson();
+      let exText = '';
+      if(curL && Array.isArray(curL.exams) && curL.exams.length > 0){
+        const lastEx = curL.exams[curL.exams.length - 1];
+        exText = 'آخر اختبار: ' + lastEx.name + ' (من ' + lastEx.maxScore + ')';
+      }
+      txt = txt.replace(/\{exams\}/g, exText);
+    }
+    return txt;
   }
   function buildTarget(){
     return resolveWaTarget($('#msgTarget').value, currentText(), currentType());
@@ -4063,7 +4475,7 @@ function waHrefNumber(phone, text, type){
 }
 
 /* ---------- تقرير الشهر كرسالة واتساب ---------- */
-function buildMonthReportText(name, monthNumber, year, students, sessions, records, statuses){
+function buildMonthReportText(name, monthNumber, year, students, sessions, records, statuses, lessonObj){
   const ps = pastSessions(sessions);
   const rows = computeStats(students, ps, records, statuses).slice().sort((a,b) => b.pct - a.pct);
   let text = '📊 تقرير شهر ' + monthNumber + '/' + year + ' - ' + name + '\n';
@@ -4077,6 +4489,26 @@ function buildMonthReportText(name, monthNumber, year, students, sessions, recor
     text += '\n\n⚠️ نسبة أقل من 50% (يحتاجون متابعة):';
     low.forEach(r => { text += '\n• ' + r.st.name + ' - ' + r.pct + '%'; });
   }
+
+  /* نتائج درجات الاختبارات */
+  const L = lessonObj || curLesson();
+  if(L && Array.isArray(L.exams) && L.exams.length > 0){
+    text += '\n\n📝 نتائج درجات الاختبارات:';
+    L.exams.forEach(ex => {
+      text += '\n▪️ ' + ex.name + ' (من ' + ex.maxScore + '):';
+      students.forEach(st => {
+        const isExcluded = (L.examExclusions && L.examExclusions[st.id] && L.examExclusions[st.id][ex.id]);
+        const note = (L.examNotes && L.examNotes[st.id] && L.examNotes[st.id][ex.id]);
+        const sc = (L.examScores && L.examScores[st.id] && L.examScores[st.id][ex.id]);
+        if(isExcluded){
+          text += '\n  - ' + st.name + ': لم يدخل الاختبار 🚫' + (note ? ' (' + note + ')' : '');
+        } else if(sc !== undefined && sc !== '' && !isNaN(Number(sc))){
+          text += '\n  - ' + st.name + ': ' + sc + '/' + ex.maxScore + (note ? ' (' + note + ')' : '');
+        }
+      });
+    });
+  }
+
   const events = (sessions||[]).filter(s => s.event);
   if(events.length){
     text += '\n\n📝 أحداث الشهر:';
@@ -4112,12 +4544,12 @@ function showReportMessageModal(text){
 }
 
 function monthlyReportMessage(lesson){
-  showReportMessageModal(buildMonthReportText(lesson.name, lesson.monthNumber, lesson.year, lesson.students, lesson.sessions, lesson.records, effectiveStatuses(lesson)));
+  showReportMessageModal(buildMonthReportText(lesson.name, lesson.monthNumber, lesson.year, lesson.students, lesson.sessions, lesson.records, effectiveStatuses(lesson), lesson));
 }
 
 function archiveMonthlyMessage(a){
   const L = state.lessons.find(x => x.id === a.lessonId);
-  showReportMessageModal(buildMonthReportText(a.lessonName, a.monthNumber, a.year, archiveStudents(a), a.sessions, a.records, L ? effectiveStatuses(L) : null));
+  showReportMessageModal(buildMonthReportText(a.lessonName, a.monthNumber, a.year, archiveStudents(a), a.sessions, a.records, L ? effectiveStatuses(L) : null, a));
 }
 function fallbackCopy(text){
   const ta = document.createElement('textarea');
@@ -4494,14 +4926,22 @@ function openStudentProfile(student, lesson){
   $$('#modalBody [data-del-pay]').forEach(btn => {
     btn.onclick = (e) => {
       const payId = e.currentTarget.dataset.delPay;
-      if(!confirm('هل أنت متأكد من حذف هذه الدفعة؟')) return;
-      student.payments = (student.payments || []).filter(x => x.id !== payId);
-      const newTotal = (student.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-      if(lesson.price > 0) student.paid = (newTotal >= lesson.price);
-      saveState();
-      renderLessonDetail();
-      openStudentProfile(student, lesson);
-      showToastMessage('تم حذف الدفعة.');
+      const pay = (student.payments || []).find(x => x.id === payId);
+      confirmDangerModal({
+        title: '⚠️ حذف الدفعة',
+        message: 'هل أنت متأكد من رغبتك في حذف هذه الدفعة من سجل الطالب؟',
+        itemName: pay ? (pay.amount + ' ج.م بتاريخ ' + pay.date) : '',
+        dangerNote: 'سيتم خصم هذه الدفعة من إجمالي تحصيلات الطالب.',
+        onConfirm: () => {
+          student.payments = (student.payments || []).filter(x => x.id !== payId);
+          const newTotal = (student.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+          if(lesson.price > 0) student.paid = (newTotal >= lesson.price);
+          saveState();
+          renderLessonDetail();
+          openStudentProfile(student, lesson);
+          showToastMessage('🗑️ تم حذف الدفعة بنجاح.');
+        }
+      });
     };
   });
 }
@@ -4813,7 +5253,10 @@ function bindEvents(){
 
   $('#globalSearch').addEventListener('input', (e) => { globalSearchQuery = e.target.value; renderGlobalSearch(); });
 
-  $('#lessonSearch').addEventListener('input', (e) => { lessonFilterQuery = e.target.value; renderLessonDetail(); });
+  $('#lessonSearch').addEventListener('input', (e) => {
+    lessonFilterQuery = e.target.value;
+    fastFilterLessonSearch();
+  });
   $('#groupFilter').addEventListener('change', (e) => { groupFilterQuery = e.target.value; renderLessonDetail(); });
 
   $('#addStudentBtn').onclick = () => { const L = curLesson(); if(L) studentForm(L, null); };
@@ -4851,6 +5294,7 @@ function bindEvents(){
   if($('#addExamBtn')) $('#addExamBtn').onclick = () => { const L = curLesson(); if(L) addExamModal(L, null); };
   if($('#cloudShareBtn')) $('#cloudShareBtn').onclick = cloudShareBackup;
   if($('#tgBackupBtn')) $('#tgBackupBtn').onclick = telegramBackup;
+  if($('#addTgBotBtn')) $('#addTgBotBtn').onclick = () => addTgBotModal();
   if($('#set_tgBotToken')) $('#set_tgBotToken').addEventListener('change', (e) => { state.settings.tgBotToken = e.target.value.trim(); saveState(); });
   if($('#set_tgChatId')) $('#set_tgChatId').addEventListener('change', (e) => { state.settings.tgChatId = e.target.value.trim(); saveState(); });
   if($('#openAnalyticsBtn')) $('#openAnalyticsBtn').onclick = openAnalyticsModal;
@@ -5048,10 +5492,19 @@ function bindEvents(){
     else if(act === 'edit-lesson'){ lessonForm(state.lessons.find(x => x.id === id)); }
     else if(act === 'del-lesson'){
       const L = state.lessons.find(x => x.id === id);
-      if(L && window.confirm('حذف الدرس «'+L.name+'» وكل بياناته الحالية؟ سيبقى أرشيفه محفوظاً.')){
-        state.lessons = state.lessons.filter(x => x.id !== id);
-        if(currentLessonId === id) currentLessonId = null;
-        saveState(); renderAll();
+      if(L){
+        confirmDangerModal({
+          title: '⚠️ حذف الدرس',
+          message: 'هل أنت متأكد من رغبتك في حذف هذا الدرس نهائياً؟',
+          itemName: L.name + ' (' + L.students.length + ' طالب · شهر ' + L.monthNumber + '/' + L.year + ')',
+          dangerNote: 'سيتم مسح بيانات الدرس الحالي وطلابه وسجلاته (سيبقى الأرشيف محفوظاً).',
+          onConfirm: () => {
+            state.lessons = state.lessons.filter(x => x.id !== id);
+            if(currentLessonId === id) currentLessonId = null;
+            saveState(); renderAll();
+            showToastMessage('🗑️ تم حذف الدرس.');
+          }
+        });
       }
     }
     else if(act === 'wa'){
@@ -5076,10 +5529,22 @@ function bindEvents(){
     else if(act === 'del-student'){
       const L = curLesson();
       const st = L && L.students.find(x => x.id === id);
-      if(st && window.confirm('حذف العضو «'+st.name+'» من هذا الدرس؟')){
-        L.students = L.students.filter(x => x.id !== id);
-        delete L.records[id];
-        saveState(); renderAll();
+      if(L && st){
+        confirmDangerModal({
+          title: '⚠️ حذف العضو من الدرس',
+          message: 'هل أنت متأكد من رغبتك في حذف هذا العضو من هذا الدرس؟',
+          itemName: st.name + (st.phone ? ' (' + st.phone + ')' : ''),
+          dangerNote: 'سيتم مسح سجلات حضور الطالب ودرجاته في هذا الشهر.',
+          onConfirm: () => {
+            L.students = L.students.filter(x => x.id !== id);
+            delete L.records[id];
+            if(L.examScores) delete L.examScores[id];
+            if(L.examNotes) delete L.examNotes[id];
+            if(L.examExclusions) delete L.examExclusions[id];
+            saveState(); renderAll();
+            showToastMessage('🗑️ تم حذف العضو من الدرس.');
+          }
+        });
       }
     }
     else if(act === 'move-student'){
@@ -5202,11 +5667,20 @@ function bindEvents(){
         after = () => renderAll();
       }
       const s = container.sessions.find(x => x.id === id);
-      if(s && window.confirm('حذف «'+s.label+'» وكل تسجيلاته؟')){
-        container.sessions = container.sessions.filter(x => x.id !== id);
-        Object.keys(container.records).forEach(k => delete container.records[k][id]);
-        container.sessions.forEach((x,i) => x.label = 'حصة ' + (i+1));
-        saveState(); after();
+      if(s){
+        confirmDangerModal({
+          title: '⚠️ حذف الحصة',
+          message: 'هل أنت متأكد من رغبتك في حذف هذه الحصة وجميع تسجيلات حضورها؟',
+          itemName: s.label + (s.dateLabel ? ' (' + s.dateLabel + ')' : ''),
+          dangerNote: 'سيتم مسح تسجيلات حضور وغياب كافة الطلاب في هذه الحصة.',
+          onConfirm: () => {
+            container.sessions = container.sessions.filter(x => x.id !== id);
+            Object.keys(container.records).forEach(k => delete container.records[k][id]);
+            container.sessions.forEach((x,i) => x.label = 'حصة ' + (i+1));
+            saveState(); after();
+            showToastMessage('🗑️ تم حذف الحصة بنجاح.');
+          }
+        });
       }
     }
     else if(act === 'bulk-attendance'){
@@ -5227,13 +5701,78 @@ function bindEvents(){
     else if(act === 'del-exam'){
       const L = curLesson();
       const ex = L && (L.exams||[]).find(x => x.id === id);
-      if(L && ex && window.confirm('حذف «' + ex.name + '» وكل درجات الطلاب فيه؟')){
-        L.exams = L.exams.filter(x => x.id !== id);
-        if(L.examScores){
-          Object.keys(L.examScores).forEach(sid => { delete L.examScores[sid][id]; });
-        }
-        saveState();
-        renderExamsTable(L);
+      if(L && ex){
+        confirmDangerModal({
+          title: '⚠️ حذف الاختبار',
+          message: 'هل أنت متأكد من رغبتك في حذف هذا الاختبار ورصد درجاته؟',
+          itemName: ex.name + ' (الدرجة العظمى: ' + ex.maxScore + ')',
+          dangerNote: 'سيتم مسح درجات وملاحظات جميع الطلاب في هذا الاختبار نهائياً.',
+          onConfirm: () => {
+            L.exams = L.exams.filter(x => x.id !== id);
+            if(L.examScores){
+              Object.keys(L.examScores).forEach(sid => { delete L.examScores[sid][id]; });
+            }
+            if(L.examNotes){
+              Object.keys(L.examNotes).forEach(sid => { delete L.examNotes[sid][id]; });
+            }
+            if(L.examExclusions){
+              Object.keys(L.examExclusions).forEach(sid => { delete L.examExclusions[sid][id]; });
+            }
+            saveState();
+            renderExamsTable(L);
+            showToastMessage('🗑️ تم حذف الاختبار بنجاح.');
+          }
+        });
+      }
+    }
+    else if(act === 'exam-note'){
+      const L = curLesson();
+      const sid = t.dataset.sid || (t.closest('[data-sid]') && t.closest('[data-sid]').dataset.sid);
+      const eid = t.dataset.eid || (t.closest('[data-eid]') && t.closest('[data-eid]').dataset.eid);
+      const st = L && L.students.find(x => x.id === sid);
+      const ex = L && (L.exams||[]).find(x => x.id === eid);
+      if(L && st && ex) openExamNoteModal(st, ex, L);
+    }
+    else if(act === 'set-active-bot'){
+      state.settings.activeTgBotId = id;
+      const b = (state.settings.tgBots||[]).find(x => x.id === id);
+      if(b){
+        state.settings.tgBotToken = b.token;
+        state.settings.tgChatId = b.chatId;
+      }
+      saveState();
+      renderTgBotsList();
+      showToastMessage('⭐ تم تعيين «' + (b ? b.name : '') + '» كبوت افتراضي للإرسال.');
+    }
+    else if(act === 'edit-bot'){
+      const b = (state.settings.tgBots||[]).find(x => x.id === id);
+      if(b) addTgBotModal(b);
+    }
+    else if(act === 'del-bot'){
+      const b = (state.settings.tgBots||[]).find(x => x.id === id);
+      if(b){
+        confirmDangerModal({
+          title: '⚠️ حذف بوت تيليجرام',
+          message: 'هل أنت متأكد من رغبتك في حذف بيانات هذا البوت نهائياً؟',
+          itemName: b.name + ' (Chat ID: ' + b.chatId + ')',
+          dangerNote: 'سيتم مسح بيانات البوت من قائمة البوتات المحفوظة.',
+          onConfirm: () => {
+            state.settings.tgBots = (state.settings.tgBots||[]).filter(x => x.id !== id);
+            if(state.settings.activeTgBotId === id){
+              state.settings.activeTgBotId = (state.settings.tgBots[0] ? state.settings.tgBots[0].id : null);
+              if(state.settings.tgBots[0]){
+                state.settings.tgBotToken = state.settings.tgBots[0].token;
+                state.settings.tgChatId = state.settings.tgBots[0].chatId;
+              } else {
+                state.settings.tgBotToken = '';
+                state.settings.tgChatId = '';
+              }
+            }
+            saveState();
+            renderTgBotsList();
+            showToastMessage('🗑️ تم حذف البوت بنجاح.');
+          }
+        });
       }
     }
     else if(act === 'open-archive'){ renderArchiveDetail(parseInt(idx,10)); }
@@ -5274,36 +5813,61 @@ function bindEvents(){
       restoreArchiveMonth(parseInt(idx,10));
     }
     else if(act === 'del-archive'){
-      if(window.confirm('حذف هذا الشهر من الأرشيف نهائياً؟')){
-        state.archive.splice(parseInt(idx,10), 1);
-        saveState(); renderArchive();
+      const a = state.archive[parseInt(idx,10)];
+      if(a){
+        confirmDangerModal({
+          title: '⚠️ حذف شهر من الأرشيف',
+          message: 'هل أنت متأكد من رغبتك في حذف هذا الشهر المؤرشف نهائياً؟',
+          itemName: (a.lessonName || 'درس') + ' - شهر ' + a.monthNumber + '/' + a.year,
+          dangerNote: 'لا يمكن استرجاع هذا الشهر وسجلاته بعد الحذف.',
+          onConfirm: () => {
+            state.archive.splice(parseInt(idx,10), 1);
+            saveState(); renderArchive();
+            showToastMessage('🗑️ تم حذف الشهر من الأرشيف.');
+          }
+        });
       }
     }
     else if(act === 'del-field'){
-      if(window.confirm('حذف هذا العمود وقيمه من كل الطلاب؟')){
-        state.settings.customFields = state.settings.customFields.filter(x => x.id !== id);
-        state.lessons.forEach(L => L.students.forEach(st => { if(st.fields) delete st.fields[id]; }));
-        state.archive.forEach(a => a.students.forEach(st => { if(st.fields) delete st.fields[id]; }));
-        saveState(); renderAll();
-      }
+      const f = state.settings.customFields.find(x => x.id === id);
+      confirmDangerModal({
+        title: '⚠️ حذف عمود مخصص',
+        message: 'هل أنت متأكد من رغبتك في حذف هذا العمود من جميع الطلاب في كل الدروس والأرشيف؟',
+        itemName: f ? f.label : '',
+        dangerNote: 'سيتم مسح كافة البيانات المدخلة في هذا العمود لجميع الطلاب.',
+        onConfirm: () => {
+          state.settings.customFields = state.settings.customFields.filter(x => x.id !== id);
+          state.lessons.forEach(L => L.students.forEach(st => { if(st.fields) delete st.fields[id]; }));
+          state.archive.forEach(a => a.students.forEach(st => { if(st.fields) delete st.fields[id]; }));
+          saveState(); renderAll();
+          showToastMessage('🗑️ تم حذف العمود المخصص.');
+        }
+      });
     }
     else if(act === 'del-status'){
       const s = state.settings.statuses.find(x => x.id === id);
       if(!s) return;
       if(state.settings.statuses.length <= 1){ alert('يجب أن تبقى حالة واحدة على الأقل.'); return; }
-      if(window.confirm('حذف الحالة «'+s.label+'»؟')){
-        state.settings.statuses = state.settings.statuses.filter(x => x.id !== id);
-        const clearIn = (records) => {
-          Object.keys(records||{}).forEach(k => {
-            Object.keys(records[k]||{}).forEach(ssid => {
-              if(records[k][ssid].status === id) records[k][ssid].status = '';
+      confirmDangerModal({
+        title: '⚠️ حذف حالة حضور',
+        message: 'هل أنت متأكد من رغبتك في حذف هذه الحالة؟',
+        itemName: s.label,
+        dangerNote: 'سيتم تفريغ هذه الحالة من كافة سجلات الحضور السابقة للطلاب.',
+        onConfirm: () => {
+          state.settings.statuses = state.settings.statuses.filter(x => x.id !== id);
+          const clearIn = (records) => {
+            Object.keys(records||{}).forEach(k => {
+              Object.keys(records[k]||{}).forEach(ssid => {
+                if(records[k][ssid].status === id) records[k][ssid].status = '';
+              });
             });
-          });
-        };
-        state.lessons.forEach(L => clearIn(L.records));
-        state.archive.forEach(a => clearIn(a.records));
-        saveState(); renderAll();
-      }
+          };
+          state.lessons.forEach(L => clearIn(L.records));
+          state.archive.forEach(a => clearIn(a.records));
+          saveState(); renderAll();
+          showToastMessage('🗑️ تم حذف الحالة.');
+        }
+      });
     }
   });
 
@@ -5462,7 +6026,7 @@ function bindEvents(){
         e.target.value = num;
       }
       saveState();
-      renderExamsTable(L);
+      updateExamCellUI(sid, eid, L);
     }
   });
 

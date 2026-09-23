@@ -963,6 +963,51 @@ th.col-drop-target-right{border-right:3px solid var(--primary)!important}
   flex-shrink:0;
 }
 
+/* ===== v33: إدارة بوتات تيليجرام المتعددة ===== */
+.tg-bots-list{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.tg-bot-card{
+  background:#fff;border:1px solid var(--border);border-radius:10px;
+  padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;
+  box-shadow:0 1px 3px rgba(0,0,0,.03);transition:.15s ease;
+}
+.tg-bot-card.active{border-color:var(--primary);background:#f8fafc}
+.tg-bot-info{flex:1;min-width:0;text-align:right}
+.tg-bot-name{font-size:13px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px}
+.tg-bot-badge{font-size:10px;font-weight:800;background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px}
+.tg-bot-meta{font-size:11px;color:var(--muted);direction:ltr;text-align:right;margin-top:2px}
+.tg-bot-actions{display:flex;gap:4px;align-items:center;flex-shrink:0}
 
+/* ===== v33: ملاحظات الاختبار واستبعاد الطلاب ===== */
+.exam-cell-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.exam-input-row{display:flex;align-items:center;justify-content:center;gap:3px}
+.exam-note-btn{
+  background:#f1f5f9;border:1px solid var(--border);border-radius:5px;
+  font-size:10px;cursor:pointer;padding:2px 4px;line-height:1;transition:.15s;
+}
+.exam-note-btn:hover{background:#e2e8f0}
+.exam-note-btn.has-note{background:#fef3c7;border-color:#fde047;color:#92400e}
+.exam-excluded-badge{
+  font-size:10px;font-weight:800;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;
+  border-radius:6px;padding:2px 6px;display:inline-block;white-space:nowrap;cursor:pointer;
+}
+.exam-note-text-preview{
+  font-size:9px;color:#b45309;font-weight:700;display:block;max-width:80px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
 
+/* ===== v33: نوافذ تأكيد الحذف المخصصة والآمنة ===== */
+.danger-modal-box{text-align:center;padding:10px 4px}
+.danger-modal-icon{font-size:42px;margin-bottom:8px;line-height:1}
+.danger-modal-title{font-size:16px;font-weight:800;color:#dc2626;margin-bottom:6px}
+.danger-modal-desc{font-size:13px;color:var(--text);line-height:1.6;margin-bottom:12px}
+.danger-modal-item{
+  background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;
+  padding:8px 12px;font-size:13px;font-weight:800;color:#991b1b;margin-bottom:16px;word-break:break-word;
+}
+.danger-modal-actions{display:flex;gap:10px;justify-content:center}
 
+/* ===== v33: نتائج الاختبارات في تقارير الطباعة PDF ===== */
+.r-exams-section{margin-top:16px;page-break-inside:avoid}
+.r-exams-title{font-size:12px;font-weight:800;color:#1e293b;border-bottom:1.5px solid #cbd5e1;padding-bottom:3px;margin-bottom:6px}
+.r-exam-note{font-size:7px;color:#b45309;display:block}
+.r-exam-exc{color:#b91c1c;font-weight:700;font-size:7.5px}

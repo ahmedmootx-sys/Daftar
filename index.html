@@ -276,16 +276,16 @@
         <button id="cloudShareBtn" class="btn btn-primary">📲 مشاركة سريعة (Google Drive / تطبيقات)</button>
       </div>
       <div style="border-top:1px dashed var(--border);padding-top:12px;margin-top:8px">
-        <div style="font-size:13px;font-weight:800;color:var(--primary);margin-bottom:4px">🤖 النسخ التلقائي إلى تيليجرام (Telegram Bot)</div>
-        <p class="muted" style="font-size:12px;margin-bottom:8px">يرسل ملف النسخة الاحتياطية كاملاً ومشفراً لمحادثتك على تيليجرام كأرشيف سحابي دائم مجاني.</p>
-        <div class="grid2">
-          <label>Bot Token
-            <input id="set_tgBotToken" type="password" placeholder="123456:ABC-DEF..." dir="ltr">
-          </label>
-          <label>Chat ID
-            <input id="set_tgChatId" type="text" placeholder="مثال: 987654321" dir="ltr">
-          </label>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+          <div>
+            <div style="font-size:13px;font-weight:800;color:var(--primary)">🤖 إدارة بوتات ومحادثات تيليجرام (Telegram Bots)</div>
+            <p class="muted" style="font-size:12px;margin:2px 0 0">احفظ عدة بوتات ومحادثات بالأسماء للتبديل السريع بينها عند إرسال النسخ الاحتياطية.</p>
+          </div>
+          <button id="addTgBotBtn" class="btn btn-primary btn-sm">➕ إضافة بوت جديد</button>
         </div>
+        <div id="tgBotsList" class="tg-bots-list"></div>
+        <input id="set_tgBotToken" type="hidden">
+        <input id="set_tgChatId" type="hidden">
         <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
           <button id="tgBackupBtn" class="btn btn-outline btn-sm">🚀 إرسال نسخة إلى تيليجرام الآن</button>
           <span id="tgStatus" class="muted" style="font-size:12px;font-weight:700"></span>
