@@ -2357,7 +2357,7 @@ function openAssignExamGroupStudentsModal(lesson, groupId){
   if(searchInp){
     searchInp.oninput = () => {
       const q = normalizeForSearch(searchInp.value);
-      $('.assign-eg-row').forEach(row => {
+      $$('.assign-eg-row').forEach(row => {
         const name = normalizeForSearch(row.dataset.name);
         row.style.display = (!q || name.includes(q)) ? 'flex' : 'none';
       });
@@ -2365,18 +2365,18 @@ function openAssignExamGroupStudentsModal(lesson, groupId){
   }
 
   $('#assign_eg_select_all').onclick = () => {
-    $('.assign-eg-cb').forEach(cb => {
+    $$('.assign-eg-cb').forEach(cb => {
       if(cb.closest('.assign-eg-row').style.display !== 'none') cb.checked = true;
     });
   };
   $('#assign_eg_deselect_all').onclick = () => {
-    $('.assign-eg-cb').forEach(cb => {
+    $$('.assign-eg-cb').forEach(cb => {
       if(cb.closest('.assign-eg-row').style.display !== 'none') cb.checked = false;
     });
   };
 
   $('#btn_save_assign_eg').onclick = () => {
-    const checkedIds = $('.assign-eg-cb:checked').map(cb => cb.value);
+    const checkedIds = $$('.assign-eg-cb:checked').map(cb => cb.value);
     activeStudents.forEach(st => {
       if(checkedIds.includes(st.id)){
         st.examGroupId = groupId;
@@ -2986,7 +2986,7 @@ async function telegramBackup(){
     let exportData, fn, caption;
 
     if(isSelected){
-      const checkedIds = $('.tg-lesson-cb:checked').map(cb => cb.value);
+      const checkedIds = $$('.tg-lesson-cb:checked').map(cb => cb.value);
       if(checkedIds.length === 0){
         alert('يرجى تحديد درس واحد على الأقل لتصديره إلى تيليجرام.');
         return;
@@ -3009,13 +3009,18 @@ async function telegramBackup(){
           + '\n📅 التاريخ: ' + todayStr()
           + '\n👥 عدد الطلاب: ' + (singleL.students ? singleL.students.length : 0)
           + '\n🗓️ عدد الحصص: ' + (singleL.sessions ? singleL.sessions.length : 0)
+          + (singleArchives.length > 0 ? ('\n📁 الشهور المؤرشفة: ' + singleArchives.length + ' شهر') : '')
           + exporterLine;
       } else {
+        const checkedLessonIds = selectedLessons.map(l => l.id);
+        const selectedArchives = (state.archive || []).filter(a => checkedLessonIds.includes(a.lessonId));
         exportData = {
           type: 'daftar_lessons_export',
           version: state.version || 6,
           exportedAt: new Date().toISOString(),
           lessons: selectedLessons,
+          archives: selectedArchives,
+          archive: selectedArchives,
           settings: sanitizeExportState(state.settings)
         };
         fn = 'daftar-' + selectedLessons.length + '-lessons-' + todayStr() + '.json';
@@ -5043,7 +5048,8 @@ function importLesson(file){
 
       // الحالة الأولى: ملف درس فردي { lesson: {...}, archives: [...] }
       if(data.lesson && typeof data.lesson === 'object' && data.lesson.name){
-        executeImportSingleLesson(data.lesson, data.archives || []);
+        const lessonArchives = Array.isArray(data.archives) ? data.archives : (Array.isArray(data.archive) ? data.archive : []);
+        executeImportSingleLesson(data.lesson, lessonArchives);
         return;
       }
 
@@ -5119,12 +5125,12 @@ function openMultiLessonImportModal(lessons, allArchives){
 
   openModal('📚 استيراد دروس من ملف مجمع', modalHTML);
 
-  $('#import_btn_select_all').onclick = () => { $('.import-lesson-cb').forEach(cb => cb.checked = true); };
-  $('#import_btn_deselect_all').onclick = () => { $('.import-lesson-cb').forEach(cb => cb.checked = false); };
+  $('#import_btn_select_all').onclick = () => { $$('.import-lesson-cb').forEach(cb => cb.checked = true); };
+  $('#import_btn_deselect_all').onclick = () => { $$('.import-lesson-cb').forEach(cb => cb.checked = false); };
   $('#import_btn_cancel').onclick = closeModal;
 
   $('#import_btn_proceed').onclick = () => {
-    const checkedIds = $('.import-lesson-cb:checked').map(cb => cb.value);
+    const checkedIds = $$('.import-lesson-cb:checked').map(cb => cb.value);
     if(checkedIds.length === 0){
       alert('يرجى تحديد درس واحد على الأقل للاستيراد.');
       return;
