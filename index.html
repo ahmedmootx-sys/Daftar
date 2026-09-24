@@ -86,6 +86,7 @@
           <div class="dropdown-menu" id="reportsMenu" hidden>
             <button id="lessonReportBtn" class="dropdown-item">📊 تقرير الشهر</button>
             <button id="examReportBtn" class="dropdown-item">📝 تقرير درجات الاختبارات</button>
+            <button id="examMsgReportBtn" class="dropdown-item" title="تقرير درجات الاختبار كرسالة نصية لواتساب للطلاب الحاضرين">📨 تقرير الاختبار كرسالة</button>
             <button id="monthlyMsgBtn" class="dropdown-item" title="تقرير الشهر كرسالة واتساب للجروب">📨 تقرير كرسالة</button>
             <button id="compReportBtn" class="dropdown-item" title="تقرير شامل: نسبة حضور كل طالب عبر كل الشهور المؤرشفة">📊 تقرير شامل (كل الشهور)</button>
             <button id="blankSheetBtn" class="dropdown-item" title="ورقة حضور فارغة جاهزة للطباعة">📄 ورقة حضور</button>
@@ -127,6 +128,10 @@
             <button id="addExamBtn" class="btn btn-primary btn-sm">➕ إضافة اختبار جديد</button>
             <button id="printExamsReportBtn" class="btn btn-outline btn-sm" title="طباعة تقرير الاختبارات بصيغة PDF">🖨️ طباعة (PDF)</button>
             <button id="exportExamsCsvBtn" class="btn btn-outline btn-sm" title="تصدير درجات الاختبارات إلى Excel">⬇️ تصدير (Excel)</button>
+            <select id="examGroupFilter" class="group-filter" style="font-size:12px;padding:4px 8px;min-width:140px;max-width:180px;height:32px" title="تصفية حسب مجموعة الاختبار">
+              <option value="">كل مجموعات الاختبار</option>
+            </select>
+            <button id="examGroupsBtn" class="btn btn-outline btn-sm" title="إدارة وتقسيم مجموعات الاختبارات">🏷️ مجموعات الاختبار</button>
             <button id="hiddenExamStudentsBtn" class="btn btn-outline btn-sm" style="display:none;color:#b91c1c;border-color:#fca5a5" title="عرض واستعادة الطلاب المستبعدين من الاختبارات">👥 المستبعدون (<span id="hiddenExamCount">0</span>)</button>
           </div>
           <div id="examsMeta" class="muted" style="font-size:12px;font-weight:700"></div>
@@ -226,13 +231,24 @@
         </label>
       </div>
 
-      <div class="switch-row" style="justify-content:space-between;padding:10px 0">
+      <div class="switch-row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:10px 0">
         <div>
           <div class="switch-label">⚠️ تنبيه الأيام التي لم تأتِ بعد</div>
           <div class="muted" style="font-size:12px;margin-top:2px">تنبيه خفيف عند تسجيل حضور في يوم لم يأتِ بعد دون منع التسجيل.</div>
         </div>
         <label class="switch">
           <input type="checkbox" id="set_warnFuture">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <div class="switch-row" style="justify-content:space-between;padding:10px 0">
+        <div>
+          <div class="switch-label">⚡ وضع الأداء القياسي (لتخفيف التعليق والبطء على الهواتف الضعيفة)</div>
+          <div class="muted" style="font-size:12px;margin-top:2px">تعطيل الرسوم المتحركة والظلال والشفافيات لتسريع التجاوب والتمرير فورياً على الهواتف محدودة الأداء.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="set_liteMode">
           <span class="switch-slider"></span>
         </label>
       </div>

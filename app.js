@@ -34,8 +34,15 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v34';
+const APP_VERSION = 'v35';
 const CHANGELOG = {
+  v35: [
+    '⚡ وضع الأداء القياسي (Lite Mode): مفتاح سويتش في الإعدادات لتخفيف التعليق والبطء فورياً على الهواتف محدودة الأداء عبر إلغاء الرسوم والظلال والشفافيات وتسريع التمرير',
+    '📨 تقرير درجات الاختبار كرسالة (واتساب / نسخ): إرسال نتائج الاختبارات للطلاب الحاضرين فقط واستبعاد غير المشاركين، مع خيار إرسال كل اختبارات الشهر أو اختبار محدد',
+    '👤 اسم المُصدّر لتيليجرام: إظهار اسم المعلم/المُرسل في رسالة البوت بتيليجرام لتمييز من قام برفع النسخة عند تناوب أكثر من معلم',
+    '🛡️ إصلاح استيراد وتصدير الدروس وحجب البوتات: حل مشكلة "ملف الدرس غير صالح"، وإتاحة استيراد واختيار أي درس مدمج من أي ملف، وحجب بيانات وتوكنات البوتات عن النسخ المصدّرة تماماً',
+    '👥 مجموعات مستقلة لقسم الاختبارات + طباعة وتصدير للمجاميع: تقسيم مجاميع داخل قسم الاختبارات وتصفيتها وطباعتها وتصديرها لـ Excel مع إبراز اسم المجموعة، ودعم طباعة وتصدير مجاميع الدرس الأساسية'
+  ],
   v34: [
     '🚫 استبعاد وإخفاء الطلاب من قسم الاختبارات: إمكانية إخفاء أي طالب لا يشارك في الاختبارات تماماً من جدول الاختبارات حتى لا يشغل مساحة، مع زر إدارة واستعادة للطلاب المستبعدين في أي وقت دون المساس بسجلات الحضور',
     '📊 التقرير الشامل التفاعلي مع درجات الاختبارات: شريط تبديل ثلاثي (نسب الحضور / درجات الاختبارات / عرض مدمج) لعرض وتحليل أداء الطلاب في الشهور السابقة والحالية مع دعم التصدير',
@@ -319,6 +326,8 @@ function defaultState(){
       whatsappNumber: '+201038805435',
       whatsappType: 'normal',
       warnFutureAttendance: true,
+      liteMode: false,
+      lastTgExporter: '',
       tgBotToken: '',
       tgChatId: '',
       tgBots: [],
@@ -371,6 +380,7 @@ function normalizeStudent(st){
     guardianExtraPhones: Array.isArray(st.guardianExtraPhones) ? st.guardianExtraPhones.map(normalizePhone).filter(Boolean) : [],
     paid: !!st.paid,
     groupId: st.groupId || '',
+    examGroupId: typeof st.examGroupId === 'string' ? st.examGroupId : '',
     fields: (st.fields && typeof st.fields === 'object') ? st.fields : {},
     address: typeof st.address === 'string' ? st.address : '',
     job: typeof st.job === 'string' ? st.job : '',
@@ -401,6 +411,8 @@ function normalizeState(raw){
     .filter(f => f.label);
   settings.whatsappType = (settings.whatsappType === 'business') ? 'business' : 'normal';
   settings.warnFutureAttendance = settings.warnFutureAttendance !== false;
+  settings.liteMode = !!settings.liteMode;
+  settings.lastTgExporter = typeof settings.lastTgExporter === 'string' ? settings.lastTgExporter : '';
   settings.tgBotToken = (raw.settings && typeof raw.settings.tgBotToken === 'string') ? raw.settings.tgBotToken : '';
   settings.tgChatId = (raw.settings && typeof raw.settings.tgChatId === 'string') ? raw.settings.tgChatId : '';
 
@@ -472,6 +484,7 @@ function normalizeState(raw){
         remindHeadOnly: !!L.remindHeadOnly,
         statusLabels: (L.statusLabels && typeof L.statusLabels === 'object') ? L.statusLabels : {},
         groups: Array.isArray(L.groups) ? L.groups.map(normalizeGroup) : [],
+        examGroups: Array.isArray(L.examGroups) ? L.examGroups.map(normalizeGroup) : [],
         students: Array.isArray(L.students) ? L.students.map(normalizeStudent) : [],
         monthNumber, year,
         sessions: (Array.isArray(L.sessions) ? L.sessions : (Array.isArray(cur.sessions) ? cur.sessions : [])),
@@ -498,6 +511,7 @@ function normalizeState(raw){
       remindHeadOnly: false,
       statusLabels: {},
       groups: [],
+      examGroups: [],
       students: raw.students.map(normalizeStudent),
       monthNumber: (raw.currentMonth && raw.currentMonth.monthNumber) || m.monthNumber,
       year: (raw.currentMonth && raw.currentMonth.year) || m.year,
@@ -516,6 +530,7 @@ function normalizeState(raw){
     if(!Array.isArray(L.students)) L.students = [];
     if(!Array.isArray(L.sessions)) L.sessions = [];
     if(!Array.isArray(L.groups)) L.groups = [];
+    if(!Array.isArray(L.examGroups)) L.examGroups = [];
     if(!L.records || typeof L.records !== 'object') L.records = {};
     if(!Array.isArray(L.hiddenExamStudents)) L.hiddenExamStudents = [];
     if(L.sessions.length === 0) fillSessions(L);
@@ -538,6 +553,7 @@ function normalizeState(raw){
       examNotes: (a.examNotes && typeof a.examNotes === 'object') ? a.examNotes : {},
       examExclusions: (a.examExclusions && typeof a.examExclusions === 'object') ? a.examExclusions : {},
       hiddenExamStudents: Array.isArray(a.hiddenExamStudents) ? a.hiddenExamStudents : [],
+      examGroups: Array.isArray(a.examGroups) ? a.examGroups.map(normalizeGroup) : [],
       archivedAt: a.archivedAt || new Date().toISOString()
     }));
   }
@@ -712,6 +728,7 @@ let currentLessonId = null;
 let globalSearchQuery = '';
 let lessonFilterQuery = '';
 let groupFilterQuery = '';
+let examGroupFilterQuery = '';
 let moneyUnlocked = false;
 let dragState = { dragId: null, touchTimer: null, touchActive: false, ghost: null, startX: 0, startY: 0, row: null, suppressNative: false };
 let hScroll = { active:false, wrap:null, startX:0, startY:0, startScroll:0, horiz:false };
@@ -899,6 +916,7 @@ function renderIncomeCard(){
 
 /* ---------- عرض عام ---------- */
 function renderAll(){
+  applyLiteModeUI();
   renderHeader();
   renderFooter();
   renderLessonsHome();
@@ -1839,6 +1857,8 @@ function renderExamsTable(lesson, filteredStudents){
   const meta = $('#examsMeta');
   if(!head || !body) return;
 
+  renderExamGroupFilter(lesson);
+
   if(!Array.isArray(lesson.hiddenExamStudents)) lesson.hiddenExamStudents = [];
   const hiddenList = lesson.hiddenExamStudents;
   const hiddenBtn = $('#hiddenExamStudentsBtn');
@@ -1868,6 +1888,12 @@ function renderExamsTable(lesson, filteredStudents){
   head.innerHTML = h;
 
   let students = (filteredStudents || lesson.students).filter(st => !hiddenList.includes(st.id));
+  if(examGroupFilterQuery && examGroupFilterQuery !== '__none__'){
+    students = students.filter(st => st.examGroupId === examGroupFilterQuery);
+  } else if(examGroupFilterQuery === '__none__'){
+    students = students.filter(st => !st.examGroupId);
+  }
+
   let b = '';
   students.forEach((st, idx) => {
     const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
@@ -1875,10 +1901,14 @@ function renderExamsTable(lesson, filteredStudents){
     const notes = (lesson.examNotes && lesson.examNotes[st.id]) || {};
     let totalPct = 0, examCount = 0;
 
+    const eg = (lesson.examGroups || []).find(g => g.id === st.examGroupId);
+    const egBadge = eg ? '<span class="exam-group-badge" title="مجموعة الاختبار: ' + esc(eg.name) + '">' + esc(eg.name) + '</span>' : '';
+
     b += '<tr data-sid="' + st.id + '"><td class="sticky-col student-cell">'
       +   '<div class="student-name">'
       +     '<span class="student-num">' + (idx + 1) + '.</span> '
       +     '<span class="st-name-click" data-act="view-student" data-id="' + st.id + '">' + esc(st.name) + '</span>'
+      +     egBadge
       +   '</div>'
       + '</td>';
 
@@ -1931,7 +1961,12 @@ function renderExamsFoot(lesson){
   if(!foot) return;
   const exams = lesson.exams || [];
   const hiddenList = lesson.hiddenExamStudents || [];
-  const activeStudents = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+  let activeStudents = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+  if(examGroupFilterQuery && examGroupFilterQuery !== '__none__'){
+    activeStudents = activeStudents.filter(st => st.examGroupId === examGroupFilterQuery);
+  } else if(examGroupFilterQuery === '__none__'){
+    activeStudents = activeStudents.filter(st => !st.examGroupId);
+  }
 
   let f = '<tr class="count-row"><td class="sticky-col">متوسط درجات الطلاب</td>';
   exams.forEach(ex => {
@@ -2164,6 +2199,384 @@ function openHiddenExamStudentsModal(lesson){
   });
 }
 
+
+/* ---------- إدارة مجموعات الاختبارات ورسائل الاختبارات (v35) ---------- */
+function renderExamGroupFilter(lesson){
+  const sel = $('#examGroupFilter');
+  if(!sel || !lesson) return;
+  const groups = lesson.examGroups || [];
+  let opts = '<option value="">كل مجموعات الاختبار (' + groups.length + ')</option>';
+  groups.forEach(g => {
+    opts += '<option value="' + esc(g.id) + '"' + (examGroupFilterQuery === g.id ? ' selected' : '') + '>' + esc(g.name) + '</option>';
+  });
+  opts += '<option value="__none__"' + (examGroupFilterQuery === '__none__' ? ' selected' : '') + '>بدون مجموعة</option>';
+  sel.innerHTML = opts;
+}
+
+function openExamGroupsModal(lesson){
+  if(!lesson) lesson = curLesson();
+  if(!lesson) return;
+  if(!Array.isArray(lesson.examGroups)) lesson.examGroups = [];
+
+  function renderList(){
+    const listEl = $('#exam_groups_list');
+    if(!listEl) return;
+    if(lesson.examGroups.length === 0){
+      listEl.innerHTML = '<p class="muted" style="text-align:center;padding:10px 0;font-size:12px">لا توجد مجموعات اختبار مخصصة حالياً.</p>';
+      return;
+    }
+    listEl.innerHTML = lesson.examGroups.map((g) => {
+      const studentCount = (lesson.students || []).filter(st => st.examGroupId === g.id).length;
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#fff;border:1px solid var(--border);border-radius:8px;gap:8px">'
+        + '<div style="font-weight:700;font-size:13px">'
+        +   '🏷️ ' + esc(g.name) + ' <small class="muted">(' + studentCount + ' طالب)</small>'
+        + '</div>'
+        + '<div style="display:flex;gap:6px">'
+        +   '<button type="button" class="btn btn-sm btn-outline" data-act="assign-eg" data-gid="' + g.id + '" style="font-size:11px;padding:3px 8px">👥 تخصيص الطلاب</button>'
+        +   '<button type="button" class="btn btn-sm btn-outline" data-act="edit-eg" data-gid="' + g.id + '" style="font-size:11px;padding:3px 8px">✏️</button>'
+        +   '<button type="button" class="btn btn-sm btn-outline" data-act="del-eg" data-gid="' + g.id + '" style="font-size:11px;padding:3px 8px;color:#b91c1c;border-color:#fca5a5">✕</button>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  const modalHTML = '<div class="reset-box" style="text-align:right;line-height:1.6">'
+    + '<p style="font-size:13px;color:var(--text);margin-bottom:12px">'
+    +   'إدارة مجموعات قسم الاختبارات المستقلة لتوزيع الطلاب وتصفية وطباعة وتصدير درجات كل مجموعة على حدة:'
+    + '</p>'
+    + '<div style="display:flex;gap:8px;margin-bottom:14px">'
+    +   '<input type="text" id="new_exam_group_name" placeholder="اسم مجموعة الاختبار الجديدة (مثال: مجموعة أ)..." style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-weight:700">'
+    +   '<button type="button" class="btn btn-primary" id="btn_add_exam_group">➕ إضافة</button>'
+    + '</div>'
+    + '<div id="exam_groups_list" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;background:var(--bg);padding:8px;border-radius:8px;border:1px solid var(--border)"></div>'
+    + '<div class="modal-actions" style="margin-top:14px">'
+    +   '<button class="btn" id="btn_close_exam_groups">إغلاق</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('🏷️ مجموعات قسم الاختبارات', modalHTML);
+  renderList();
+
+  $('#btn_add_exam_group').onclick = () => {
+    const inp = $('#new_exam_group_name');
+    const name = inp ? inp.value.trim() : '';
+    if(!name){ alert('يرجى كتابة اسم المجموعة.'); return; }
+    lesson.examGroups.push({ id: uid('eg'), name });
+    inp.value = '';
+    saveState();
+    renderList();
+    renderExamGroupFilter(lesson);
+    showToastMessage('✅ تم إضافة مجموعة الاختبار بنجاح.');
+  };
+
+  const listEl = $('#exam_groups_list');
+  listEl.onclick = (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if(!btn) return;
+    const act = btn.dataset.act;
+    const gid = btn.dataset.gid;
+    const grp = lesson.examGroups.find(x => x.id === gid);
+    if(!grp) return;
+
+    if(act === 'assign-eg'){
+      closeModal();
+      openAssignExamGroupStudentsModal(lesson, grp.id);
+    } else if(act === 'edit-eg'){
+      const newName = prompt('تعديل اسم مجموعة الاختبار:', grp.name);
+      if(newName && newName.trim()){
+        grp.name = newName.trim();
+        saveState();
+        renderList();
+        renderExamGroupFilter(lesson);
+        renderExamsTable(lesson);
+      }
+    } else if(act === 'del-eg'){
+      confirmDangerModal({
+        title: '⚠️ حذف مجموعة الاختبار',
+        message: 'هل أنت متأكد من حذف مجموعة الاختبار «' + grp.name + '»؟ لن يتم حذف الطلاب ولكن سيتم إلغاء انتسابهم لهذه المجموعة في الاختبارات.',
+        itemName: grp.name,
+        onConfirm: () => {
+          lesson.examGroups = lesson.examGroups.filter(x => x.id !== gid);
+          (lesson.students || []).forEach(st => {
+            if(st.examGroupId === gid) st.examGroupId = '';
+          });
+          if(examGroupFilterQuery === gid) examGroupFilterQuery = '';
+          saveState();
+          renderList();
+          renderExamGroupFilter(lesson);
+          renderExamsTable(lesson);
+          showToastMessage('🗑️ تم حذف مجموعة الاختبار.');
+        }
+      });
+    }
+  };
+
+  $('#btn_close_exam_groups').onclick = closeModal;
+}
+
+function openAssignExamGroupStudentsModal(lesson, groupId){
+  if(!lesson) lesson = curLesson();
+  const grp = (lesson.examGroups || []).find(g => g.id === groupId);
+  if(!grp) return;
+
+  const hiddenList = lesson.hiddenExamStudents || [];
+  const activeStudents = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+
+  const modalHTML = '<div class="reset-box" style="text-align:right;line-height:1.6">'
+    + '<p style="font-size:13px;color:var(--text);margin-bottom:10px">'
+    +   'حدد الطلاب المنتمين لمجموعة الاختبار: <b>' + esc(grp.name) + '</b>'
+    + '</p>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    +   '<input type="text" id="assign_eg_search" placeholder="🔍 تصفية بالاسم..." style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;width:140px">'
+    +   '<div style="display:flex;gap:6px">'
+    +     '<button type="button" class="btn btn-sm btn-outline" id="assign_eg_select_all" style="font-size:11px;padding:2px 8px">تحديد الكل</button>'
+    +     '<button type="button" class="btn btn-sm btn-outline" id="assign_eg_deselect_all" style="font-size:11px;padding:2px 8px">إلغاء التحديد</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div id="assign_eg_container" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;background:var(--bg);padding:8px;border-radius:8px;border:1px solid var(--border)">'
+    +   activeStudents.map(st => {
+          const isChecked = st.examGroupId === groupId;
+          return '<label class="assign-eg-row" data-name="' + esc(st.name) + '" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:#fff;border:1px solid var(--border);cursor:pointer">'
+            + '<input type="checkbox" class="assign-eg-cb" value="' + st.id + '"' + (isChecked ? ' checked' : '') + '>'
+            + '<span style="font-size:12.5px;font-weight:700">' + esc(st.name)
+            +   (st.phone ? ' <small class="muted" style="direction:ltr">(' + esc(localPhone(st.phone)) + ')</small>' : '')
+            +   (st.examGroupId && st.examGroupId !== groupId ? ' <small style="color:#b45309">[في مجموعة أخرى]</small>' : '')
+            + '</span>'
+            + '</label>';
+        }).join('')
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:14px">'
+    +   '<button class="btn btn-primary" id="btn_save_assign_eg">💾 حفظ التوزيع</button>'
+    +   '<button class="btn btn-outline" id="btn_back_to_eg_modal">← رجوع للمجموعات</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('👥 تخصيص طلاب مجموعة: ' + grp.name, modalHTML);
+
+  const searchInp = $('#assign_eg_search');
+  if(searchInp){
+    searchInp.oninput = () => {
+      const q = normalizeForSearch(searchInp.value);
+      $('.assign-eg-row').forEach(row => {
+        const name = normalizeForSearch(row.dataset.name);
+        row.style.display = (!q || name.includes(q)) ? 'flex' : 'none';
+      });
+    };
+  }
+
+  $('#assign_eg_select_all').onclick = () => {
+    $('.assign-eg-cb').forEach(cb => {
+      if(cb.closest('.assign-eg-row').style.display !== 'none') cb.checked = true;
+    });
+  };
+  $('#assign_eg_deselect_all').onclick = () => {
+    $('.assign-eg-cb').forEach(cb => {
+      if(cb.closest('.assign-eg-row').style.display !== 'none') cb.checked = false;
+    });
+  };
+
+  $('#btn_save_assign_eg').onclick = () => {
+    const checkedIds = $('.assign-eg-cb:checked').map(cb => cb.value);
+    activeStudents.forEach(st => {
+      if(checkedIds.includes(st.id)){
+        st.examGroupId = groupId;
+      } else if(st.examGroupId === groupId){
+        st.examGroupId = '';
+      }
+    });
+    saveState();
+    renderExamsTable(lesson);
+    closeModal();
+    showToastMessage('💾 تم حفظ توزيع الطلاب في مجموعة «' + esc(grp.name) + '» بنجاح.');
+  };
+
+  $('#btn_back_to_eg_modal').onclick = () => {
+    closeModal();
+    openExamGroupsModal(lesson);
+  };
+}
+
+function openExamReportMessageModal(lesson){
+  if(!lesson) lesson = curLesson();
+  if(!lesson){
+    showToastMessage('⚠️ يرجى فتح درس أولاً لعرض تقرير الاختبارات.');
+    return;
+  }
+  const exams = lesson.exams || [];
+  if(exams.length === 0){
+    showToastMessage('⚠️ لا توجد أي اختبارات مسجلة في هذا الدرس.');
+    return;
+  }
+
+  const examGroups = lesson.examGroups || [];
+  let modalHTML = '<div class="reset-box" style="text-align:right;line-height:1.6">'
+    + '<p style="font-size:13px;color:var(--text);margin-bottom:12px">'
+    +   'صياغة تقرير درجات الاختبارات كرسالة منسقة جاهزة للمشاركة عبر واتساب أو النسخ، <b>للطلاب الذين حضروا وسجلت درجاتهم فقط</b> (استبعاد غير المشاركين تلقائياً):'
+    + '</p>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
+    +   '<div style="flex:1;min-width:180px">'
+    +     '<label style="font-size:12px;font-weight:800;display:block;margin-bottom:4px">📝 اختر الاختبار:</label>'
+    +     '<select id="msg_exam_select" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);font-weight:700">'
+    +       '<option value="all">📊 تقرير كل اختبارات الشهر مجمعة</option>'
+    +       exams.map(e => '<option value="' + e.id + '">' + esc(e.name) + ' (الدرجة من ' + e.maxScore + (e.date ? ' · ' + esc(e.date) : '') + ')</option>').join('')
+    +     '</select>'
+    +   '</div>'
+    +   (examGroups.length > 0 ? ('<div style="flex:1;min-width:140px">'
+    +     '<label style="font-size:12px;font-weight:800;display:block;margin-bottom:4px">👥 مجموعة الاختبار:</label>'
+    +     '<select id="msg_group_select" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);font-weight:700">'
+    +       '<option value="">كل مجموعات الاختبار</option>'
+    +       examGroups.map(g => '<option value="' + g.id + '">' + esc(g.name) + '</option>').join('')
+    +     '</select>'
+    +   '</div>') : '')
+    + '</div>'
+    + '<div class="form-row" style="margin-bottom:10px">'
+    +   '<label style="font-size:12px;font-weight:800;display:flex;justify-content:space-between;align-items:center">'
+    +     '<span>📄 معاينة نص الرسالة:</span>'
+    +     '<span id="msg_students_count_badge" class="badge" style="background:#e0e7ff;color:#3730a3;font-size:11px">0 طالب حاضر</span>'
+    +   '</label>'
+    +   '<textarea id="exam_msg_text" rows="10" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;line-height:1.6;font-family:inherit;direction:rtl" readonly></textarea>'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:14px;gap:8px;flex-wrap:wrap">'
+    +   '<button class="btn btn-primary" id="btn_send_wa_exam_msg">📲 إرسال لواتساب الجروب</button>'
+    +   '<button class="btn btn-outline" id="btn_copy_exam_msg">📋 نسخ الرسالة للحافظة</button>'
+    +   '<button class="btn" id="btn_close_exam_msg">إغلاق</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('📨 تقرير درجات الاختبار كرسالة', modalHTML);
+
+  const selExam = $('#msg_exam_select');
+  const selGroup = $('#msg_group_select');
+  const txtArea = $('#exam_msg_text');
+  const countBadge = $('#msg_students_count_badge');
+
+  function updateMsg(){
+    const targetExamId = selExam ? selExam.value : 'all';
+    const targetGroupId = selGroup ? selGroup.value : '';
+    const res = generateExamReportMessageText(lesson, targetExamId, targetGroupId);
+    if(txtArea) txtArea.value = res.text;
+    if(countBadge) countBadge.textContent = res.count + ' طالب حاضر ومسجل';
+  }
+
+  if(selExam) selExam.onchange = updateMsg;
+  if(selGroup) selGroup.onchange = updateMsg;
+
+  updateMsg();
+
+  $('#btn_copy_exam_msg').onclick = () => {
+    if(!txtArea || !txtArea.value){ showToastMessage('⚠️ لا توجد رسالة للنسخ.'); return; }
+    navigator.clipboard.writeText(txtArea.value).then(() => {
+      showToastMessage('📋 تم نسخ تقرير الاختبار للحافظة بنجاح.');
+    }).catch(() => {
+      fallbackCopy(txtArea.value);
+    });
+  };
+
+  $('#btn_send_wa_exam_msg').onclick = () => {
+    if(!txtArea || !txtArea.value){ showToastMessage('⚠️ لا توجد رسالة للإرسال.'); return; }
+    openWhatsApp(lesson.waGroup, txtArea.value);
+  };
+
+  $('#btn_close_exam_msg').onclick = closeModal;
+}
+
+function generateExamReportMessageText(lesson, targetExamId, targetGroupId){
+  const hiddenList = lesson.hiddenExamStudents || [];
+  let students = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+  if(targetGroupId){
+    students = students.filter(st => st.examGroupId === targetGroupId);
+  }
+
+  const exams = lesson.exams || [];
+  const targetGroup = (lesson.examGroups || []).find(g => g.id === targetGroupId);
+  const groupLabel = targetGroup ? ('\n👥 المجموعة: ' + targetGroup.name) : '';
+  const monthTitle = buildMonthTitle(lesson.monthNumber);
+
+  let text = '';
+  let count = 0;
+
+  if(targetExamId !== 'all'){
+    const ex = exams.find(e => e.id === targetExamId);
+    if(!ex) return { text: '', count: 0 };
+
+    text += '📊 تقرير درجات الاختبار\n';
+    text += '📚 الدرس: ' + lesson.name + ' - ' + monthTitle + (lesson.year ? ' ' + lesson.year : '') + '\n';
+    text += '📝 الاختبار: ' + ex.name + ' (الدرجة من ' + ex.maxScore + ')' + groupLabel + '\n';
+    text += '━━━━━━━━━━━━━━━━━━━━\n';
+
+    students.forEach(st => {
+      const isExcluded = !!(lesson.examExclusions && lesson.examExclusions[st.id] && lesson.examExclusions[st.id][ex.id]);
+      if(isExcluded) return;
+      const scoreVal = lesson.examScores && lesson.examScores[st.id] && lesson.examScores[st.id][ex.id];
+      if(scoreVal === undefined || scoreVal === '' || isNaN(Number(scoreVal))) return;
+
+      const sNum = Number(scoreVal);
+      const pct = ex.maxScore > 0 ? Math.round((sNum / ex.maxScore) * 100) : 0;
+      const note = (lesson.examNotes && lesson.examNotes[st.id] && lesson.examNotes[st.id][ex.id]) || '';
+
+      count++;
+      text += count + '. ' + st.name + ' ⬅️ ' + sNum + ' من ' + ex.maxScore + ' (' + pct + '%)' + (note ? ' 📝 [' + note + ']' : '') + '\n';
+    });
+
+    if(count === 0){
+      text += 'لا توجد درجات مسجلة لطلاب حاضرين في هذا الاختبار حتى الآن.\n';
+    }
+
+    text += '━━━━━━━━━━━━━━━━━━━━\n';
+    text += '👥 إجمالي الطلاب الحاضرين: ' + count + '\n';
+    if(state.settings && state.settings.ownerName) text += 'مع تحيات: ' + state.settings.ownerName;
+  } else {
+    text += '📊 تقرير درجات اختبارات الشهر\n';
+    text += '📚 الدرس: ' + lesson.name + ' - ' + monthTitle + (lesson.year ? ' ' + lesson.year : '') + groupLabel + '\n';
+    text += '━━━━━━━━━━━━━━━━━━━━\n';
+
+    students.forEach(st => {
+      const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
+      const exclusions = (lesson.examExclusions && lesson.examExclusions[st.id]) || {};
+      const notes = (lesson.examNotes && lesson.examNotes[st.id]) || {};
+
+      let totalScore = 0, totalMax = 0, totalPct = 0, attendedCount = 0;
+      const examLines = [];
+
+      exams.forEach(ex => {
+        if(exclusions[ex.id]) return;
+        const val = studentScores[ex.id];
+        if(val !== undefined && val !== '' && !isNaN(Number(val))){
+          const sNum = Number(val);
+          const pct = ex.maxScore > 0 ? Math.round((sNum / ex.maxScore) * 100) : 0;
+          const note = notes[ex.id] || '';
+          totalScore += sNum;
+          totalMax += ex.maxScore;
+          totalPct += pct;
+          attendedCount++;
+          examLines.push('   ▫️ ' + ex.name + ': ' + sNum + ' من ' + ex.maxScore + ' (' + pct + '%)' + (note ? ' 📝 [' + note + ']' : ''));
+        }
+      });
+
+      if(attendedCount === 0) return;
+
+      count++;
+      const avgPct = Math.round(totalPct / attendedCount);
+      text += count + '. ' + st.name + ':\n';
+      text += examLines.join('\n') + '\n';
+      if(attendedCount > 1){
+        text += '   ⬅️ المجموع: ' + totalScore + ' من ' + totalMax + ' (المتوسط ' + avgPct + '%)\n';
+      }
+      text += '\n';
+    });
+
+    if(count === 0){
+      text += 'لا توجد درجات مسجلة للطلاب حتى الآن.\n';
+    }
+
+    text += '━━━━━━━━━━━━━━━━━━━━\n';
+    text += '👥 إجمالي الطلاب المشاركين: ' + count + '\n';
+    if(state.settings && state.settings.ownerName) text += 'مع تحيات: ' + state.settings.ownerName;
+  }
+
+  return { text: text.trim(), count };
+}
+
 function addExamModal(lesson, examToEdit){
   if(!lesson) return;
   const isEdit = !!examToEdit;
@@ -2325,7 +2738,8 @@ function bulkMoveStudentsModal(lesson, isCopy){
 
 /* ---------- 6. النسخ الاحتياطي السحابي (Cloud Backup) ---------- */
 async function cloudShareBackup(){
-  const json = JSON.stringify(state, null, 2);
+  const safeState = sanitizeExportState(state);
+  const json = JSON.stringify(safeState, null, 2);
   const fn = 'daftar-backup-' + todayStr() + '.json';
 
   try {
@@ -2456,8 +2870,15 @@ async function telegramBackup(){
       + '</div>';
   }
 
+  const expName = state.settings.lastTgExporter || state.settings.ownerName || '';
   let modalHTML = '<div class="reset-box" style="line-height:1.6;text-align:right">'
     + botSelectorHTML
+    + '<div class="form-row" style="margin-bottom:12px">'
+    +   '<label style="font-weight:800;font-size:12.5px;display:block;margin-bottom:4px">'
+    +     '👤 اسم المُصدّر / المعلم (يظهر في رسالة تيليجرام):'
+    +   '</label>'
+    +   '<input type="text" id="tg_exporter_name" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-weight:700" placeholder="مثال: أ/ أحمد صابر" value="' + esc(expName) + '">'
+    + '</div>'
     + '<p style="font-size:13px;color:var(--text);margin-bottom:12px">'
     +   'حدد البيانات التي ترغب في تصديرها وإرسالها إلى محادثتك على تيليجرام:'
     + '</p>'
@@ -2553,44 +2974,64 @@ async function telegramBackup(){
       return;
     }
 
+    const expNameInput = $('#tg_exporter_name');
+    const exporterName = expNameInput ? expNameInput.value.trim() : '';
+    if(exporterName){
+      state.settings.lastTgExporter = exporterName;
+      saveState();
+    }
+    const exporterLine = exporterName ? ('\n👤 تم التصدير بواسطة: ' + exporterName) : '';
+
     const isSelected = scopeSel && scopeSel.checked;
     let exportData, fn, caption;
 
     if(isSelected){
-      const checkedIds = $$('.tg-lesson-cb:checked').map(cb => cb.value);
+      const checkedIds = $('.tg-lesson-cb:checked').map(cb => cb.value);
       if(checkedIds.length === 0){
         alert('يرجى تحديد درس واحد على الأقل لتصديره إلى تيليجرام.');
         return;
       }
       const selectedLessons = lessons.filter(l => checkedIds.includes(l.id));
-      exportData = {
-        type: 'daftar_lessons_export',
-        version: state.version || 6,
-        exportedAt: new Date().toISOString(),
-        lessons: selectedLessons,
-        settings: state.settings
-      };
       if(selectedLessons.length === 1){
         const singleL = selectedLessons[0];
+        const singleArchives = (state.archive || []).filter(a => a.lessonId === singleL.id);
+        exportData = {
+          type: 'daftar-lesson',
+          version: state.version || 6,
+          exportedAt: new Date().toISOString(),
+          lesson: singleL,
+          archives: singleArchives,
+          settings: sanitizeExportState(state.settings)
+        };
         const safeName = (singleL.name || 'lesson').replace(/[\s\/\\:?*"<>|]+/g, '_');
         fn = 'daftar-lesson-' + safeName + '-' + todayStr() + '.json';
         caption = '📦 نسخة درس من تطبيق دفتر: ' + singleL.name
           + '\n📅 التاريخ: ' + todayStr()
           + '\n👥 عدد الطلاب: ' + (singleL.students ? singleL.students.length : 0)
-          + '\n🗓️ عدد الحصص: ' + (singleL.sessions ? singleL.sessions.length : 0);
+          + '\n🗓️ عدد الحصص: ' + (singleL.sessions ? singleL.sessions.length : 0)
+          + exporterLine;
       } else {
+        exportData = {
+          type: 'daftar_lessons_export',
+          version: state.version || 6,
+          exportedAt: new Date().toISOString(),
+          lessons: selectedLessons,
+          settings: sanitizeExportState(state.settings)
+        };
         fn = 'daftar-' + selectedLessons.length + '-lessons-' + todayStr() + '.json';
         caption = '📦 نسخة دروس مختارة من تطبيق دفتر (' + selectedLessons.length + ' دروس)'
           + '\n📅 التاريخ: ' + todayStr()
-          + '\n📚 الدروس: ' + selectedLessons.map(l => l.name).join('، ');
+          + '\n📚 الدروس: ' + selectedLessons.map(l => l.name).join('، ')
+          + exporterLine;
       }
     } else {
-      exportData = state;
+      exportData = sanitizeExportState(state);
       fn = 'daftar-backup-' + todayStr() + '.json';
       caption = '📦 نسخة احتياطية كاملة من تطبيق دفتر'
         + '\n📅 التاريخ: ' + todayStr()
         + '\n📚 عدد الدروس: ' + lessons.length
-        + '\n👥 إجمالي الطلاب: ' + totalStudents;
+        + '\n👥 إجمالي الطلاب: ' + totalStudents
+        + exporterLine;
     }
 
     closeModal();
@@ -3178,6 +3619,16 @@ function archiveTableHTML(a, idx, statuses){
   return h;
 }
 
+
+/* ---------- ⚡ وضع الأداء القياسي للهواتف الضعيفة ---------- */
+function applyLiteModeUI(){
+  if(state && state.settings && state.settings.liteMode){
+    document.body.classList.add('lite-mode');
+  } else {
+    document.body.classList.remove('lite-mode');
+  }
+}
+
 /* ---------- الإعدادات ---------- */
 function renderSettings(){
   const sd = state.settings;
@@ -3193,6 +3644,9 @@ function renderSettings(){
   
   const wf = $('#set_warnFuture');
   if(wf) wf.checked = sd.warnFutureAttendance !== false;
+
+  const lm = $('#set_liteMode');
+  if(lm) lm.checked = !!sd.liteMode;
 
   const notifSw = $('#set_enableNotif');
   if(notifSw) notifSw.checked = notifSupported() && (Notification.permission === 'granted');
@@ -3997,9 +4451,20 @@ function exportExamsCSV(lesson){
     return;
   }
   const hiddenList = lesson.hiddenExamStudents || [];
-  const activeStudents = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+  let activeStudents = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+  let groupSuffix = '';
+  if(examGroupFilterQuery && examGroupFilterQuery !== '__none__'){
+    const grp = (lesson.examGroups || []).find(g => g.id === examGroupFilterQuery);
+    if(grp){
+      activeStudents = activeStudents.filter(st => st.examGroupId === examGroupFilterQuery);
+      groupSuffix = '_مجموعة_' + grp.name.replace(/[^\w\u0600-\u06FF ]/g, '');
+    }
+  } else if(examGroupFilterQuery === '__none__'){
+    activeStudents = activeStudents.filter(st => !st.examGroupId);
+    groupSuffix = '_بدون_مجموعة';
+  }
   if(activeStudents.length === 0){
-    showToastMessage('⚠️ لا يوجد طلاب نشطون في قسم الاختبارات.');
+    showToastMessage('⚠️ لا يوجد طلاب مطابقون في قسم الاختبارات.');
     return;
   }
 
@@ -4056,7 +4521,7 @@ function exportExamsCSV(lesson){
   });
 
   const safe = (lesson.name || 'درس').replace(/[^\w\u0600-\u06FF ]/g, '');
-  downloadBlob('\uFEFF' + lines.join('\r\n'), 'درجات_اختبارات_' + safe + '_شهر_' + lesson.monthNumber + '_' + lesson.year + '.csv', 'text/csv;charset=utf-8');
+  downloadBlob('\uFEFF' + lines.join('\r\n'), 'درجات_اختبارات_' + safe + '_شهر_' + lesson.monthNumber + '_' + lesson.year + groupSuffix + '.csv', 'text/csv;charset=utf-8');
 }
 
 function printExamsReport(lesson){
@@ -4067,16 +4532,27 @@ function printExamsReport(lesson){
     return;
   }
   const hiddenList = lesson.hiddenExamStudents || [];
-  const activeStudents = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+  let activeStudents = (lesson.students || []).filter(st => !hiddenList.includes(st.id));
+  let groupTitle = '';
+  if(examGroupFilterQuery && examGroupFilterQuery !== '__none__'){
+    const grp = (lesson.examGroups || []).find(g => g.id === examGroupFilterQuery);
+    if(grp){
+      activeStudents = activeStudents.filter(st => st.examGroupId === examGroupFilterQuery);
+      groupTitle = ' - مجموعة: ' + grp.name;
+    }
+  } else if(examGroupFilterQuery === '__none__'){
+    activeStudents = activeStudents.filter(st => !st.examGroupId);
+    groupTitle = ' - بدون مجموعة';
+  }
   if(activeStudents.length === 0){
-    showToastMessage('⚠️ لا يوجد طلاب نشطون في قسم الاختبارات.');
+    showToastMessage('⚠️ لا يوجد طلاب مطابقون في قسم الاختبارات.');
     return;
   }
 
   $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
   let html = '<div class="report compact" dir="rtl">';
   html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
-  html += '<div class="r-sub">تقرير درجات وملاحظات الاختبارات - ' + esc(lesson.name) + ' - شهر ' + lesson.monthNumber + '/' + lesson.year + '</div>';
+  html += '<div class="r-sub">تقرير درجات وملاحظات الاختبارات - ' + esc(lesson.name) + ' - شهر ' + lesson.monthNumber + '/' + lesson.year + esc(groupTitle) + '</div>';
   
   html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">الطالب</th>';
   exams.forEach(ex => {
@@ -4169,6 +4645,10 @@ function openExamReportModal(lesson){
     +     '<span>📊 التقرير الشامل لدرجات الاختبارات (عبر كل الشهور)</span>'
     +     '<span class="muted" style="font-size:11px;font-weight:400">تفاعلي + تصدير</span>'
     +   '</button>'
+    +   '<button class="btn btn-outline" id="ex_rep_msg" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;font-weight:800">'
+    +     '<span>📨 تقرير درجات الاختبار كرسالة (واتساب / نسخ)</span>'
+    +     '<span class="muted" style="font-size:11px;font-weight:400">للحاضرين فقط</span>'
+    +   '</button>'
     + '</div>'
     + '<div class="modal-actions" style="margin-top:16px">'
     +   '<button class="btn" id="ex_rep_close">إغلاق</button>'
@@ -4179,6 +4659,7 @@ function openExamReportModal(lesson){
   $('#ex_rep_pdf').onclick = () => { closeModal(); printExamsReport(lesson); };
   $('#ex_rep_csv').onclick = () => { closeModal(); exportExamsCSV(lesson); };
   $('#ex_rep_comp').onclick = () => { closeModal(); showComprehensiveReport(lesson, 'exams'); };
+  $('#ex_rep_msg').onclick = () => { closeModal(); openExamReportMessageModal(lesson); };
 }
 
 /* ---------- تصدير CSV ---------- */
@@ -4422,6 +4903,19 @@ async function downloadBlob(content, filename, mime){
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 50);
 }
 
+
+/* ---------- حجب وحماية بيانات وتوكنات البوتات عند التصدير (v35) ---------- */
+function sanitizeExportState(stateObj){
+  const copy = JSON.parse(JSON.stringify(stateObj));
+  if(copy.settings){
+    copy.settings.tgBotToken = '';
+    copy.settings.tgChatId = '';
+    copy.settings.tgBots = [];
+    copy.settings.activeTgBotId = '';
+  }
+  return copy;
+}
+
 /* ---------- ملف البيانات ---------- */
 function applyLoadedData(data){
   if(!data || !Array.isArray(data.lessons) || !data.settings){
@@ -4429,7 +4923,21 @@ function applyLoadedData(data){
     return false;
   }
   if(!window.confirm('سيتم استبدال كل البيانات الحالية بمحتوى الملف. متابعة؟')) return false;
+
+  const existingBots = (state && state.settings && state.settings.tgBots) ? JSON.parse(JSON.stringify(state.settings.tgBots)) : [];
+  const existingBotToken = (state && state.settings && state.settings.tgBotToken) || '';
+  const existingChatId = (state && state.settings && state.settings.tgChatId) || '';
+  const existingActiveBotId = (state && state.settings && state.settings.activeTgBotId) || '';
+
   state = normalizeState(data);
+
+  if(existingBots.length > 0 && (!state.settings.tgBots || state.settings.tgBots.length === 0)){
+    state.settings.tgBots = existingBots;
+    state.settings.tgBotToken = existingBotToken;
+    state.settings.tgChatId = existingChatId;
+    state.settings.activeTgBotId = existingActiveBotId;
+  }
+
   moneyUnlocked = false;
   saveState();
   renderAll();
@@ -4473,7 +4981,8 @@ async function openFromFile(){
 }
 
 function exportBackup(){
-  downloadBlob(JSON.stringify(state, null, 2), 'نسخة_احتياطية_Daftar_' + new Date().toISOString().slice(0,10) + '.json', 'application/json');
+  const safeState = sanitizeExportState(state);
+  downloadBlob(JSON.stringify(safeState, null, 2), 'نسخة_احتياطية_Daftar_' + new Date().toISOString().slice(0,10) + '.json', 'application/json');
 }
 function importArchiveMonth(file){
   const reader = new FileReader();
@@ -4527,23 +5036,119 @@ function importLesson(file){
   reader.onload = () => {
     try{
       const data = JSON.parse(reader.result);
-      const L = data && data.lesson;
-      if(!L || typeof L !== 'object' || !L.name){ alert('ملف الدرس غير صالح.'); return; }
+      if(!data || typeof data !== 'object'){
+        alert('تعذّر قراءة الملف (صيغة غير صحيحة).');
+        return;
+      }
+
+      // الحالة الأولى: ملف درس فردي { lesson: {...}, archives: [...] }
+      if(data.lesson && typeof data.lesson === 'object' && data.lesson.name){
+        executeImportSingleLesson(data.lesson, data.archives || []);
+        return;
+      }
+
+      // الحالة الثانية: ملف يحتوي على قائمة دروس (تصدير عدة دروس أو نسخة احتياطية كاملة)
+      const lessonList = Array.isArray(data.lessons) ? data.lessons : [];
+      if(lessonList.length === 1){
+        const singleL = lessonList[0];
+        const matchingArchives = Array.isArray(data.archive) ? data.archive.filter(a => a.lessonId === singleL.id) : (Array.isArray(data.archives) ? data.archives : []);
+        executeImportSingleLesson(singleL, matchingArchives);
+        return;
+      } else if(lessonList.length > 1){
+        openMultiLessonImportModal(lessonList, Array.isArray(data.archive) ? data.archive : (Array.isArray(data.archives) ? data.archives : []));
+        return;
+      }
+
+      alert('ملف الدرس غير صالح (لم يتم العثور على أي دروس صالحة للاستيراد داخل هذا الملف).');
+    }catch(e){
+      console.error(e);
+      alert('تعذّر قراءة الملف أو استخراج الدروس منه.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function executeImportSingleLesson(L, archives){
+  if(!L || !L.name){
+    alert('بيانات الدرس غير مكتملة.');
+    return;
+  }
+  const norm = normalizeState({ settings: state.settings, lessons: [L], archive: [] }).lessons[0];
+  const normArchives = normalizeState({ settings: state.settings, lessons: [L], archive: Array.isArray(archives) ? archives : [] }).archive;
+  const existing = state.lessons.findIndex(x => x.id === L.id);
+  if(existing >= 0){
+    if(!window.confirm('يوجد درس بنفس المعرّف («' + L.name + '»). هل ترغب في استبداله وتحديث بياناته بمحتوى هذا الملف؟')) return;
+    state.lessons[existing] = norm;
+  } else {
+    state.lessons.push(norm);
+  }
+  state.archive = state.archive.filter(x => x.lessonId !== norm.id).concat(normArchives);
+  saveState();
+  renderAll();
+  showToastMessage('✅ تم استيراد ودمج الدرس «' + esc(L.name) + '» بنجاح مع ' + normArchives.length + ' شهر مؤرشف.');
+}
+
+function openMultiLessonImportModal(lessons, allArchives){
+  const modalHTML = '<div class="reset-box" style="text-align:right;line-height:1.6">'
+    + '<p style="font-size:13px;color:var(--text);margin-bottom:10px">'
+    +   'يحتوي هذا الملف على <b>' + lessons.length + '</b> دروس. حدد الدروس التي ترغب في استيرادها ودمجها مع دروسك الحالية دون حذف أي بيانات:'
+    + '</p>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    +   '<span style="font-size:12px;font-weight:800">قائمة الدروس المتاحة بالملف:</span>'
+    +   '<div style="display:flex;gap:6px">'
+    +     '<button type="button" class="btn btn-sm btn-outline" id="import_btn_select_all" style="font-size:11px;padding:2px 8px">تحديد الكل</button>'
+    +     '<button type="button" class="btn btn-sm btn-outline" id="import_btn_deselect_all" style="font-size:11px;padding:2px 8px">إلغاء التحديد</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--bg)">'
+    +   lessons.map(l => {
+          const lArchs = (allArchives || []).filter(a => a.lessonId === l.id);
+          return '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:#fff;border:1px solid var(--border);cursor:pointer">'
+            + '<input type="checkbox" class="import-lesson-cb" value="' + l.id + '" checked>'
+            + '<span style="font-size:12.5px;font-weight:700">' + esc(l.name)
+            + ' <small class="muted">(' + (l.students ? l.students.length : 0) + ' طالب · ' + (l.sessions ? l.sessions.length : 0) + ' حصة' + (lArchs.length > 0 ? ' · ' + lArchs.length + ' أرشيف' : '') + ')</small>'
+            + '</span>'
+            + '</label>';
+        }).join('')
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:14px">'
+    +   '<button class="btn btn-primary" id="import_btn_proceed">📥 استيراد ودمج الدروس المحددة</button>'
+    +   '<button class="btn btn-outline" id="import_btn_cancel">إلغاء</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('📚 استيراد دروس من ملف مجمع', modalHTML);
+
+  $('#import_btn_select_all').onclick = () => { $('.import-lesson-cb').forEach(cb => cb.checked = true); };
+  $('#import_btn_deselect_all').onclick = () => { $('.import-lesson-cb').forEach(cb => cb.checked = false); };
+  $('#import_btn_cancel').onclick = closeModal;
+
+  $('#import_btn_proceed').onclick = () => {
+    const checkedIds = $('.import-lesson-cb:checked').map(cb => cb.value);
+    if(checkedIds.length === 0){
+      alert('يرجى تحديد درس واحد على الأقل للاستيراد.');
+      return;
+    }
+    const chosen = lessons.filter(l => checkedIds.includes(l.id));
+    let importedCount = 0;
+    chosen.forEach(L => {
+      const lArchs = (allArchives || []).filter(a => a.lessonId === L.id);
       const norm = normalizeState({ settings: state.settings, lessons: [L], archive: [] }).lessons[0];
-      const normArchives = normalizeState({ settings: state.settings, lessons: [L], archive: Array.isArray(data.archives) ? data.archives : [] }).archive;
+      const normArchives = normalizeState({ settings: state.settings, lessons: [L], archive: lArchs }).archive;
       const existing = state.lessons.findIndex(x => x.id === L.id);
       if(existing >= 0){
-        if(!window.confirm('يوجد درس بنفس المعرّف («'+L.name+'»). استبداله بمحتوى الملف؟')) return;
         state.lessons[existing] = norm;
       } else {
         state.lessons.push(norm);
       }
       state.archive = state.archive.filter(x => x.lessonId !== norm.id).concat(normArchives);
-      saveState(); renderAll();
-      alert('تم استيراد الدرس «'+L.name+'» بنجاح مع ' + normArchives.length + ' شهر مؤرشف (دمج دون حذف بقية الدروس).');
-    }catch(e){ alert('تعذّر قراءة الملف.'); }
+      importedCount++;
+    });
+    saveState();
+    renderAll();
+    closeModal();
+    showToastMessage('✅ تم استيراد ودمج ' + importedCount + ' درس بنجاح دون التأثير على بقية الدروس.');
   };
-  reader.readAsText(file);
 }
 
 /* ---------- التشفير ---------- */
@@ -4575,7 +5180,8 @@ async function encryptExport(){
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const km = await crypto.subtle.importKey('raw', enc.encode(pwd), 'PBKDF2', false, ['deriveKey']);
     const key = await crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:150000, hash:'SHA-256'}, km, {name:'AES-GCM', length:256}, false, ['encrypt']);
-    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(JSON.stringify(state)));
+    const safeState = sanitizeExportState(state);
+    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(JSON.stringify(safeState)));
     const payload = { v:1, salt: b64(salt), iv: b64(iv), data: b64(ct) };
     downloadBlob(JSON.stringify(payload), 'نسخة_مشفرة_' + new Date().toISOString().slice(0,10) + '.json', 'application/json');
     alert('تم إنشاء النسخة المشفّرة. احفظ كلمة المرور جيداً - لا يمكن الاسترجاع بدونها.');
@@ -4651,7 +5257,8 @@ async function writeToFile(){
   if(!fileHandle) return false;
   try{
     const writable = await fileHandle.createWritable();
-    await writable.write(JSON.stringify(state, null, 2));
+    const safeState = sanitizeExportState(state);
+    await writable.write(JSON.stringify(safeState, null, 2));
     await writable.close();
     autoSaveReady = true;
     return true;
@@ -5766,8 +6373,25 @@ function bindEvents(){
   $('#addStudentBtn').onclick = () => { const L = curLesson(); if(L) studentForm(L, null); };
   $('#addSessionBtn').onclick = () => { const L = curLesson(); if(L){ addSessionModal(L); } };
   $('#regenSessionsBtn').onclick = () => { const L = curLesson(); if(L){ genSessions(L, true); renderAll(); } };
-  $('#lessonReportBtn').onclick = () => { const L = curLesson(); if(L) showAnalytics(L.students, pastSessions(L.sessions), L.records, L.name + ' - ' + buildMonthTitle(L.monthNumber), effectiveStatuses(L)); };
+  $('#lessonReportBtn').onclick = () => {
+    const L = curLesson();
+    if(!L) return;
+    let students = L.students;
+    let reportTitle = L.name + ' - ' + buildMonthTitle(L.monthNumber);
+    if(groupFilterQuery && groupFilterQuery !== '__none__'){
+      const grp = (L.groups || []).find(g => g.id === groupFilterQuery);
+      if(grp){
+        students = students.filter(st => st.groupId === groupFilterQuery);
+        reportTitle += ' (مجموعة: ' + grp.name + ')';
+      }
+    } else if(groupFilterQuery === '__none__'){
+      students = students.filter(st => !st.groupId);
+      reportTitle += ' (بدون مجموعة)';
+    }
+    showAnalytics(students, pastSessions(L.sessions), L.records, reportTitle, effectiveStatuses(L));
+  };
   if($('#examReportBtn')) $('#examReportBtn').onclick = () => { const L = curLesson(); if(L) openExamReportModal(L); };
+  if($('#examMsgReportBtn')) $('#examMsgReportBtn').onclick = () => { const L = curLesson(); if(L) openExamReportMessageModal(L); };
   $('#sortAttendanceBtn').onclick = () => sortByAttendance();
   $('#lessonStatusesBtn').onclick = () => { const L = curLesson(); if(L) lessonStatusesEditor(L); };
   $('#compReportBtn').onclick = () => { const L = curLesson(); if(L) showComprehensiveReport(L); };
@@ -5784,6 +6408,12 @@ function bindEvents(){
   if($('#printExamsReportBtn')) $('#printExamsReportBtn').onclick = () => { const L = curLesson(); if(L) printExamsReport(L); };
   if($('#exportExamsCsvBtn')) $('#exportExamsCsvBtn').onclick = () => { const L = curLesson(); if(L) exportExamsCSV(L); };
   if($('#hiddenExamStudentsBtn')) $('#hiddenExamStudentsBtn').onclick = () => { const L = curLesson(); if(L) openHiddenExamStudentsModal(L); };
+  if($('#examGroupsBtn')) $('#examGroupsBtn').onclick = () => { const L = curLesson(); if(L) openExamGroupsModal(L); };
+  if($('#examGroupFilter')) $('#examGroupFilter').addEventListener('change', (e) => {
+    examGroupFilterQuery = e.target.value;
+    const L = curLesson();
+    if(L) renderExamsTable(L);
+  });
 
   /* v30: التحديد المتعدد */
   if($('#bulkSelectBtn')) $('#bulkSelectBtn').onclick = () => {
@@ -5809,6 +6439,16 @@ function bindEvents(){
   if($('#set_tgChatId')) $('#set_tgChatId').addEventListener('change', (e) => { state.settings.tgChatId = e.target.value.trim(); saveState(); });
   if($('#openAnalyticsBtn')) $('#openAnalyticsBtn').onclick = openAnalyticsModal;
   if($('#openResetBtn')) $('#openResetBtn').onclick = openResetModal;
+
+  const liteSw = $('#set_liteMode');
+  if(liteSw){
+    liteSw.addEventListener('change', (e) => {
+      state.settings.liteMode = !!e.target.checked;
+      applyLiteModeUI();
+      saveState();
+      showToastMessage(state.settings.liteMode ? '⚡ تم تفعيل وضع الأداء القياسي لتخفيف التعليق والبطء.' : '✨ تم إيقاف وضع الأداء القياسي واستعادة المؤثرات.');
+    });
+  }
 
   $('#weeklyMsgBtn').onclick = weeklyMessage;
   $('#monthlyMsgBtn').onclick = () => { const L = curLesson(); if(L) monthlyReportMessage(L); };
@@ -5950,7 +6590,7 @@ function bindEvents(){
     const idx = t.dataset.idx;
     const lessonId = t.dataset.lesson;
 
-    if(act === 'open-lesson'){ currentLessonId = id; lessonFilterQuery = ''; groupFilterQuery = ''; $('#lessonSearch').value = ''; renderLessonDetail(); }
+    if(act === 'open-lesson'){ currentLessonId = id; lessonFilterQuery = ''; groupFilterQuery = ''; examGroupFilterQuery = ''; $('#lessonSearch').value = ''; renderLessonDetail(); }
     else if(act === 'view-student'){
       const L = curLesson();
       const st = L && L.students.find(x => x.id === id);

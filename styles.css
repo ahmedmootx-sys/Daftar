@@ -1149,3 +1149,42 @@ th.col-drop-target-right{border-right:3px solid var(--primary)!important}
   }
 }
 
+/* ===== ⚡ وضع الأداء القياسي للهواتف الضعيفة (Lite Performance Mode) ===== */
+body.lite-mode {
+  --shadow: none;
+}
+body.lite-mode *,
+body.lite-mode *::before,
+body.lite-mode *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.lite-mode .modal {
+  box-shadow: 0 4px 16px rgba(0,0,0,.2) !important;
+}
+body.lite-mode .btn,
+body.lite-mode .card,
+body.lite-mode .table-wrap,
+body.lite-mode .lesson-card {
+  box-shadow: none !important;
+}
+
+.exam-group-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e0e7ff;
+  color: #3730a3;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+
+
