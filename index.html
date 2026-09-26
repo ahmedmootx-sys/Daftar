@@ -101,6 +101,7 @@
             <button id="editLessonBtn" class="dropdown-item">✏️ تعديل الدرس</button>
             <button id="lessonStatusesBtn" class="dropdown-item">🏷️ حالات هذا الدرس</button>
             <button id="sortAttendanceBtn" class="dropdown-item" title="ترتيب الطلاب حسب نسبة الحضور">📈 ترتيب حسب الحضور</button>
+            <button id="addOldMonthLessonBtn" class="dropdown-item">📦 إضافة شهر قديم لهذا الدرس</button>
             <button id="exportLessonBtn" class="dropdown-item">⬇️ تصدير الدرس</button>
             <button id="archiveLessonBtn" class="dropdown-item dropdown-danger">📦 أرشفة وإنهاء الشهر</button>
           </div>
@@ -108,7 +109,10 @@
       </div>
       <div class="detail-filters">
         <div id="exportReminder" class="export-reminder" hidden></div>
-        <input id="lessonSearch" type="text" placeholder="🔍 بحث داخل هذا الدرس…" class="lesson-search">
+        <div class="search-input-wrap" style="position:relative;flex:1;display:flex;align-items:center">
+          <input id="lessonSearch" type="text" placeholder="🔍 بحث داخل هذا الدرس (الاسم، الهاتف، الترتيب)…" class="lesson-search" style="padding-left:32px;width:100%">
+          <button id="clearLessonSearch" type="button" class="search-clear-btn" style="position:absolute;left:8px;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;display:none" title="مسح البحث">✕</button>
+        </div>
         <select id="groupFilter" class="group-filter" title="تصفية حسب المجموعة"></select>
       </div>
       <div id="attendanceWrap" class="table-wrap">
@@ -163,10 +167,13 @@
   <section id="tab-archive" class="tab-panel">
     <div class="panel-head">
       <h2>الأرشيف</h2>
-      <p class="muted">الشهور المؤرشفة لكل الدروس محفوظة هنا (كل شهر مستقل)، ويمكنك فتح أي شهر لمراجعته وتصدير تقريره.</p>
+      <p class="muted">الشهور المؤرشفة لكل الدروس محفوظة هنا (كل شهر مستقل)، ويمكنك فتح أي شهر لمراجعته وتعديل بياناته وتصدير تقاريره.</p>
+    </div>
+    <div class="toolbar" style="margin-bottom:14px">
+      <button id="addOldMonthArchiveBtn" class="btn btn-primary">➕ إضافة شهر قديم للأرشيف</button>
     </div>
     <div id="archiveList" class="archive-list"></div>
-    <div id="archiveDetail"></div>
+    <div id="archiveDetail" style="display:none"></div>
   </section>
 
   <!-- ===================== الإعدادات ===================== -->
