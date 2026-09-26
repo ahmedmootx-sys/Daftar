@@ -34,8 +34,11 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v36';
+const APP_VERSION = 'v37';
 const CHANGELOG = {
+  v37: [
+    '📥 تنزيل وحفظ التقارير كملف PDF جاهز للطباعة: أي تقرير (حضور، اختبارات، شامل، ورقة حضور) يمكن حفظه مباشرة كملف PDF على جهازك وإرساله للمطبعة عبر نافذة توجيه ذكية تظهر قبل الطباعة'
+  ],
   v36: [
     '📦 إضافة شهور قديمة للأرشيف: إمكانية تسجيل وتوثيق شهور قديمة ماضية لأي درس في الأرشيف دون المساس بالدرس الحالي مع التوليد التلقائي لحصصها',
     '🔄 نقل ونسخ الطلاب للأرشيف: دعم نقل أو نسخ الطلاب وسجلات الحضور من وإلى أي شهر مؤرشف عبر التحديد المتعدد',
@@ -4000,7 +4003,7 @@ function renderArchiveDetail(idx){
       renderArchiveDetail(idx);
     };
   }
-  $('.arch-bulk-chk').forEach(chk => {
+  $$('.arch-bulk-chk').forEach(chk => {
     chk.onchange = () => {
       const sid = chk.dataset.id;
       if(chk.checked) selectedStudentIds.add(sid);
@@ -4850,7 +4853,7 @@ function showComprehensiveReport(lesson, initialMode){
   openModal('📊 تقرير شامل - ' + esc(lesson.name), filterHTML + modeTabsHTML + '<div id="compTableWrap"></div>');
   const actions = document.createElement('div');
   actions.className = 'modal-actions';
-  actions.innerHTML = '<button class="btn btn-outline" id="compCsv">⬇️ Excel (CSV)</button><button class="btn btn-outline" id="compPdf">🖨️ PDF (A4)</button><button class="btn" id="compClose">إغلاق</button>';
+  actions.innerHTML = '<button class="btn btn-outline" id="compCsv">⬇️ Excel (CSV)</button><button class="btn btn-primary" id="compPdf">📄 حفظ كـ PDF / طباعة A4</button><button class="btn btn-outline" id="compDownloadHtml" title="تنزيل نسخة ويب للطباعة جاهزة للمطبعة">📥 تنزيل للطباعة (للمطبعة)</button><button class="btn" id="compClose">إغلاق</button>';
   $('#modalBody').appendChild(actions);
 
   let curData = null;
@@ -4928,6 +4931,12 @@ function showComprehensiveReport(lesson, initialMode){
 
   $('#compCsv').onclick = () => { if(curData) exportComprehensiveCSV(lesson, curData, currentCompMode); };
   $('#compPdf').onclick = () => { if(curData) printComprehensiveReport(lesson, curData, currentCompMode); };
+  if($('#compDownloadHtml')){
+    $('#compDownloadHtml').onclick = () => {
+      if(!curData) return;
+      downloadComprehensivePrintableHTML(lesson, curData, currentCompMode);
+    };
+  }
   $('#compClose').onclick = closeModal;
 }
 
@@ -5024,8 +5033,57 @@ function printComprehensiveReport(lesson, data, mode){
   html += '<div class="r-foot">عدد الشهور: ' + months.length + ' · عدد الطلاب: ' + rows.length + '</div>';
   html += '</div>';
   $('#printArea').innerHTML = html;
-  window.print();
-  $('#printPageRule').textContent = '';
+  showToastMessage('💡 لحفظ التقرير كـ PDF وإرساله للمطبعة: اختر من شاشة الطباعة «حفظ بتنسيق PDF» أو «Save as PDF» ثم اضغط حفظ.', 6000);
+  setTimeout(() => {
+    window.print();
+    $('#printPageRule').textContent = '';
+  }, 150);
+}
+
+function downloadComprehensivePrintableHTML(lesson, data, mode){
+  const compMode = mode || 'attendance';
+  const { months, rows } = data;
+  let html = '<div class="report compact" dir="rtl">';
+  html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
+  const modeTitle = compMode === 'exams' ? 'درجات ومتوسط الاختبارات' : (compMode === 'combined' ? 'نسب الحضور ودرجات الاختبارات (مدمج)' : 'نسبة الحضور');
+  html += '<div class="r-sub">تقرير شامل - ' + esc(lesson.name) + ' - ' + modeTitle + ' عبر ' + months.length + ' شهر' + (data.range && (data.range.from || data.range.to) ? ' (من ' + (data.range.from || 'البداية') + ' إلى ' + (data.range.to || 'الآن') + ')' : '') + '</div>';
+  html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">الطالب</th>';
+  months.forEach(a => html += '<th>' + a.monthNumber + '/' + a.year + '</th>');
+  if(compMode === 'attendance'){
+    html += '<th>النسبة الكلية</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      html += '<tr><td class="ord-col">' + (i + 1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-size:7px;color:#64748b;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+      r.per.forEach(p => html += '<td>' + p.done + '/' + p.total + '<br><b>' + p.pct + '%</b></td>');
+      html += '<td><b>' + r.pct + '%</b></td></tr>';
+    });
+  } else if(compMode === 'exams'){
+    html += '<th>متوسط الاختبارات</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      html += '<tr><td class="ord-col">' + (i + 1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-size:7px;color:#64748b;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+      r.per.forEach(p => {
+        if(p.isHiddenFromExams) html += '<td><span style="font-size:7px;color:#dc2626">🚫 مستبعد</span></td>';
+        else if(p.examAvgPct !== null) html += '<td><b>' + p.examAvgPct + '%</b><br><span style="font-size:7px;color:#64748b">(' + p.examCount + ' اخت)</span></td>';
+        else html += '<td><span style="color:#94a3b8">-</span></td>';
+      });
+      html += '<td><b>' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '</b></td></tr>';
+    });
+  } else {
+    html += '<th>الإجمالي</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      html += '<tr><td class="ord-col">' + (i + 1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-size:7px;color:#64748b;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+      r.per.forEach(p => {
+        const exStr = p.isHiddenFromExams ? '🚫' : (p.examAvgPct !== null ? p.examAvgPct + '%' : '-');
+        html += '<td style="line-height:1.2">ح: ' + p.pct + '%<br>اخت: ' + exStr + '</td>';
+      });
+      const totExHtml = r.totExamPct !== null ? '<b style="color:#15803d">' + r.totExamPct + '%</b>' : '<span style="color:#94a3b8">-</span>';
+      html += '<td style="line-height:1.2">ح: <b>' + r.pct + '%</b><br>اخت: ' + totExHtml + '</td></tr>';
+    });
+  }
+  html += '</tbody></table>';
+  html += '<div class="r-foot">عدد الشهور: ' + months.length + ' · عدد الطلاب: ' + rows.length + '</div>';
+  html += '</div>';
+
+  downloadPrintableReportHTML(html, 'تقرير_شامل_' + lesson.name);
 }
 
 /* ---------- تصدير وطباعة تقرير الاختبارات المنفرد (v34) ---------- */
@@ -5336,6 +5394,51 @@ function exportCSV(students, sessions, records, title, statuses, groupByGroups){
 }
 
 /* ---------- طباعة A4 ---------- */
+/* ===== 💾 حفظ PDF للطباعة (v37) ===== */
+/**
+ * يعرض نافذة توجيه جميلة تشرح للمستخدم كيف يحفظ الصفحة كـ PDF،
+ * ثم يشغّل دالة الطباعة المطلوبة بعد النقر على "طباعة / حفظ PDF".
+ */
+function showSavePdfGuide(printCallback){
+  openModal('💾 حفظ التقرير كملف PDF',
+    '<div style="text-align:right;direction:rtl">'
+    + '<p style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--primary)">📄 خطوات حفظ التقرير كملف PDF على جهازك:</p>'
+    + '<ol style="padding-right:20px;line-height:2;font-size:13px;color:var(--text)">'
+    +   '<li>اضغط على زر <b style="color:#15803d">🖨️ طباعة / حفظ PDF</b> أدناه</li>'
+    +   '<li>ستظهر نافذة الطباعة — في قائمة <b>الطابعة</b> اختر <b style="color:var(--primary)">"حفظ كـ PDF"</b> أو <b style="color:var(--primary)">"Save as PDF"</b></li>'
+    +   '<li>اختر مكان الحفظ على جهازك واضغط <b>حفظ</b></li>'
+    +   '<li>أرسل الملف المحفوظ للمطبعة عبر واتساب أو أي وسيلة</li>'
+    + '</ol>'
+    + '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin:14px 0;font-size:12px;color:#166534">'
+    +   '💡 <b>نصيحة:</b> على الهاتف افتح بمتصفح Chrome واختر «إرسال إلى» ← «الطباعة» ← «حفظ كـ PDF»'
+    + '</div>'
+    + '<div class="modal-actions">'
+    +   '<button class="btn btn-primary" id="pdf_printNow" style="font-size:15px;padding:12px 28px">🖨️ طباعة / حفظ PDF</button>'
+    +   '<button class="btn btn-outline" id="pdf_cancel">إلغاء</button>'
+    + '</div>'
+    + '</div>');
+  $('#pdf_printNow').onclick = () => { closeModal(); setTimeout(() => printCallback(), 200); };
+  $('#pdf_cancel').onclick = closeModal;
+}
+
+/**
+ * طباعة جدول الحضور الحالي وعرض دليل حفظه كـ PDF
+ */
+function saveCurrentLessonAsPdf(){
+  const L = curLesson();
+  if(!L) return;
+  let students = L.students;
+  let reportTitle = L.name + ' - ' + buildMonthTitle(L.monthNumber);
+  if(groupFilterQuery && groupFilterQuery !== '__none__'){
+    const grp = (L.groups || []).find(g => g.id === groupFilterQuery);
+    if(grp){ students = students.filter(st => st.groupId === groupFilterQuery); reportTitle += ' (مجموعة: ' + grp.name + ')'; }
+  } else if(groupFilterQuery === '__none__'){
+    students = students.filter(st => !st.groupId); reportTitle += ' (بدون مجموعة)';
+  }
+  const eff = effectiveStatuses(L);
+  showSavePdfGuide(() => printReport(students, L.sessions, L.records, reportTitle, eff));
+}
+
 function printReport(students, sessions, records, title, statuses, groupByGroups){
   const rows = computeStats(students, sessions, records, statuses);
   $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
@@ -5351,12 +5454,19 @@ function showBlankSheetOptions(){
   const body = '<div style="text-align:center;padding:8px 0">'
     + '<p style="margin-bottom:12px;font-size:14px">اختر صيغة ورقة الحضور الفارغة:</p>'
     + '<div class="modal-actions" style="justify-content:center;gap:12px">'
-    + '<button class="btn btn-primary" id="blankPdfBtn">🖨️ طباعة / PDF (A4)</button>'
+    + '<button class="btn btn-primary" id="blankPdfBtn">📄 حفظ كـ PDF / طباعة A4</button>'
+    + '<button class="btn btn-outline" id="blankDownloadHtml">📥 تنزيل للطباعة (للمطبعة)</button>'
     + '<button class="btn btn-outline" id="blankExcelBtn">⬇️ Excel (A4)</button>'
     + '<button class="btn" id="blankCloseBtn">إغلاق</button>'
     + '</div></div>';
   openModal('📄 ورقة حضور فارغة', body);
   $('#blankPdfBtn').onclick = () => { closeModal(); printBlankSheet(L); };
+  if($('#blankDownloadHtml')){
+    $('#blankDownloadHtml').onclick = () => {
+      closeModal();
+      downloadBlankSheetPrintableHTML(L);
+    };
+  }
   $('#blankExcelBtn').onclick = () => { closeModal(); exportBlankSheetExcel(L); };
   $('#blankCloseBtn').onclick = closeModal;
 }
@@ -5404,8 +5514,51 @@ function printBlankSheet(lesson){
   /* عمودي (portrait) — 15 طالب في الصفحة */
   $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
   $('#printArea').innerHTML = html;
-  window.print();
-  $('#printPageRule').textContent = '';
+  showToastMessage('💡 لحفظ ورقة الحضور كـ PDF وإرسالها للمطبعة: اختر من شاشة الطباعة «حفظ بتنسيق PDF» أو «Save as PDF» ثم اضغط حفظ.', 6000);
+  setTimeout(() => {
+    window.print();
+    $('#printPageRule').textContent = '';
+  }, 150);
+}
+
+function downloadBlankSheetPrintableHTML(lesson){
+  const sd = state.settings;
+  const students = lesson.students || [];
+  const sessions = lesson.sessions || [];
+  const monthTitle = buildMonthTitle(lesson.monthNumber);
+  const yearLabel = lesson.year || '';
+  const scheduleStr = scheduleLabel(lesson);
+
+  let html = '<div class="report" dir="rtl">';
+  html += '<div class="r-title">كشف حضور وغياب عن ' + esc(lesson.name) + ' - ' + esc(monthTitle) + (yearLabel ? ' ' + esc(String(yearLabel)) : '') + '</div>';
+  if(scheduleStr) html += '<div style="text-align:center;font-size:10px;color:#475569;margin-bottom:6px">' + esc(scheduleStr) + '</div>';
+
+  html += '<table class="r-table blank-sheet"><thead><tr>';
+  html += '<th class="ord-col">م</th>';
+  html += '<th class="r-name">الاسم</th>';
+  sessions.forEach(s => {
+    const dayLabel = s.dateLabel || '';
+    html += '<th>' + (dayLabel ? esc(dayLabel) : esc(s.label));
+    if(s.event) html += '<br><span style="color:#b45309;font-size:7px">📝 ' + esc(s.event) + '</span>';
+    html += '</th>';
+  });
+  html += '<th>ملاحظات</th>';
+  html += '</tr></thead><tbody>';
+
+  students.forEach((st, i) => {
+    html += '<tr>';
+    html += '<td class="ord-col"><span class="ord-num">' + (i + 1) + '</span></td>';
+    html += '<td class="r-name"><span class="st-name">' + esc(st.name) + '</span><br><span class="st-phone">' + esc(localPhone(st.phone || '')) + '</span></td>';
+    sessions.forEach(() => { html += '<td class="blank-cell"></td>'; });
+    html += '<td></td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  html += '<div class="r-foot">عدد الطلاب: ' + students.length + ' · عدد الحصص: ' + sessions.length + '</div>';
+  html += '</div>';
+
+  downloadPrintableReportHTML(html, 'ورقة_حضور_فارغة_' + lesson.name);
 }
 
 function exportBlankSheetExcel(lesson){
@@ -7031,7 +7184,7 @@ function switchTab(name){
 function bindEvents(){
   window.addEventListener('popstate', handleAppBack);
 
-  $('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
 
   if($('#clearLessonSearch')){
     $('#clearLessonSearch').onclick = () => {
