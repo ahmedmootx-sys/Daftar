@@ -34,8 +34,23 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v35';
+const APP_VERSION = 'v37';
 const CHANGELOG = {
+  v37: [
+    '📥 تنزيل وحفظ التقارير كملف PDF جاهز للطباعة والمطبعة: إمكانية حفظ أي تقرير (حضور، اختبارات، شامل، ورقة حضور) كملف PDF على جهازك لإرساله للمطبعة، مع توجيه ذكي يرشد المعلم لاختيار «حفظ بتنسيق PDF» وزر مخصص لتنزيل نسخة ويب جاهزة للمطبعة بصيغة HTML',
+    '🗂️ تقسيم المجاميع عبر كافة التقارير والرسائل: خيار تفاعلي للاختيار بين مجموعات الدرس ومجموعات الاختبار في تقارير الاختبارات والتقرير الشامل، وتقسيم منسق بالمجموعات في رسائل واتساب لتقرير الشهر وتقرير الاختبارات',
+    '📚 تصفية وتنظيم الأرشيف حسب الدرس وترتيبه زمنياً: شريط تبويبات أعلى الأرشيف لتصفية شهور كل درس على حدة، مع ترتيب زمني تلقائي (الأحدث أولاً) وأزرار تحريك يدوي',
+    '⚡ إصلاح شامل لربط الأحداث واستقرار الأرشيف: إصلاح القوائم المنسدلة في الأرشيف، واستقرار شاشة الشهر المؤرشف عند تعديل بيانات الطالب دون اختفاء، وتأكيد الحذف الآمن'
+  ],
+  v36: [
+    '📦 إضافة شهور قديمة للأرشيف: إمكانية تسجيل وتوثيق شهور قديمة ماضية لأي درس في الأرشيف دون المساس بالدرس الحالي مع التوليد التلقائي لحصصها',
+    '🔄 نقل ونسخ الطلاب للأرشيف: دعم نقل أو نسخ الطلاب وسجلات الحضور من وإلى أي شهر مؤرشف عبر التحديد المتعدد',
+    '👤 مزامنة بيانات الطالب: تحديث بيانات الطالب (الاسم/الهاتف/العنوان...) تلقائياً في الشهر الحالي وبقية الشهور عند تعديلها في أي شهر مؤرشف',
+    '📑 طباعة وتصدير المجاميع مقسمة بملف واحد (PDF و Excel): خيار لتصدير أو طباعة ورقة واحدة تضم كافة الطلاب مرتبين ومقسمين تحت عنوان كل مجموعة لمجاميع الحضور ومجاميع الاختبارات',
+    '⚡ بحث لحظي فائق السرعة: تصفية فورية بالاسم ورقم الترتيب والهاتف مع زر مسح سريع ✕ دون أي تعليق على الأجهزة القوية',
+    '🏛️ شاشة شهر مؤرشف متكاملة: تحويل الشهر المؤرشف لبيئة عمل كاملة (تبويبات حضور واختبارات، بحث لحظي، شريط تقارير وإدارة كامل، إضافة طلاب وتعديل درجات) دون الحاجة لاستعادته',
+    '📱 دعم زر الرجوع وسحب الشاشة بالهاتف: إغلاق النوافذ والرجوع للقائمة ومنع الخروج المفاجئ إلا بضغطة رجوع مزدوجة'
+  ],
   v35: [
     '⚡ وضع الأداء القياسي (Lite Mode): مفتاح سويتش في الإعدادات لتخفيف التعليق والبطء فورياً على الهواتف محدودة الأداء عبر إلغاء الرسوم والظلال والشفافيات وتسريع التمرير',
     '📨 تقرير درجات الاختبار كرسالة (واتساب / نسخ): إرسال نتائج الاختبارات للطلاب الحاضرين فقط واستبعاد غير المشاركين، مع خيار إرسال كل اختبارات الشهر أو اختبار محدد',
@@ -729,6 +744,12 @@ let globalSearchQuery = '';
 let lessonFilterQuery = '';
 let groupFilterQuery = '';
 let examGroupFilterQuery = '';
+let currentArchiveIdx = null;
+let currentArchiveSubtab = 'attendance';
+let archiveFilterQuery = '';
+let archiveGroupFilterQuery = '';
+let lastBackPressTime = 0;
+
 let moneyUnlocked = false;
 let dragState = { dragId: null, touchTimer: null, touchActive: false, ghost: null, startX: 0, startY: 0, row: null, suppressNative: false };
 let hScroll = { active:false, wrap:null, startX:0, startY:0, startScroll:0, horiz:false };
@@ -2408,7 +2429,9 @@ function openExamReportMessageModal(lesson){
     return;
   }
 
+  const lessonGroups = lesson.groups || [];
   const examGroups = lesson.examGroups || [];
+
   let modalHTML = '<div class="reset-box" style="text-align:right;line-height:1.6">'
     + '<p style="font-size:13px;color:var(--text);margin-bottom:12px">'
     +   'صياغة تقرير درجات الاختبارات كرسالة منسقة جاهزة للمشاركة عبر واتساب أو النسخ، <b>للطلاب الذين حضروا وسجلت درجاتهم فقط</b> (استبعاد غير المشاركين تلقائياً):'
@@ -2422,12 +2445,20 @@ function openExamReportMessageModal(lesson){
     +     '</select>'
     +   '</div>'
     +   (examGroups.length > 0 ? ('<div style="flex:1;min-width:140px">'
-    +     '<label style="font-size:12px;font-weight:800;display:block;margin-bottom:4px">👥 مجموعة الاختبار:</label>'
+    +     '<label style="font-size:12px;font-weight:800;display:block;margin-bottom:4px">👥 فلترة بمجموعة اختبار:</label>'
     +     '<select id="msg_group_select" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);font-weight:700">'
-    +       '<option value="">كل مجموعات الاختبار</option>'
+    +       '<option value="">كل المجموعات</option>'
     +       examGroups.map(g => '<option value="' + g.id + '">' + esc(g.name) + '</option>').join('')
     +     '</select>'
     +   '</div>') : '')
+    + '</div>'
+    + '<div style="margin-bottom:12px;padding:8px 10px;background:var(--card-bg,#f8fafc);border:1px solid var(--border);border-radius:8px">'
+    +   '<label style="font-size:12px;font-weight:800;display:block;margin-bottom:4px">🗂️ تقسيم نص الرسالة حسب المجموعات:</label>'
+    +   '<select id="msg_group_mode" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-weight:700">'
+    +     '<option value="none">بدون تقسيم (سرد عام)</option>'
+    +     (lessonGroups.length > 0 ? '<option value="lesson">تقسيم حسب مجموعات الدرس الأساسية (' + lessonGroups.length + ')</option>' : '')
+    +     (examGroups.length > 0 ? '<option value="exam">تقسيم حسب مجموعات الاختبار (' + examGroups.length + ')</option>' : '')
+    +   '</select>'
     + '</div>'
     + '<div class="form-row" style="margin-bottom:10px">'
     +   '<label style="font-size:12px;font-weight:800;display:flex;justify-content:space-between;align-items:center">'
@@ -2447,19 +2478,22 @@ function openExamReportMessageModal(lesson){
 
   const selExam = $('#msg_exam_select');
   const selGroup = $('#msg_group_select');
+  const selMode = $('#msg_group_mode');
   const txtArea = $('#exam_msg_text');
   const countBadge = $('#msg_students_count_badge');
 
   function updateMsg(){
     const targetExamId = selExam ? selExam.value : 'all';
     const targetGroupId = selGroup ? selGroup.value : '';
-    const res = generateExamReportMessageText(lesson, targetExamId, targetGroupId);
+    const groupByMode = selMode ? selMode.value : 'none';
+    const res = generateExamReportMessageText(lesson, targetExamId, targetGroupId, groupByMode);
     if(txtArea) txtArea.value = res.text;
     if(countBadge) countBadge.textContent = res.count + ' طالب حاضر ومسجل';
   }
 
   if(selExam) selExam.onchange = updateMsg;
   if(selGroup) selGroup.onchange = updateMsg;
+  if(selMode) selMode.onchange = updateMsg;
 
   updateMsg();
 
@@ -3248,28 +3282,85 @@ function openResetModal(){
 
 /* تصفية فورية وسريعة بالـ DOM لجدول الدرس بدون إعادة البناء */
 function fastFilterLessonSearch(){
-  const fq = (lessonFilterQuery || '').trim().toLowerCase();
-  const fqN = normalizeForSearch(lessonFilterQuery || '');
+  const rawVal = (lessonFilterQuery || '').trim();
+  const fq = rawVal.toLowerCase();
+  const fqN = normalizeForSearch(rawVal);
   const L = curLesson();
+  const clearBtn = $('#clearLessonSearch');
+  if(clearBtn){
+    clearBtn.style.display = rawVal ? 'block' : 'none';
+  }
   if(!L) return;
+
+  const isNumSearch = /^\d+$/.test(rawVal);
+  const searchNum = isNumSearch ? parseInt(rawVal, 10) : null;
 
   if(currentLessonSubtab === 'exams'){
     const rows = $$('#examsTable tbody tr[data-sid]');
-    rows.forEach(tr => {
+    rows.forEach((tr, i) => {
       const sid = tr.dataset.sid;
       const st = L.students.find(x => x.id === sid);
-      if(!st || !fq){ tr.style.display = ''; return; }
-      const match = normalizeForSearch(st.name).includes(fqN) || (st.phone||'').includes(fq) || (st.guardianPhone||'').includes(fq);
-      tr.style.display = match ? '' : 'none';
+      if(!st || !rawVal){ tr.style.display = ''; return; }
+      const numMatch = (searchNum !== null && (i + 1) === searchNum);
+      const textMatch = normalizeForSearch(st.name).includes(fqN) ||
+        (st.phone||'').includes(fq) ||
+        (st.guardianPhone||'').includes(fq);
+      tr.style.display = (numMatch || textMatch) ? '' : 'none';
     });
   } else {
     const rows = $$('#tableBody tr.student-row');
-    rows.forEach(tr => {
+    rows.forEach((tr, i) => {
       const sid = tr.dataset.dragId;
       const st = L.students.find(x => x.id === sid);
-      if(!st || !fq){ tr.style.display = ''; return; }
-      const match = normalizeForSearch(st.name).includes(fqN) || (st.phone||'').includes(fq) || (st.guardianPhone||'').includes(fq) || (st.extraPhones||[]).some(p => p.includes(fq)) || (st.guardianExtraPhones||[]).some(p => p.includes(fq));
-      tr.style.display = match ? '' : 'none';
+      if(!st || !rawVal){ tr.style.display = ''; return; }
+      const numMatch = (searchNum !== null && (i + 1) === searchNum);
+      const textMatch = normalizeForSearch(st.name).includes(fqN) ||
+        (st.phone||'').includes(fq) ||
+        (st.guardianPhone||'').includes(fq) ||
+        (st.extraPhones||[]).some(p => p.includes(fq)) ||
+        (st.guardianExtraPhones||[]).some(p => p.includes(fq));
+      tr.style.display = (numMatch || textMatch) ? '' : 'none';
+    });
+  }
+}
+
+function fastFilterArchiveSearch(){
+  const rawVal = (archiveFilterQuery || '').trim();
+  const fq = rawVal.toLowerCase();
+  const fqN = normalizeForSearch(rawVal);
+  const a = (currentArchiveIdx !== null) ? state.archive[currentArchiveIdx] : null;
+  const clearBtn = $('#clearArchiveSearch');
+  if(clearBtn){
+    clearBtn.style.display = rawVal ? 'block' : 'none';
+  }
+  if(!a) return;
+
+  const isNumSearch = /^\d+$/.test(rawVal);
+  const searchNum = isNumSearch ? parseInt(rawVal, 10) : null;
+  const students = archiveStudents(a);
+
+  if(currentArchiveSubtab === 'exams'){
+    const rows = $$('#archExamsTable tbody tr[data-sid]');
+    rows.forEach((tr, i) => {
+      const sid = tr.dataset.sid;
+      const st = students.find(x => x.id === sid);
+      if(!st || !rawVal){ tr.style.display = ''; return; }
+      const numMatch = (searchNum !== null && (i + 1) === searchNum);
+      const textMatch = normalizeForSearch(st.name).includes(fqN) || (st.phone||'').includes(fq);
+      tr.style.display = (numMatch || textMatch) ? '' : 'none';
+    });
+  } else {
+    const rows = $$('#archAttendanceTable tbody tr[data-sid]');
+    rows.forEach((tr, i) => {
+      const sid = tr.dataset.sid;
+      const st = students.find(x => x.id === sid);
+      if(!st || !rawVal){ tr.style.display = ''; return; }
+      const numMatch = (searchNum !== null && (i + 1) === searchNum);
+      const textMatch = normalizeForSearch(st.name).includes(fqN) ||
+        (st.phone||'').includes(fq) ||
+        (st.guardianPhone||'').includes(fq) ||
+        (st.extraPhones||[]).some(p => p.includes(fq));
+      tr.style.display = (numMatch || textMatch) ? '' : 'none';
     });
   }
 }
@@ -3523,20 +3614,239 @@ function dayNoteHTML(studentId, sessionId, note, archIdx){
 }
 
 /* ---------- الأرشيف ---------- */
+
+/* ---------- 📦 إضافة شهور قديمة لأرشيف الدرس (v36) ---------- */
+function genSessionsForOldMonth(lesson, monthNumber, year){
+  const days = Array.isArray(lesson.schedule) && lesson.schedule.length ? lesson.schedule : [5];
+  const dates = [];
+  const totalDays = new Date(year, monthNumber, 0).getDate();
+  for(let d = 1; d <= totalDays; d++){
+    const dt = new Date(year, monthNumber - 1, d);
+    if(days.includes(dt.getDay())){
+      const iso = year + '-' + String(monthNumber).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+      dates.push({ date: iso, dayName: DAY_NAMES[dt.getDay()], dayNum: d });
+    }
+  }
+  if(dates.length === 0){
+    for(let w = 1; w <= 4; w++){
+      dates.push({ date: '', dayName: 'الأسبوع ' + w, dayNum: w });
+    }
+  }
+  return dates.map((it, idx) => ({
+    id: uid('ss'),
+    label: 'حصة ' + (idx + 1),
+    date: it.date,
+    dateLabel: it.date ? (it.dayName + ' ' + it.dayNum + '/' + monthNumber) : it.dayName,
+    event: '',
+    eventNote: ''
+  }));
+}
+
+function addOldMonthModal(preselectedLessonId){
+  const lessons = state.lessons || [];
+  if(lessons.length === 0){
+    alert('يرجى إضافة درس أولاً.');
+    return;
+  }
+  const curYear = new Date().getFullYear();
+  const curM = new Date().getMonth() + 1;
+
+  const html = '<div class="reset-box" style="text-align:right;line-height:1.6">'
+    + '<p style="font-size:13px;color:var(--text);margin-bottom:12px">'
+    +   'إضافة شهر قديم مضى مباشرة في أرشيف الدرس لتسجيل بياناته دون التأثير على الشهر الحالي:'
+    + '</p>'
+    + '<div class="form-row"><label>الدرس التابع له هذا الشهر'
+    +   '<select id="aom_lesson" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-weight:700">'
+    +     lessons.map(l => '<option value="' + l.id + '"' + (l.id === preselectedLessonId ? ' selected' : '') + '>' + esc(l.name) + '</option>').join('')
+    +   '</select>'
+    + '</label></div>'
+    + '<div class="grid2" style="margin-top:10px">'
+    +   '<label>رقم الشهر (1 - 12)<input id="aom_month" type="number" min="1" max="12" value="' + (curM === 1 ? 12 : curM - 1) + '" style="font-weight:700"></label>'
+    +   '<label>السنة<input id="aom_year" type="number" min="2020" max="2099" value="' + (curM === 1 ? curYear - 1 : curYear) + '" style="font-weight:700"></label>'
+    + '</div>'
+    + '<div class="form-row" style="margin-top:12px">'
+    +   '<label class="switch-row" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff">'
+    +     '<div>'
+    +       '<div class="switch-label">نسخ طلاب الشهر الحالي إلى هذا الشهر القديم</div>'
+    +       '<div class="muted" style="font-size:11px;margin-top:2px">نسخ قائمة الطلاب الحالية لتسهيل رصد حضورهم دون إعادة إدخال أسمائهم من الصفر.</div>'
+    +     '</div>'
+    +     '<label class="switch"><input type="checkbox" id="aom_copy_students" checked><span class="switch-slider"></span></label>'
+    +   '</label>'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:16px">'
+    +   '<button class="btn btn-primary" id="aom_save">➕ إنشاء وإضافة الشهر للأرشيف</button>'
+    +   '<button class="btn btn-outline" id="aom_cancel">إلغاء</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('📦 إضافة شهر قديم لأرشيف الدرس', html);
+  $('#aom_cancel').onclick = closeModal;
+
+  $('#aom_save').onclick = () => {
+    const lid = $('#aom_lesson').value;
+    const mNum = parseInt($('#aom_month').value, 10);
+    const yNum = parseInt($('#aom_year').value, 10);
+    const copySt = $('#aom_copy_students') ? $('#aom_copy_students').checked : true;
+
+    if(!mNum || mNum < 1 || mNum > 12){ alert('رقم الشهر غير صالح.'); return; }
+    if(!yNum || yNum < 2020){ alert('السنة غير صالحة.'); return; }
+
+    const L = state.lessons.find(x => x.id === lid);
+    if(!L) return;
+
+    if(L.monthNumber === mNum && L.year === yNum){
+      alert('هذا الشهر مسجل حالياً كـ "الشهر النشط" لهذا الدرس في الصفحة الرئيسية.');
+      return;
+    }
+    const existsInArchive = (state.archive || []).some(a => a.lessonId === lid && a.monthNumber === mNum && a.year === yNum);
+    if(existsInArchive){
+      alert('هذا الشهر (' + mNum + '/' + yNum + ') مسجل وموجود بالفعل في أرشيف هذا الدرس.');
+      return;
+    }
+
+    const sessions = genSessionsForOldMonth(L, mNum, yNum);
+    const studentsToCopy = copySt ? L.students.map(st => normalizeStudent(JSON.parse(JSON.stringify(st)))) : [];
+
+    const newArchive = {
+      id: uid('a'),
+      lessonId: L.id,
+      lessonName: L.name,
+      monthNumber: mNum,
+      year: yNum,
+      subscription: !!L.subscription,
+      students: studentsToCopy,
+      sessions: sessions,
+      records: {},
+      exams: [],
+      examScores: {},
+      examNotes: {},
+      examExclusions: {},
+      hiddenExamStudents: [],
+      examGroups: JSON.parse(JSON.stringify(L.examGroups || [])),
+      archivedAt: new Date().toISOString()
+    };
+
+    if(!Array.isArray(state.archive)) state.archive = [];
+    state.archive.unshift(newArchive);
+    saveState();
+    renderArchive();
+    closeModal();
+    showToastMessage('✅ تم إضافة شهر ' + mNum + '/' + yNum + ' لأرشيف درس «' + L.name + '» بنجاح.');
+
+    switchTab('archive');
+    renderArchiveDetail(0);
+  };
+}
+
+let archiveLessonFilter = '__all__';
+
+function moveArchiveItem(fromIdx, toIdx){
+  if(fromIdx < 0 || fromIdx >= state.archive.length || toIdx < 0 || toIdx >= state.archive.length) return;
+  const item = state.archive.splice(fromIdx, 1)[0];
+  state.archive.splice(toIdx, 0, item);
+  saveState();
+  renderArchive();
+  showToastMessage('↕️ تم تعديل ترتيب الشهور المؤرشفة.');
+}
+
+function sortArchiveChronologically(){
+  state.archive.sort((a, b) => {
+    const yA = Number(a.year) || 0, yB = Number(b.year) || 0;
+    if(yB !== yA) return yB - yA;
+    const mA = Number(a.monthNumber) || 0, mB = Number(b.monthNumber) || 0;
+    if(mB !== mA) return mB - mA;
+    return new Date(b.archivedAt || 0) - new Date(a.archivedAt || 0);
+  });
+  saveState();
+  renderArchive();
+  showToastMessage('🔄 تم ترتيب الأرشيف زمنياً (الأحدث أولاً).');
+}
+
 function renderArchive(){
   const list = $('#archiveList');
-  if(state.archive.length === 0){
-    list.innerHTML = '<div class="empty-state">لا يوجد أرشيف بعد. عند إنهاء شهر أي درس سيُحفظ هنا.</div>';
+  if(!list) return;
+
+  if(!Array.isArray(state.archive) || state.archive.length === 0){
+    list.innerHTML = '<div class="empty-state">لا يوجد أرشيف بعد. عند أرشفة أي شهر لدرس أو إضافة شهر قديم سيظهر هنا.</div>';
+    $('#archiveDetail').innerHTML = '';
+    return;
+  }
+
+  // جمع قائمة الدروس التي لها أرشيف لعمل تبويبات/فلاتر
+  const lessonMap = new Map();
+  state.archive.forEach(a => {
+    const lid = a.lessonId || '__unknown__';
+    const lname = a.lessonName || 'درس بدون اسم';
+    if(!lessonMap.has(lid)){
+      lessonMap.set(lid, { id: lid, name: lname, count: 0 });
+    }
+    lessonMap.get(lid).count++;
+  });
+
+  // شريط فلترة الشهور حسب الدرس + زر الترتيب الزمني التلقائي
+  let filterBarHTML = '<div class="archive-filter-bar" style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;background:var(--card-bg,#fff);border:1px solid var(--border);border-radius:10px">';
+  filterBarHTML += '<span style="font-size:12px;font-weight:800;color:var(--text)">📚 تصفية حسب الدرس:</span>';
+  filterBarHTML += '<button class="btn btn-sm ' + (archiveLessonFilter === '__all__' ? 'btn-primary' : 'btn-outline') + '" data-arch-filter="__all__">كل الدروس (' + state.archive.length + ')</button>';
+  
+  lessonMap.forEach(item => {
+    const isActive = archiveLessonFilter === item.id;
+    filterBarHTML += '<button class="btn btn-sm ' + (isActive ? 'btn-primary' : 'btn-outline') + '" data-arch-filter="' + esc(item.id) + '">' + esc(item.name) + ' (' + item.count + ')</button>';
+  });
+
+  filterBarHTML += '<button id="btnSortArchiveAuto" class="btn btn-outline btn-sm" style="margin-right:auto" title="ترتيب كل الشهور المؤرشفة تلقائياً من الأحدث إلى الأقدم">🔄 ترتيب زمني تلقائي</button>';
+  filterBarHTML += '</div>';
+
+  // تصفية الشهور المعروضة
+  const itemsWithIdx = state.archive.map((a, idx) => ({ a, idx }));
+  const filtered = archiveLessonFilter === '__all__'
+    ? itemsWithIdx
+    : itemsWithIdx.filter(item => (item.a.lessonId || '__unknown__') === archiveLessonFilter);
+
+  if(filtered.length === 0){
+    list.innerHTML = filterBarHTML + '<div style="grid-column:1/-1" class="empty-state">لا توجد شهور مؤرشفة لهذا الدرس المحدد.</div>';
   } else {
-    const sorted = state.archive.slice().sort((a,b) => new Date(b.archivedAt) - new Date(a.archivedAt));
-    list.innerHTML = sorted.map(a => {
-      const idx = state.archive.indexOf(a);
-      return '<div class="archive-card" data-act="open-archive" data-idx="'+idx+'">'
-        + '<div class="m-title">'+esc(a.lessonName)+(a.subscription?' <span class="badge-sub">اشتراك</span>':'')+'</div>'
-        + '<div class="m-meta">' + esc(buildMonthTitle(a.monthNumber)) + ' - ' + a.monthNumber + '/' + a.year + ' · ' + a.sessions.length + ' حصة</div>'
+    list.innerHTML = filterBarHTML + filtered.map(({ a, idx }, fIdx) => {
+      const sessCount = (a.sessions || []).length;
+      const stCount = (a.students || archiveStudents(a) || []).length;
+      const exCount = (a.exams || []).length;
+      const canMoveUp = idx > 0;
+      const canMoveDown = idx < state.archive.length - 1;
+
+      return '<div class="archive-card" data-act="open-archive" data-idx="' + idx + '" style="position:relative;cursor:pointer">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
+        +   '<div class="m-title" style="margin:0;font-weight:800;font-size:15px">' + esc(a.lessonName) + (a.subscription ? ' <span class="badge-sub">اشتراك</span>' : '') + '</div>'
+        +   '<div style="display:flex;gap:4px" onclick="event.stopPropagation()">'
+        +     '<button class="btn btn-icon btn-sm" style="padding:2px 6px;font-size:11px" title="تحريك لأعلى" onclick="moveArchiveItem(' + idx + ',' + (idx - 1) + ')"' + (canMoveUp ? '' : ' disabled') + '>▲</button>'
+        +     '<button class="btn btn-icon btn-sm" style="padding:2px 6px;font-size:11px" title="تحريك لأسفل" onclick="moveArchiveItem(' + idx + ',' + (idx + 1) + ')"' + (canMoveDown ? '' : ' disabled') + '>▼</button>'
+        +   '</div>'
+        + '</div>'
+        + '<div class="m-meta" style="margin-top:6px;font-size:12.5px;font-weight:700;color:var(--primary)">' + esc(buildMonthTitle(a.monthNumber)) + ' - شهر ' + a.monthNumber + '/' + a.year + '</div>'
+        + '<div style="display:flex;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted);flex-wrap:wrap">'
+        +   '<span>📅 ' + sessCount + ' حصة</span>'
+        +   '<span>👥 ' + stCount + ' طالب</span>'
+        +   (exCount > 0 ? '<span style="color:#2563eb;font-weight:700">📝 ' + exCount + ' اختبار</span>' : '')
+        + '</div>'
         + '</div>';
     }).join('');
   }
+
+  // ربط أزرار الفلترة
+  $$('[data-arch-filter]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      archiveLessonFilter = btn.dataset.archFilter;
+      renderArchive();
+    };
+  });
+
+  const sortBtn = $('#btnSortArchiveAuto');
+  if(sortBtn){
+    sortBtn.onclick = (e) => {
+      e.stopPropagation();
+      sortArchiveChronologically();
+    };
+  }
+
   $('#archiveDetail').innerHTML = '';
 }
 
@@ -3546,81 +3856,412 @@ function archiveStudents(a){
   return L ? L.students : [];
 }
 
+/* ---------- 🏛️ ترقية شاشة الشهر المؤرشف بالكامل (v36) ---------- */
 function renderArchiveDetail(idx){
+  currentArchiveIdx = idx;
   const a = state.archive[idx];
   if(!a) return;
+  if(!Array.isArray(a.students)) a.students = JSON.parse(JSON.stringify(archiveStudents(a)));
+  if(!Array.isArray(a.sessions)) a.sessions = [];
+  if(!a.records) a.records = {};
+  if(!Array.isArray(a.exams)) a.exams = [];
+  if(!a.examScores) a.examScores = {};
+  if(!a.examExclusions) a.examExclusions = {};
+  if(!a.examNotes) a.examNotes = {};
+  if(!Array.isArray(a.hiddenExamStudents)) a.hiddenExamStudents = [];
+
   const L = state.lessons.find(x => x.id === a.lessonId);
   const eff = L ? effectiveStatuses(L) : state.settings.statuses;
+  const groups = (L && L.groups) || a.groups || [];
+
+  const list = $('#archiveList');
   const container = $('#archiveDetail');
-  container.innerHTML =
-    '<div class="detail-card">'
-    + '<h3 style="margin-top:0">'+esc(a.lessonName)+' - '+esc(buildMonthTitle(a.monthNumber))+'</h3>'
-    + '<p class="muted">'+a.monthNumber+'/'+a.year+' · '+a.sessions.length+' حصة · أُرشف في '+new Date(a.archivedAt).toLocaleString('ar-EG')+'</p>'
-    + '<div class="detail-actions">'
-    +   '<button class="btn" data-act="analytics" data-idx="'+idx+'">📊 التحليل والتقرير</button>'
-    +   '<button class="btn btn-outline" data-act="csv" data-idx="'+idx+'">⬇️ Excel (CSV)</button>'
-    +   '<button class="btn btn-outline" data-act="pdf" data-idx="'+idx+'">🖨️ PDF (A4)</button>'
-    +   '<button class="btn btn-whatsapp" data-act="archive-report-msg" data-idx="'+idx+'">📨 تقرير كرسالة</button>'
-    +   '<button class="btn btn-whatsapp" data-act="archive-seq-msg" data-idx="'+idx+'">📲 مراسلة جماعية</button>'
-    +   '<button class="btn btn-outline" data-act="arch-add-session" data-idx="'+idx+'">➕ حصة</button>'
-    +   '<button class="btn btn-outline" data-act="export-archive" data-idx="'+idx+'">⬇️ تصدير الشهر</button>'
-    +   '<button class="btn" data-act="restore-archive" data-idx="'+idx+'" title="إرجاع الشهر للصفحة الرئيسية للتعديل ثم أرشفته من جديد">♻️ استعادة الشهر</button>'
-    +   '<button class="btn btn-danger" data-act="del-archive" data-idx="'+idx+'">🗑️ حذف</button>'
+  if(list) list.style.display = 'none';
+  if(container) container.style.display = 'block';
+
+  let displayStudents = a.students.slice();
+  if(archiveGroupFilterQuery && archiveGroupFilterQuery !== '__none__'){
+    displayStudents = displayStudents.filter(st => st.groupId === archiveGroupFilterQuery);
+  } else if(archiveGroupFilterQuery === '__none__'){
+    displayStudents = displayStudents.filter(st => !st.groupId);
+  }
+
+  let html = '<div class="detail-top">'
+    + '<button id="backToArchiveListBtn" class="btn btn-outline btn-sm">→ رجوع لقائمة الأرشيف</button>'
+    + '<div class="lesson-head">'
+    +   '<h2>' + esc(a.lessonName) + ' - ' + esc(buildMonthTitle(a.monthNumber)) + ' (' + a.monthNumber + '/' + a.year + ')</h2>'
+    +   '<div class="lesson-meta">' + a.sessions.length + ' حصة · ' + a.students.length + ' طالب · أُرشف في ' + new Date(a.archivedAt).toLocaleString('ar-EG') + (a.subscription ? ' · اشتراك' : '') + '</div>'
     + '</div>'
-    + '<p class="hint">💡 تعديل كامل: الحالات والملاحظات والدفع + إضافة/حذف حصة وتعديل تاريخها والحدث وملخص الحصة وتقرير كرسالة - يُحفظ في الأرشيف فوراً.</p>'
-    + archiveTableHTML(a, idx, eff)
     + '</div>';
-  container.scrollIntoView({behavior:'smooth'});
+
+  // التابات الفرعية
+  html += '<div class="lesson-subtabs">'
+    + '<button id="subtabArchAttendance" class="subtab-btn' + (currentArchiveSubtab === 'attendance' ? ' active' : '') + '">📅 جدول الحضور</button>'
+    + '<button id="subtabArchExams" class="subtab-btn' + (currentArchiveSubtab === 'exams' ? ' active' : '') + '">📝 درجات الاختبارات</button>'
+    + '</div>';
+
+  // شريط الأدوات
+  html += '<div class="toolbar">'
+    + '<button id="archAddStudentBtn" class="btn btn-primary">➕ عضو جديد</button>'
+    + '<button id="archBulkSelectBtn" class="btn ' + (isBulkSelecting ? 'btn-primary' : 'btn-outline') + '">' + (isBulkSelecting ? '☑️ إنهاء التحديد' : '☑️ تحديد متعدد') + '</button>'
+    + '<button id="archSeqMsgBtn" class="btn btn-outline" title="مراسلة تسلسلية عبر واتساب">📲 مراسلة جماعية</button>'
+    + '<div class="toolbar-dropdown">'
+    +   '<button class="btn btn-outline" id="archReportsMenuBtn">📊 التقارير ▾</button>'
+    +   '<div class="dropdown-menu" id="archReportsMenu" hidden>'
+    +     '<button id="archRepMonthBtn" class="dropdown-item">📊 تقرير الشهر</button>'
+    +     '<button id="archRepExamsBtn" class="dropdown-item">📝 تقرير درجات الاختبارات</button>'
+    +     '<button id="archRepExamMsgBtn" class="dropdown-item">📨 تقرير الاختبار كرسالة</button>'
+    +     '<button id="archRepMsgBtn" class="dropdown-item">📨 تقرير كرسالة</button>'
+    +     '<button id="archRepCompBtn" class="dropdown-item">📊 تقرير شامل (كل الشهور)</button>'
+    +     '<button id="archBlankSheetBtn" class="dropdown-item">📄 ورقة حضور</button>'
+    +     '<button id="archExportCsvBtn" class="dropdown-item">⬇️ Excel (CSV)</button>'
+    +     '<button id="archPrintPdfBtn" class="dropdown-item">🖨️ PDF (A4)</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="toolbar-dropdown">'
+    +   '<button class="btn btn-outline" id="archManageMenuBtn">⚙️ إدارة ▾</button>'
+    +   '<div class="dropdown-menu" id="archManageMenu" hidden>'
+    +     '<button id="archAddSessionBtn" class="dropdown-item">➕ حصة</button>'
+    +     '<button id="archAddExamBtn" class="dropdown-item">➕ اختبار جديد</button>'
+    +     '<button id="archExamGroupsBtn" class="dropdown-item">👥 مجموعات الاختبار</button>'
+    +     '<button id="archEditMonthBtn" class="dropdown-item">🗓️ تعديل بيانات الشهر</button>'
+    +     '<button id="archExportMonthBtn" class="dropdown-item">⬇️ تصدير الشهر</button>'
+    +     '<button id="archRestoreBtn" class="dropdown-item">♻️ استعادة الشهر للرئيسية</button>'
+    +     '<button id="archDeleteBtn" class="dropdown-item" style="color:var(--danger)">🗑️ حذف الشهر من الأرشيف</button>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+
+  // شريط البحث والفلتر
+  html += '<div class="detail-filters">'
+    + '<div class="search-input-wrap" style="position:relative;flex:1;display:flex;align-items:center">'
+    +   '<input type="text" id="archiveSearch" class="lesson-search" placeholder="🔍 بحث بالاسم أو الهاتف أو رقم الترتيب (#)…" value="' + esc(archiveFilterQuery) + '" style="padding-left:32px;width:100%">'
+    +   '<button id="clearArchiveSearch" type="button" class="search-clear-btn" style="position:absolute;left:8px;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;display:' + (archiveFilterQuery ? 'block' : 'none') + '" title="مسح البحث">✕</button>'
+    + '</div>'
+    + (groups.length ? '<select id="archGroupFilter" class="group-filter" title="تصفية حسب المجموعة"><option value="">كل المجموعات</option>' + groups.map(g => '<option value="' + esc(g.id) + '"' + (archiveGroupFilterQuery === g.id ? ' selected' : '') + '>' + esc(g.name) + '</option>').join('') + '<option value="__none__"' + (archiveGroupFilterQuery === '__none__' ? ' selected' : '') + '>بدون مجموعة</option></select>' : '')
+    + '</div>';
+
+  // شريط التحديد المتعدد
+  html += '<div id="archBulkActionBar" class="bulk-action-bar" style="display:' + (isBulkSelecting ? 'flex' : 'none') + ';margin-bottom:12px">'
+    + '<div class="bulk-info"><span id="archBulkSelectedCount">' + selectedStudentIds.size + '</span> طالب محدد</div>'
+    + '<div class="bulk-btns">'
+    +   '<button id="archBulkMoveBtn" class="btn btn-primary btn-sm">🔄 نقل إلى درس/شهر...</button>'
+    +   '<button id="archBulkCopyBtn" class="btn btn-outline btn-sm">📋 نسخ إلى درس/شهر...</button>'
+    +   '<button id="archBulkCancelBtn" class="btn btn-outline btn-sm">إلغاء التحديد</button>'
+    + '</div>'
+    + '</div>';
+
+  // الحاوية: إما جدول الحضور أو الاختبارات
+  if(currentArchiveSubtab === 'exams'){
+    html += '<div id="archExamsWrap">' + renderArchExamsTable(a, idx, displayStudents) + '</div>';
+  } else {
+    html += '<div id="archAttendanceWrap">' + archiveTableHTML(a, idx, eff, displayStudents) + '</div>';
+  }
+
+  container.innerHTML = html;
+
+  // ربط أحداث شاشة الأرشيف
+  $('#backToArchiveListBtn').onclick = () => {
+    currentArchiveIdx = null;
+    isBulkSelecting = false;
+    selectedStudentIds.clear();
+    archiveFilterQuery = '';
+    archiveGroupFilterQuery = '';
+    renderArchive();
+    $('#archiveList').style.display = 'block';
+    $('#archiveDetail').style.display = 'none';
+  };
+
+  $('#subtabArchAttendance').onclick = () => {
+    currentArchiveSubtab = 'attendance';
+    renderArchiveDetail(idx);
+  };
+  $('#subtabArchExams').onclick = () => {
+    currentArchiveSubtab = 'exams';
+    renderArchiveDetail(idx);
+  };
+
+  $('#archAddStudentBtn').onclick = () => {
+    studentForm(a, null, true, idx);
+  };
+
+  $('#archBulkSelectBtn').onclick = () => {
+    isBulkSelecting = !isBulkSelecting;
+    if(!isBulkSelecting) selectedStudentIds.clear();
+    renderArchiveDetail(idx);
+  };
+
+  if($('#archBulkCancelBtn')){
+    $('#archBulkCancelBtn').onclick = () => {
+      isBulkSelecting = false;
+      selectedStudentIds.clear();
+      renderArchiveDetail(idx);
+    };
+  }
+
+  if($('#archBulkMoveBtn')){
+    $('#archBulkMoveBtn').onclick = () => bulkMoveStudentsModal(a, false, true, idx);
+  }
+  if($('#archBulkCopyBtn')){
+    $('#archBulkCopyBtn').onclick = () => bulkMoveStudentsModal(a, true, true, idx);
+  }
+
+  $('#archSeqMsgBtn').onclick = () => openSequentialMessagingModal(a);
+
+  // القوائم المنسدلة
+  $('#archReportsMenuBtn').onclick = (e) => {
+    e.stopPropagation();
+    toggleDropdown('archReportsMenu', 'archReportsMenuBtn');
+  };
+  $('#archManageMenuBtn').onclick = (e) => {
+    e.stopPropagation();
+    toggleDropdown('archManageMenu', 'archManageMenuBtn');
+  };
+
+  // تقارير
+  $('#archRepMonthBtn').onclick = () => showAnalytics(archiveStudents(a), pastSessions(a.sessions), a.records, a.lessonName, eff);
+  $('#archRepExamsBtn').onclick = () => openExamReportModal(a);
+  $('#archRepExamMsgBtn').onclick = () => openExamMessageReportModal(a);
+  $('#archRepMsgBtn').onclick = () => archiveMonthlyMessage(a);
+  $('#archRepCompBtn').onclick = () => {
+    const origL = state.lessons.find(x => x.id === a.lessonId);
+    showComprehensiveReport(origL || { id: a.lessonId, name: a.lessonName, students: a.students, sessions: a.sessions, records: a.records });
+  };
+  $('#archBlankSheetBtn').onclick = () => printBlankSheet(a);
+  $('#archExportCsvBtn').onclick = () => exportCSV(archiveStudents(a), a.sessions, a.records, a.lessonName, eff);
+  $('#archPrintPdfBtn').onclick = () => printReport(archiveStudents(a), a.sessions, a.records, a.lessonName + ' - شهر ' + a.monthNumber, eff);
+
+  // إدارة
+  $('#archAddSessionBtn').onclick = () => {
+    const lbl = prompt('مسمى الحصة الجديدة (مثال: حصة 5):', 'حصة ' + (a.sessions.length + 1));
+    if(!lbl) return;
+    a.sessions.push({ id: uid('ss'), label: lbl.trim(), date: '', dateLabel: '' });
+    saveState();
+    renderArchiveDetail(idx);
+    showToastMessage('✅ تم إضافة الحصة للأرشيف بنجاح.');
+  };
+  $('#archAddExamBtn').onclick = () => openAddExamModal(a);
+  $('#archExamGroupsBtn').onclick = () => openExamGroupsModal(a);
+  $('#archEditMonthBtn').onclick = () => {
+    openModal('🗓️ تعديل بيانات الشهر المؤرشف',
+      '<div class="form-row"><label>رقم الشهر (1-12)<input id="arch_mNum" type="number" min="1" max="12" value="' + a.monthNumber + '"></label></div>'
+      + '<div class="form-row"><label>السنة<input id="arch_year" type="number" min="2020" max="2050" value="' + a.year + '"></label></div>'
+      + '<div class="modal-actions"><button class="btn" id="arch_mSave">حفظ</button><button class="btn btn-outline" id="arch_mCancel">إلغاء</button></div>');
+    $('#arch_mSave').onclick = () => {
+      a.monthNumber = parseInt($('#arch_mNum').value, 10) || a.monthNumber;
+      a.year = parseInt($('#arch_year').value, 10) || a.year;
+      saveState();
+      closeModal();
+      renderArchiveDetail(idx);
+      showToastMessage('✅ تم تحديث بيانات الشهر.');
+    };
+    $('#arch_mCancel').onclick = closeModal;
+  };
+  $('#archExportMonthBtn').onclick = () => exportArchiveMonth(a);
+  $('#archRestoreBtn').onclick = () => restoreArchiveMonth(idx);
+  $('#archDeleteBtn').onclick = () => {
+    confirmDangerModal({
+      title: '⚠️ حذف شهر من الأرشيف',
+      message: 'هل أنت متأكد تماماً من حذف شهر (' + a.monthNumber + '/' + a.year + ') لـ «' + esc(a.lessonName) + '» من الأرشيف نهائياً؟',
+      itemName: a.lessonName + ' - شهر ' + a.monthNumber + '/' + a.year,
+      dangerNote: 'سيتم مسح سجلات هذا الشهر ودرجاته وطلابه بالأرشيف نهائياً ولا يمكن استرجاعها.',
+      confirmText: 'نعم، احذف الشهر 🗑️',
+      onConfirm: () => {
+        state.archive.splice(idx, 1);
+        saveState();
+        currentArchiveIdx = null;
+        renderArchive();
+        $('#archiveList').style.display = 'grid';
+        $('#archiveDetail').style.display = 'none';
+        showToastMessage('🗑️ تم حذف الشهر من الأرشيف بنجاح.');
+      }
+    });
+  };
+
+  // البحث والفلتر
+  const sInp = $('#archiveSearch');
+  if(sInp){
+    sInp.oninput = () => {
+      archiveFilterQuery = sInp.value;
+      fastFilterArchiveSearch();
+    };
+  }
+  const clrBtn = $('#clearArchiveSearch');
+  if(clrBtn){
+    clrBtn.onclick = () => {
+      if(sInp) sInp.value = '';
+      archiveFilterQuery = '';
+      fastFilterArchiveSearch();
+      if(sInp) sInp.focus();
+    };
+  }
+  const gFil = $('#archGroupFilter');
+  if(gFil){
+    gFil.onchange = () => {
+      archiveGroupFilterQuery = gFil.value;
+      renderArchiveDetail(idx);
+    };
+  }
+
+  // checkbox تحديد الكل في الأرشيف
+  const chkAll = $('#archBulkSelectAll');
+  if(chkAll){
+    chkAll.onchange = () => {
+      const allChecked = chkAll.checked;
+      displayStudents.forEach(st => {
+        if(allChecked) selectedStudentIds.add(st.id);
+        else selectedStudentIds.delete(st.id);
+      });
+      renderArchiveDetail(idx);
+    };
+  }
+  $$('.arch-bulk-chk').forEach(chk => {
+    chk.onchange = () => {
+      const sid = chk.dataset.id;
+      if(chk.checked) selectedStudentIds.add(sid);
+      else selectedStudentIds.delete(sid);
+      const cntEl = $('#archBulkSelectedCount');
+      if(cntEl) cntEl.textContent = selectedStudentIds.size;
+    };
+  });
 }
 
-function archiveTableHTML(a, idx, statuses){
+function archiveTableHTML(a, idx, statuses, displayStudents){
   const sd = state.settings;
-  const students = archiveStudents(a);
-  let h = '<div class="table-wrap" style="margin-top:12px"><table><thead><tr><th class="sticky-col">'+esc(sd.studentLabel)+'</th>';
-  sd.customFields.forEach(f => { h += '<th class="field-col">'+esc(f.label)+'</th>'; });
+  const students = displayStudents || archiveStudents(a);
+  const ps = pastSessions(a.sessions);
+  const L = state.lessons.find(x => x.id === a.lessonId);
+
+  let h = '<div class="table-wrap" style="margin-top:12px"><table id="archAttendanceTable"><thead><tr>';
+  if(isBulkSelecting){
+    const allChecked = students.length > 0 && students.every(st => selectedStudentIds.has(st.id));
+    h += '<th class="bulk-select-cell"><input type="checkbox" id="archBulkSelectAll"' + (allChecked ? ' checked' : '') + ' title="تحديد/إلغاء الكل"></th>';
+  }
+  h += '<th class="sticky-col">' + esc(sd.studentLabel) + '</th>';
+  sd.customFields.forEach(f => { h += '<th class="field-col">' + esc(f.label) + '</th>'; });
   a.sessions.forEach(s => {
     h += '<th><div class="week-head">'
-       + '<span>'+esc(s.label)+'</span>'
-       + '<span class="week-date" title="اضغط لتعديل التاريخ" data-act="edit-session-date" data-arch="'+idx+'" data-id="'+s.id+'">'+esc(s.dateLabel||'بدون تاريخ')+'</span>'
-       + (s.event ? '<span class="week-event" data-act="edit-session-event" data-arch="'+idx+'" data-id="'+s.id+'">📝 '+esc(s.event)+'</span>' : '')
-       + '<button class="del-week" data-act="del-session" data-arch="'+idx+'" data-id="'+s.id+'" title="حذف الحصة">حذف</button>'
+       + '<span>' + esc(s.label) + '</span>'
+       + '<span class="week-date" title="اضغط لتعديل التاريخ" data-act="edit-session-date" data-arch="' + idx + '" data-id="' + s.id + '">' + esc(s.dateLabel || 'بدون تاريخ') + '</span>'
+       + (s.event ? '<span class="week-event" data-act="edit-session-event" data-arch="' + idx + '" data-id="' + s.id + '">📝 ' + esc(s.event) + '</span>' : '')
+       + '<button class="del-week" data-act="del-session" data-arch="' + idx + '" data-id="' + s.id + '" title="حذف الحصة">✕</button>'
        + '<div class="week-tools">'
-       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-arch="'+idx+'" data-id="'+s.id+'">📝 حدث</button>'
-       + '<button class="mini-btn mini-wa" data-act="session-summary" data-arch="'+idx+'" data-id="'+s.id+'">📤 ملخص</button>'
+       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-arch="' + idx + '" data-id="' + s.id + '">📝</button>'
+       + '<button class="mini-btn mini-wa" data-act="session-summary" data-arch="' + idx + '" data-id="' + s.id + '">📤</button>'
        + '</div></div></th>';
   });
-  h += '<th>'+esc(sd.notesLabel)+'</th>';
+  h += '<th>' + esc(sd.notesLabel) + '</th>';
   if(a.subscription) h += '<th>دفع الاشتراك</th>';
   h += '</tr></thead><tbody>';
-  const ids = students.map(x => x.id).concat(Object.keys(a.records));
-  Array.from(new Set(ids)).forEach(sid => {
-    const st = students.find(x => x.id === sid);
-    const name = st ? st.name : sid;
-    h += '<tr><td class="sticky-col student-cell"><div class="student-name">'+esc(name)+'</div></td>';
+
+  students.forEach((st, i) => {
+    const stPct = ps.length ? Math.round(ps.filter(s => (a.records[st.id] || {})[s.id] && a.records[st.id][s.id].status === 'st_done').length / ps.length * 100) : 0;
+    const ind = ps.length > 0 ? attendanceIndicator(stPct) : null;
+    const grp = ((L && L.groups) || a.groups || []).find(g => g.id === st.groupId);
+
+    h += '<tr class="student-row" draggable="true" data-drag-id="' + st.id + '" data-arch-idx="' + idx + '" data-sid="' + st.id + '">';
+    if(isBulkSelecting){
+      h += '<td class="bulk-select-cell"><input type="checkbox" class="arch-bulk-chk" data-id="' + st.id + '"' + (selectedStudentIds.has(st.id) ? ' checked' : '') + '></td>';
+    }
+    h += '<td class="sticky-col student-cell">'
+       +   '<div class="student-name">'
+       +     '<span class="student-num">' + (i + 1) + '.</span> '
+       +     '<span class="st-name-click" data-act="view-arch-student" data-id="' + st.id + '" data-arch="' + idx + '" style="cursor:pointer;font-weight:700;color:var(--primary);text-decoration:underline" title="اضغط لعرض وتعديل بطاقة الطالب">' + esc(st.name) + '</span>'
+       +     (ind ? '<span class="att-ind-dot ' + ind.cls + '" style="background:' + ind.color + '" title="حضور ' + stPct + '%: ' + ind.label + '"></span>' : '')
+       +     (grp ? '<span class="group-badge" title="مجموعة: ' + esc(grp.name) + '">' + esc(grp.name) + '</span>' : '')
+       +   '</div>'
+       +   '<div style="font-size:10px;color:#64748b;direction:ltr;margin-top:2px">' + esc(localPhone(st.phone)) + '</div>'
+       + '</td>';
+
     sd.customFields.forEach(f => { h += '<td>' + esc((st && st.fields && st.fields[f.id]) || '') + '</td>'; });
+
     a.sessions.forEach(s => {
-      const rec = (a.records[sid] && a.records[sid][s.id]) || {};
+      const rec = (a.records[st.id] && a.records[st.id][s.id]) || {};
       h += '<td><div class="cell-wrap">'
-         + statusSelectHTML(sid, s.id, rec.status || '', idx, statuses)
-         + dayNoteHTML(sid, s.id, rec.note || '', idx)
+         + statusSelectHTML(st.id, s.id, rec.status || '', idx, statuses)
+         + dayNoteHTML(st.id, s.id, rec.note || '', idx)
          + '</div></td>';
     });
-    const note = (a.records[sid] && a.records[sid]['__note__']) || '';
-    h += '<td><textarea class="note-input" data-act="note" data-arch="'+idx+'" data-id="'+sid+'" placeholder="...">' + esc(note) + '</textarea></td>';
-    if(a.subscription) h += '<td><label class="paid-toggle"><input type="checkbox" data-act="paid" data-arch="'+idx+'" data-id="'+sid+'"'+(st && st.paid?' checked':'')+'> دفع</label></td>';
+
+    const note = (a.records[st.id] && a.records[st.id]['__note__']) || '';
+    h += '<td><textarea class="note-input" data-act="note" data-arch="' + idx + '" data-id="' + st.id + '" placeholder="...">' + esc(note) + '</textarea></td>';
+    if(a.subscription) h += '<td><label class="paid-toggle"><input type="checkbox" data-act="paid" data-arch="' + idx + '" data-id="' + st.id + '"' + (st && st.paid ? ' checked' : '') + '> دفع</label></td>';
     h += '</tr>';
   });
-  h += '</tbody><tfoot><tr class="count-row"><td class="sticky-col">حضور الحصة</td>';
+
+  h += '</tbody><tfoot><tr class="count-row">';
+  if(isBulkSelecting) h += '<td></td>';
+  h += '<td class="sticky-col">حضور الحصة</td>';
   sd.customFields.forEach(() => h += '<td></td>');
   a.sessions.forEach(s => {
     let c = 0;
-    const sts = students;
-    sts.forEach(st => { const rec = (a.records[st.id] && a.records[st.id][s.id]) || {}; if(rec.status === 'st_done') c++; });
-    h += '<td><b>' + c + ' / ' + sts.length + '</b></td>';
+    students.forEach(st => { const rec = (a.records[st.id] && a.records[st.id][s.id]) || {}; if(rec.status === 'st_done') c++; });
+    h += '<td><b>' + c + ' / ' + students.length + '</b></td>';
   });
   h += '<td></td>';
   if(a.subscription) h += '<td></td>';
   h += '</tr></tfoot></table></div>';
+  return h;
+}
+
+function renderArchExamsTable(a, idx, displayStudents){
+  const exams = a.exams || [];
+  const hiddenList = a.hiddenExamStudents || [];
+  let students = (displayStudents || archiveStudents(a)).filter(st => !hiddenList.includes(st.id));
+
+  if(exams.length === 0){
+    return '<div class="empty-state" style="padding:24px;text-align:center;background:var(--card);border-radius:12px;margin-top:12px">'
+      + '<h3>📝 لا توجد اختبارات مسجلة في هذا الشهر المؤرشف</h3>'
+      + '<p class="muted">يمكنك إضافة اختبارات ورصد درجاتها مباشرة لهذا الشهر دون الحاجة لاستعادته.</p>'
+      + '<button class="btn btn-primary" onclick="openAddExamModal(state.archive[' + idx + '])" style="margin-top:10px">➕ إضافة اختبار جديد</button>'
+      + '</div>';
+  }
+
+  let h = '<div class="table-wrap" style="margin-top:12px"><table id="archExamsTable"><thead><tr>';
+  h += '<th class="sticky-col">اسم الطالب</th>';
+  exams.forEach(ex => {
+    h += '<th><div style="font-size:12px;font-weight:800">' + esc(ex.name) + '</div>'
+      + '<span class="exam-max-badge">الدرجة: ' + ex.maxScore + (ex.date ? ' (' + esc(ex.date) + ')' : '') + '</span>'
+      + '<div style="display:flex;gap:4px;justify-content:center;margin-top:3px">'
+      +   '<button class="mini-btn mini-edit" data-act="edit-exam" data-arch="' + idx + '" data-id="' + ex.id + '" title="تعديل الاختبار">✏️</button>'
+      +   '<button class="mini-btn mini-del" data-act="del-exam" data-arch="' + idx + '" data-id="' + ex.id + '" title="حذف الاختبار">✕</button>'
+      + '</div>'
+      + '</th>';
+  });
+  h += '<th>المتوسط %</th></tr></thead><tbody>';
+
+  students.forEach((st, i) => {
+    const studentScores = (a.examScores && a.examScores[st.id]) || {};
+    const exclusions = (a.examExclusions && a.examExclusions[st.id]) || {};
+    const notes = (a.examNotes && a.examNotes[st.id]) || {};
+    let totalPct = 0, examCount = 0;
+
+    h += '<tr data-sid="' + st.id + '"><td class="sticky-col student-cell">'
+      +   '<div class="student-name">'
+      +     '<span class="student-num">' + (i + 1) + '.</span> '
+      +     '<span class="st-name-click" data-act="view-arch-student" data-id="' + st.id + '" data-arch="' + idx + '" style="cursor:pointer;font-weight:700;color:var(--primary);text-decoration:underline">' + esc(st.name) + '</span>'
+      +   '</div>'
+      +   '<div style="font-size:10px;color:#64748b;direction:ltr;margin-top:2px">' + esc(localPhone(st.phone)) + '</div>'
+      + '</td>';
+
+    exams.forEach(ex => {
+      const isExcluded = !!exclusions[ex.id];
+      const noteText = notes[ex.id] || '';
+      const scoreVal = studentScores[ex.id] !== undefined ? studentScores[ex.id] : '';
+      const pct = (!isExcluded && scoreVal !== '' && ex.maxScore > 0) ? Math.round((Number(scoreVal) / ex.maxScore) * 100) : null;
+      if(pct !== null){ totalPct += pct; examCount++; }
+
+      h += '<td class="exam-td" data-sid="' + st.id + '" data-eid="' + ex.id + '" style="text-align:center">'
+        +   buildExamCellHTML(st.id, ex.id, scoreVal, isExcluded, noteText, ex.maxScore, pct)
+        + '</td>';
+    });
+
+    const avgPct = examCount > 0 ? Math.round(totalPct / examCount) : null;
+    h += '<td class="exam-avg-cell" style="text-align:center;font-weight:bold">' + (avgPct !== null ? avgPct + '%' : '-') + '</td>';
+    h += '</tr>';
+  });
+
+  h += '</tbody></table></div>';
   return h;
 }
 
@@ -3968,7 +4609,56 @@ function lessonStatusesEditor(lesson){
       if(g && v && v !== g.label) map[id] = v;
     });
     if(Object.keys(map).length) lesson.statusLabels = map; else delete lesson.statusLabels;
-    saveState(); renderAll(); closeModal();
+    // مزامنة البيانات الشخصية مع الشهر الحالي وباقي الشهور عند طلب المستخدم (v36)
+    if(isArchive && $('#f_syncCurrentMonth') && $('#f_syncCurrentMonth').checked){
+      const lid = lesson.lessonId || lesson.id;
+      const curL = state.lessons.find(x => x.id === lid);
+      if(curL && Array.isArray(curL.students)){
+        const match = curL.students.find(x => x.id === (student ? student.id : null) || normalizeForSearch(x.name) === normalizeForSearch(nm));
+        if(match){
+          match.name = nm;
+          if(ph) match.phone = ph;
+          match.guardianPhone = gp;
+          match.guardianExtraPhones = gExtras;
+          match.extraPhones = extras;
+          match.job = job;
+          match.address = addr;
+          match.age = age;
+          match.email = eml;
+          match.profileNotes = pNotes;
+          if(photoBase64) match.photo = photoBase64;
+        }
+      }
+      (state.archive || []).forEach(otherA => {
+        if(otherA !== lesson && (otherA.lessonId === lid)){
+          if(Array.isArray(otherA.students)){
+            const matchA = otherA.students.find(x => x.id === (student ? student.id : null) || normalizeForSearch(x.name) === normalizeForSearch(nm));
+            if(matchA){
+              matchA.name = nm;
+              if(ph) matchA.phone = ph;
+              matchA.guardianPhone = gp;
+              matchA.guardianExtraPhones = gExtras;
+              matchA.extraPhones = extras;
+              matchA.job = job;
+              matchA.address = addr;
+              matchA.age = age;
+              matchA.email = eml;
+              matchA.profileNotes = pNotes;
+              if(photoBase64) matchA.photo = photoBase64;
+            }
+          }
+        }
+      });
+    }
+
+    saveState();
+    if(isArchive && archIdx !== undefined && archIdx !== null){
+      renderArchiveDetail(archIdx);
+    } else {
+      renderAll();
+    }
+    closeModal();
+    showToastMessage(isEdit ? '✅ تم حفظ تعديل العضو بنجاح.' : '✅ تم إضافة العضو بنجاح.');
   };
   $('#ls_reset').onclick = () => { delete lesson.statusLabels; saveState(); renderAll(); closeModal(); };
   $('#ls_cancel').onclick = closeModal;
@@ -4081,7 +4771,13 @@ function showAnalytics(students, sessions, records, title, statuses){
   const actions = document.createElement('div');
   actions.className = 'modal-actions';
   actions.innerHTML =
-    '<button class="btn btn-outline" id="analyticsCsv">⬇️ Excel (CSV)</button>'
+    '<div style="width:100%;margin-bottom:8px;text-align:right">'
+    + '<label class="switch-row" style="font-size:12px;font-weight:700;display:inline-flex;align-items:center;cursor:pointer">'
+    +   '<input type="checkbox" id="rep_group_by_groups" style="margin-left:6px">'
+    +   '<span>🗂️ تقسيم وترتيب حسب المجموعات في ورقة واحدة</span>'
+    + '</label>'
+    + '</div>'
+    + '<button class="btn btn-outline" id="analyticsCsv">⬇️ Excel (CSV)</button>'
     + '<button class="btn btn-outline" id="analyticsPdf">🖨️ PDF (A4)</button>'
     + '<button class="btn" id="analyticsClose">إغلاق</button>';
   $('#modalBody').appendChild(actions);
@@ -4116,8 +4812,8 @@ function showAnalytics(students, sessions, records, title, statuses){
   if($('#rangeFrom')) $('#rangeFrom').onchange = applyRange;
   if($('#rangeTo')) $('#rangeTo').onchange = applyRange;
 
-  $('#analyticsCsv').onclick = () => exportCSV(students, curSessions, records, title, statuses);
-  $('#analyticsPdf').onclick = () => printReport(students, curSessions, records, title, statuses);
+  $('#analyticsCsv').onclick = () => { const gMode = $('#rep_group_by_groups') ? $('#rep_group_by_groups').checked : false; exportCSV(students, curSessions, records, title, statuses, gMode); };
+  $('#analyticsPdf').onclick = () => { const gMode = $('#rep_group_by_groups') ? $('#rep_group_by_groups').checked : false; printReport(students, curSessions, records, title, statuses, gMode); };
   $('#analyticsClose').onclick = closeModal;
 }
 
@@ -4266,10 +4962,19 @@ function showComprehensiveReport(lesson, initialMode){
     + '<button type="button" class="comp-mode-btn' + (currentCompMode === 'combined' ? ' active' : '') + '" data-mode="combined">📊 عرض مدمج (حضور + اختبارات)</button>'
     + '</div>';
 
-  openModal('📊 تقرير شامل - ' + esc(lesson.name), filterHTML + modeTabsHTML + '<div id="compTableWrap"></div>');
+  const groupToggleHTML = (Array.isArray(lesson.groups) && lesson.groups.length > 0)
+    ? '<div style="margin:8px 0;padding:6px 10px;background:var(--card-bg,#f8fafc);border:1px solid var(--border);border-radius:8px">'
+      + '<label class="switch-row" style="font-size:12px;font-weight:700;display:flex;align-items:center;cursor:pointer">'
+      +   '<input type="checkbox" id="comp_group_by_groups" style="margin-left:6px">'
+      +   '<span>🗂️ تقسيم وترتيب الطلاب حسب مجموعات الدرس في ورقة واحدة (PDF / Excel)</span>'
+      + '</label>'
+      + '</div>'
+    : '';
+
+  openModal('📊 تقرير شامل - ' + esc(lesson.name), filterHTML + modeTabsHTML + groupToggleHTML + '<div id="compTableWrap"></div>');
   const actions = document.createElement('div');
   actions.className = 'modal-actions';
-  actions.innerHTML = '<button class="btn btn-outline" id="compCsv">⬇️ Excel (CSV)</button><button class="btn btn-outline" id="compPdf">🖨️ PDF (A4)</button><button class="btn" id="compClose">إغلاق</button>';
+  actions.innerHTML = '<button class="btn btn-outline" id="compCsv">⬇️ Excel (CSV)</button><button class="btn btn-primary" id="compPdf">📄 حفظ كـ PDF / طباعة A4</button><button class="btn btn-outline" id="compDownloadHtml" title="تنزيل نسخة ويب للطباعة جاهزة للمطبعة">📥 تنزيل للطباعة (للمطبعة)</button><button class="btn" id="compClose">إغلاق</button>';
   $('#modalBody').appendChild(actions);
 
   let curData = null;
@@ -4345,16 +5050,29 @@ function showComprehensiveReport(lesson, initialMode){
   if($('#compRangeFrom')) $('#compRangeFrom').onchange = applyRange;
   if($('#compRangeTo')) $('#compRangeTo').onchange = applyRange;
 
-  $('#compCsv').onclick = () => { if(curData) exportComprehensiveCSV(lesson, curData, currentCompMode); };
-  $('#compPdf').onclick = () => { if(curData) printComprehensiveReport(lesson, curData, currentCompMode); };
+  $('#compCsv').onclick = () => {
+    const isGrouped = $('#comp_group_by_groups') ? $('#comp_group_by_groups').checked : false;
+    if(curData) exportComprehensiveCSV(lesson, curData, currentCompMode, isGrouped);
+  };
+  $('#compPdf').onclick = () => {
+    const isGrouped = $('#comp_group_by_groups') ? $('#comp_group_by_groups').checked : false;
+    if(curData) printComprehensiveReport(lesson, curData, currentCompMode, isGrouped);
+  };
+  if($('#compDownloadHtml')){
+    $('#compDownloadHtml').onclick = () => {
+      if(!curData) return;
+      downloadComprehensivePrintableHTML(lesson, curData, currentCompMode);
+    };
+  }
   $('#compClose').onclick = closeModal;
 }
 
-function exportComprehensiveCSV(lesson, data, mode){
+function exportComprehensiveCSV(lesson, data, mode, groupByGroups){
   const compMode = mode || 'attendance';
   const { months, rows } = data;
   const lines = [];
   const head = ['م', 'اسم الطالب (الرقم تحته)'];
+  if(groupByGroups) head.push('المجموعة');
   
   if(compMode === 'attendance'){
     months.forEach(a => head.push('شهر ' + a.monthNumber + '/' + a.year));
@@ -4362,32 +5080,52 @@ function exportComprehensiveCSV(lesson, data, mode){
   } else if(compMode === 'exams'){
     months.forEach(a => head.push('اختبارات ' + a.monthNumber + '/' + a.year));
     head.push('متوسط الاختبارات الكلي %');
-  } else { // combined
+  } else {
     months.forEach(a => head.push('شهر ' + a.monthNumber + '/' + a.year + ' (حضور / اختبارات)'));
     head.push('الإجمالي (حضور % / اختبارات %)');
   }
   lines.push(head.join(','));
 
-  rows.forEach((r, i) => {
-    const row = [i + 1, '"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
-    if(compMode === 'attendance'){
-      r.per.forEach(p => row.push('"' + p.done + ' من ' + p.total + '\n' + p.pct + '%"'));
-      row.push('"' + r.pct + '%"');
-    } else if(compMode === 'exams'){
-      r.per.forEach(p => {
-        if(p.isHiddenFromExams) row.push('"🚫 مستبعد"');
-        else if(p.examAvgPct !== null) row.push('"' + p.examAvgPct + '%\n(' + p.examCount + ' اختبار)"');
-        else row.push('"-"');
-      });
-      row.push('"' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '"');
-    } else { // combined
-      r.per.forEach(p => {
-        const exStr = p.isHiddenFromExams ? 'مستبعد' : (p.examAvgPct !== null ? p.examAvgPct + '%' : '-');
-        row.push('"حضور: ' + p.done + ' من ' + p.total + ' (' + p.pct + '%)\nاختبارات: ' + exStr + '"');
-      });
-      row.push('"حضور: ' + r.pct + '%\nاختبارات: ' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '"');
+  let groupsToIterate = [];
+  if(groupByGroups && Array.isArray(lesson.groups) && lesson.groups.length > 0){
+    lesson.groups.forEach(g => {
+      groupsToIterate.push({ name: g.name, list: rows.filter(r => r.st && r.st.groupId === g.id) });
+    });
+    const noGrp = rows.filter(r => !r.st || !r.st.groupId);
+    if(noGrp.length > 0) groupsToIterate.push({ name: 'بدون مجموعة', list: noGrp });
+  } else {
+    groupsToIterate = [{ name: '', list: rows }];
+  }
+
+  let globalOrderIdx = 0;
+  groupsToIterate.forEach(sec => {
+    if(sec.list.length === 0) return;
+    if(groupByGroups && sec.name){
+      lines.push('"-- [مجموعة: ' + sec.name.replace(/"/g,'""') + ' (' + sec.list.length + ' طالب)] --"');
     }
-    lines.push(row.join(','));
+    sec.list.forEach((r) => {
+      globalOrderIdx++;
+      const row = [globalOrderIdx, '"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
+      if(groupByGroups) row.push('"' + String(sec.name || '-').replace(/"/g,'""') + '"');
+      if(compMode === 'attendance'){
+        r.per.forEach(p => row.push('"' + p.done + ' من ' + p.total + '\n' + p.pct + '%"'));
+        row.push('"' + r.pct + '%"');
+      } else if(compMode === 'exams'){
+        r.per.forEach(p => {
+          if(p.isHiddenFromExams) row.push('"🚫 مستبعد"');
+          else if(p.examAvgPct !== null) row.push('"' + p.examAvgPct + '%\n(' + p.examCount + ' اختبار)"');
+          else row.push('"-"');
+        });
+        row.push('"' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '"');
+      } else {
+        r.per.forEach(p => {
+          const exStr = p.isHiddenFromExams ? 'مستبعد' : (p.examAvgPct !== null ? p.examAvgPct + '%' : '-');
+          row.push('"حضور: ' + p.done + ' من ' + p.total + ' (' + p.pct + '%)\nاختبارات: ' + exStr + '"');
+        });
+        row.push('"حضور: ' + r.pct + '%\nاختبارات: ' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '"');
+      }
+      lines.push(row.join(','));
+    });
   });
 
   const safe = (lesson.name || 'درس').replace(/[^\w\u0600-\u06FF ]/g, '');
@@ -4395,7 +5133,7 @@ function exportComprehensiveCSV(lesson, data, mode){
   downloadBlob('\uFEFF' + lines.join('\r\n'), 'تقرير_شامل_' + safe + modeSuffix + '_' + new Date().toISOString().slice(0,10) + '.csv', 'text/csv;charset=utf-8');
 }
 
-function printComprehensiveReport(lesson, data, mode){
+function printComprehensiveReport(lesson, data, mode, groupByGroups){
   const compMode = mode || 'attendance';
   const { months, rows } = data;
   $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
@@ -4408,47 +5146,113 @@ function printComprehensiveReport(lesson, data, mode){
   html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">الطالب</th>';
   months.forEach(a => html += '<th>' + a.monthNumber + '/' + a.year + '</th>');
   
+  const lastColTitle = compMode === 'attendance' ? 'النسبة الكلية' : (compMode === 'exams' ? 'متوسط الاختبارات' : 'الإجمالي');
+  html += '<th>' + lastColTitle + '</th></tr></thead><tbody>';
+
+  // تقسيم المجموعات
+  let groupsToIterate = [];
+  if(groupByGroups && Array.isArray(lesson.groups) && lesson.groups.length > 0){
+    lesson.groups.forEach(g => {
+      groupsToIterate.push({ name: g.name, list: rows.filter(r => r.st && r.st.groupId === g.id) });
+    });
+    const noGrp = rows.filter(r => !r.st || !r.st.groupId);
+    if(noGrp.length > 0) groupsToIterate.push({ name: 'بدون مجموعة', list: noGrp });
+  } else {
+    groupsToIterate = [{ name: '', list: rows }];
+  }
+
+  let globalOrderIdx = 0;
+  groupsToIterate.forEach(sec => {
+    if(sec.list.length === 0) return;
+    if(groupByGroups && sec.name){
+      html += '<tr class="group-header-row" style="background:#f1f5f9;font-weight:800;color:var(--primary,#1e293b)"><td colspan="' + (months.length + 3) + '" style="text-align:right;padding:5px 8px;font-size:10px">👥 ' + esc(sec.name) + ' (' + sec.list.length + ' طالب)</td></tr>';
+    }
+
+    sec.list.forEach((r) => {
+      globalOrderIdx++;
+      html += '<tr><td class="ord-col">' + globalOrderIdx + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+
+      if(compMode === 'attendance'){
+        r.per.forEach(p => html += '<td>' + p.done + '/' + p.total + '<br><b>' + p.pct + '%</b></td>');
+        html += '<td><b>' + r.pct + '%</b></td>';
+      } else if(compMode === 'exams'){
+        r.per.forEach(p => {
+          if(p.isHiddenFromExams) html += '<td><span style="font-size:7px;color:#b91c1c">مستبعد</span></td>';
+          else if(p.examAvgPct !== null) html += '<td><b>' + p.examAvgPct + '%</b><br><span style="font-size:6.5px;color:#64748b">' + p.examCount + ' اخت.</span></td>';
+          else html += '<td><span style="color:#94a3b8">-</span></td>';
+        });
+        html += '<td><b>' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '</b></td>';
+      } else { // combined
+        r.per.forEach(p => {
+          const exHtml = p.isHiddenFromExams ? '<span style="font-size:6.5px;color:#b91c1c">مستبعد</span>' : (p.examAvgPct !== null ? '<b style="color:#15803d">' + p.examAvgPct + '%</b>' : '<span style="color:#94a3b8">-</span>');
+          html += '<td style="line-height:1.2">ح: ' + p.done + '/' + p.total + ' (<b>' + p.pct + '%</b>)<br>اخت: ' + exHtml + '</td>';
+        });
+        const totExHtml = r.totExamPct !== null ? '<b style="color:#15803d">' + r.totExamPct + '%</b>' : '<span style="color:#94a3b8">-</span>';
+        html += '<td style="line-height:1.2">ح: <b>' + r.pct + '%</b><br>اخت: ' + totExHtml + '</td>';
+      }
+      html += '</tr>';
+    });
+  });
+
+  html += '</tbody></table>';
+  html += '<div class="r-foot">عدد الشهور: ' + months.length + ' · عدد الطلاب: ' + rows.length + '</div>';
+  html += '</div>';
+  $('#printArea').innerHTML = html;
+  showToastMessage('💡 لحفظ التقرير كـ PDF وإرساله للمطبعة: اختر من شاشة الطباعة «حفظ بتنسيق PDF» أو «Save as PDF» ثم اضغط حفظ.', 6000);
+  setTimeout(() => {
+    window.print();
+    $('#printPageRule').textContent = '';
+  }, 150);
+}
+
+function downloadComprehensivePrintableHTML(lesson, data, mode){
+  const compMode = mode || 'attendance';
+  const { months, rows } = data;
+  let html = '<div class="report compact" dir="rtl">';
+  html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
+  const modeTitle = compMode === 'exams' ? 'درجات ومتوسط الاختبارات' : (compMode === 'combined' ? 'نسب الحضور ودرجات الاختبارات (مدمج)' : 'نسبة الحضور');
+  html += '<div class="r-sub">تقرير شامل - ' + esc(lesson.name) + ' - ' + modeTitle + ' عبر ' + months.length + ' شهر' + (data.range && (data.range.from || data.range.to) ? ' (من ' + (data.range.from || 'البداية') + ' إلى ' + (data.range.to || 'الآن') + ')' : '') + '</div>';
+  html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">الطالب</th>';
+  months.forEach(a => html += '<th>' + a.monthNumber + '/' + a.year + '</th>');
   if(compMode === 'attendance'){
     html += '<th>النسبة الكلية</th></tr></thead><tbody>';
     rows.forEach((r, i) => {
-      html += '<tr><td class="ord-col">' + (i+1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+      html += '<tr><td class="ord-col">' + (i + 1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-size:7px;color:#64748b;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
       r.per.forEach(p => html += '<td>' + p.done + '/' + p.total + '<br><b>' + p.pct + '%</b></td>');
       html += '<td><b>' + r.pct + '%</b></td></tr>';
     });
   } else if(compMode === 'exams'){
     html += '<th>متوسط الاختبارات</th></tr></thead><tbody>';
     rows.forEach((r, i) => {
-      html += '<tr><td class="ord-col">' + (i+1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+      html += '<tr><td class="ord-col">' + (i + 1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-size:7px;color:#64748b;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
       r.per.forEach(p => {
-        if(p.isHiddenFromExams) html += '<td><span style="font-size:7px;color:#b91c1c">مستبعد</span></td>';
-        else if(p.examAvgPct !== null) html += '<td><b>' + p.examAvgPct + '%</b><br><span style="font-size:6.5px;color:#64748b">' + p.examCount + ' اخت.</span></td>';
+        if(p.isHiddenFromExams) html += '<td><span style="font-size:7px;color:#dc2626">🚫 مستبعد</span></td>';
+        else if(p.examAvgPct !== null) html += '<td><b>' + p.examAvgPct + '%</b><br><span style="font-size:7px;color:#64748b">(' + p.examCount + ' اخت)</span></td>';
         else html += '<td><span style="color:#94a3b8">-</span></td>';
       });
       html += '<td><b>' + (r.totExamPct !== null ? r.totExamPct + '%' : '-') + '</b></td></tr>';
     });
-  } else { // combined
+  } else {
     html += '<th>الإجمالي</th></tr></thead><tbody>';
     rows.forEach((r, i) => {
-      html += '<tr><td class="ord-col">' + (i+1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
+      html += '<tr><td class="ord-col">' + (i + 1) + '</td><td class="r-name">' + esc(r.st.name) + '<br><span style="font-size:7px;color:#64748b;direction:ltr">' + esc(localPhone(r.st.phone)) + '</span></td>';
       r.per.forEach(p => {
-        const exHtml = p.isHiddenFromExams ? '<span style="font-size:6.5px;color:#b91c1c">مستبعد</span>' : (p.examAvgPct !== null ? '<b style="color:#15803d">' + p.examAvgPct + '%</b>' : '<span style="color:#94a3b8">-</span>');
-        html += '<td style="line-height:1.2">ح: ' + p.done + '/' + p.total + ' (<b>' + p.pct + '%</b>)<br>اخت: ' + exHtml + '</td>';
+        const exStr = p.isHiddenFromExams ? '🚫' : (p.examAvgPct !== null ? p.examAvgPct + '%' : '-');
+        html += '<td style="line-height:1.2">ح: ' + p.pct + '%<br>اخت: ' + exStr + '</td>';
       });
       const totExHtml = r.totExamPct !== null ? '<b style="color:#15803d">' + r.totExamPct + '%</b>' : '<span style="color:#94a3b8">-</span>';
       html += '<td style="line-height:1.2">ح: <b>' + r.pct + '%</b><br>اخت: ' + totExHtml + '</td></tr>';
     });
   }
-
   html += '</tbody></table>';
   html += '<div class="r-foot">عدد الشهور: ' + months.length + ' · عدد الطلاب: ' + rows.length + '</div>';
   html += '</div>';
-  $('#printArea').innerHTML = html;
-  window.print();
-  $('#printPageRule').textContent = '';
+
+  downloadPrintableReportHTML(html, 'تقرير_شامل_' + lesson.name);
 }
 
 /* ---------- تصدير وطباعة تقرير الاختبارات المنفرد (v34) ---------- */
-function exportExamsCSV(lesson){
+function exportExamsCSV(lesson, groupMode){
   if(!lesson) return;
   const exams = lesson.exams || [];
   if(exams.length === 0){
@@ -4473,63 +5277,93 @@ function exportExamsCSV(lesson){
     return;
   }
 
+  let groupsToIterate = [];
+  const isLessonGroupMode = groupMode === 'lesson';
+  const isExamGroupMode = groupMode === 'exam' || groupMode === true;
+  const isGrouped = isLessonGroupMode || isExamGroupMode;
+
+  if(isLessonGroupMode && Array.isArray(lesson.groups) && lesson.groups.length > 0){
+    lesson.groups.forEach(g => {
+      groupsToIterate.push({ name: g.name, list: activeStudents.filter(st => st.groupId === g.id) });
+    });
+    const noGrp = activeStudents.filter(st => !st.groupId);
+    if(noGrp.length > 0) groupsToIterate.push({ name: 'بدون مجموعة درس', list: noGrp });
+  } else if(isExamGroupMode && Array.isArray(lesson.examGroups) && lesson.examGroups.length > 0){
+    lesson.examGroups.forEach(g => {
+      groupsToIterate.push({ name: g.name, list: activeStudents.filter(st => st.examGroupId === g.id) });
+    });
+    const noGrp = activeStudents.filter(st => !st.examGroupId);
+    if(noGrp.length > 0) groupsToIterate.push({ name: 'بدون مجموعة اختبار', list: noGrp });
+  } else {
+    groupsToIterate = [{ name: '', list: activeStudents }];
+  }
+
   const lines = [];
   const head = ['م', 'اسم الطالب (الرقم تحته)'];
+  if(isGrouped) head.push('المجموعة');
   exams.forEach(ex => head.push(ex.name + ' (من ' + ex.maxScore + ')'));
   head.push('إجمالي المجموع (المتوسط %)');
   head.push('ملاحظات الاختبارات');
   lines.push(head.join(','));
 
-  activeStudents.forEach((st, idx) => {
-    const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
-    const exclusions = (lesson.examExclusions && lesson.examExclusions[st.id]) || {};
-    const notes = (lesson.examNotes && lesson.examNotes[st.id]) || {};
+  let globalExIdx = 0;
+  groupsToIterate.forEach(sec => {
+    if(sec.list.length === 0) return;
+    if(isGrouped && sec.name){
+      lines.push('"-- [مجموعة: ' + sec.name.replace(/"/g,'""') + ' (' + sec.list.length + ' طالب)] --"');
+    }
+    sec.list.forEach((st) => {
+      globalExIdx++;
+      const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
+      const exclusions = (lesson.examExclusions && lesson.examExclusions[st.id]) || {};
+      const notes = (lesson.examNotes && lesson.examNotes[st.id]) || {};
 
-    const row = [idx + 1, '"' + String(st.name).replace(/"/g,'""') + '\n' + String(localPhone(st.phone)).replace(/"/g,'""') + '"'];
-    let totalScoreSum = 0, totalMaxSum = 0, totalPct = 0, count = 0;
-    const studentNotes = [];
+      const row = [globalExIdx, '"' + String(st.name).replace(/"/g,'""') + '\n' + String(localPhone(st.phone)).replace(/"/g,'""') + '"'];
+      if(isGrouped) row.push('"' + String(sec.name || '-').replace(/"/g,'""') + '"');
+      let totalScoreSum = 0, totalMaxSum = 0, totalPct = 0, count = 0;
+      const studentNotes = [];
 
-    exams.forEach(ex => {
-      const isExcluded = !!exclusions[ex.id];
-      const noteText = notes[ex.id] || '';
-      const scoreVal = studentScores[ex.id];
+      exams.forEach(ex => {
+        const isExcluded = !!exclusions[ex.id];
+        const noteText = notes[ex.id] || '';
+        const scoreVal = studentScores[ex.id];
 
-      if(noteText) studentNotes.push(ex.name + ': ' + noteText);
+        if(noteText) studentNotes.push(ex.name + ': ' + noteText);
 
-      if(isExcluded){
-        row.push('"🚫 لم يدخل الاختبار"');
-      } else if(scoreVal !== undefined && scoreVal !== '' && !isNaN(Number(scoreVal))){
-        const sNum = Number(scoreVal);
-        const pct = ex.maxScore > 0 ? Math.round((sNum / ex.maxScore) * 100) : 0;
-        if(ex.maxScore > 0){
-          totalScoreSum += sNum;
-          totalMaxSum += ex.maxScore;
-          totalPct += pct;
-          count++;
+        if(isExcluded){
+          row.push('"🚫 لم يدخل الاختبار"');
+        } else if(scoreVal !== undefined && scoreVal !== '' && !isNaN(Number(scoreVal))){
+          const sNum = Number(scoreVal);
+          const pct = ex.maxScore > 0 ? Math.round((sNum / ex.maxScore) * 100) : 0;
+          if(ex.maxScore > 0){
+            totalScoreSum += sNum;
+            totalMaxSum += ex.maxScore;
+            totalPct += pct;
+            count++;
+          }
+          row.push('"' + sNum + ' من ' + ex.maxScore + ' (' + pct + '%)' + (noteText ? '\n[ملاحظة: ' + noteText + ']' : '') + '"');
+        } else {
+          row.push('"-"');
         }
-        // استخدمنا "من" بدلاً من "/" لمنع برنامج Excel من تحويل القيم تلقائياً إلى تواريخ مثل 10-Oct أو 10-Jul
-        row.push('"' + sNum + ' من ' + ex.maxScore + ' (' + pct + '%)' + (noteText ? '\n[ملاحظة: ' + noteText + ']' : '') + '"');
+      });
+
+      if(count > 0){
+        const avgPct = Math.round(totalPct / count);
+        row.push('"' + totalScoreSum + ' من ' + totalMaxSum + ' (' + avgPct + '%)"');
       } else {
         row.push('"-"');
       }
+
+      row.push('"' + String(studentNotes.join(' | ') || '-').replace(/"/g,'""') + '"');
+      lines.push(row.join(','));
     });
-
-    if(count > 0){
-      const avgPct = Math.round(totalPct / count);
-      row.push('"' + totalScoreSum + ' من ' + totalMaxSum + ' (' + avgPct + '%)"');
-    } else {
-      row.push('"-"');
-    }
-
-    row.push('"' + String(studentNotes.join(' | ') || '-').replace(/"/g,'""') + '"');
-    lines.push(row.join(','));
   });
 
   const safe = (lesson.name || 'درس').replace(/[^\w\u0600-\u06FF ]/g, '');
   downloadBlob('\uFEFF' + lines.join('\r\n'), 'درجات_اختبارات_' + safe + '_شهر_' + lesson.monthNumber + '_' + lesson.year + groupSuffix + '.csv', 'text/csv;charset=utf-8');
 }
 
-function printExamsReport(lesson){
+function printExamsReport(lesson, groupMode){
   if(!lesson) return;
   const exams = lesson.exams || [];
   if(exams.length === 0){
@@ -4554,6 +5388,27 @@ function printExamsReport(lesson){
     return;
   }
 
+  // تقسيم المجموعات
+  let groupsToIterate = [];
+  const isLessonGroupMode = groupMode === 'lesson';
+  const isExamGroupMode = groupMode === 'exam' || groupMode === true;
+
+  if(isLessonGroupMode && Array.isArray(lesson.groups) && lesson.groups.length > 0){
+    lesson.groups.forEach(g => {
+      groupsToIterate.push({ name: g.name, list: activeStudents.filter(st => st.groupId === g.id) });
+    });
+    const noGrp = activeStudents.filter(st => !st.groupId);
+    if(noGrp.length > 0) groupsToIterate.push({ name: 'بدون مجموعة درس', list: noGrp });
+  } else if(isExamGroupMode && Array.isArray(lesson.examGroups) && lesson.examGroups.length > 0){
+    lesson.examGroups.forEach(g => {
+      groupsToIterate.push({ name: g.name, list: activeStudents.filter(st => st.examGroupId === g.id) });
+    });
+    const noGrp = activeStudents.filter(st => !st.examGroupId);
+    if(noGrp.length > 0) groupsToIterate.push({ name: 'بدون مجموعة اختبار', list: noGrp });
+  } else {
+    groupsToIterate = [{ name: '', list: activeStudents }];
+  }
+
   $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
   let html = '<div class="report compact" dir="rtl">';
   html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
@@ -4565,43 +5420,52 @@ function printExamsReport(lesson){
   });
   html += '<th>المتوسط</th><th>الملاحظات</th></tr></thead><tbody>';
 
-  activeStudents.forEach((st, idx) => {
-    const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
-    const exclusions = (lesson.examExclusions && lesson.examExclusions[st.id]) || {};
-    const notes = (lesson.examNotes && lesson.examNotes[st.id]) || {};
+  let globalOrderIdx = 0;
+  groupsToIterate.forEach(sec => {
+    if(sec.list.length === 0) return;
+    if(sec.name){
+      html += '<tr class="group-header-row" style="background:#f1f5f9;font-weight:800;color:var(--primary,#1e293b)"><td colspan="' + (exams.length + 4) + '" style="text-align:right;padding:5px 8px;font-size:10px">👥 ' + esc(sec.name) + ' (' + sec.list.length + ' طالب)</td></tr>';
+    }
 
-    let totalPct = 0, count = 0;
-    const studentNotes = [];
+    sec.list.forEach((st) => {
+      globalOrderIdx++;
+      const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
+      const exclusions = (lesson.examExclusions && lesson.examExclusions[st.id]) || {};
+      const notes = (lesson.examNotes && lesson.examNotes[st.id]) || {};
 
-    html += '<tr><td class="ord-col">' + (idx + 1) + '</td><td class="r-name">' + esc(st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(st.phone)) + '</span></td>';
+      let totalPct = 0, count = 0;
+      const studentNotes = [];
 
-    exams.forEach(ex => {
-      const isExcluded = !!exclusions[ex.id];
-      const noteText = notes[ex.id] || '';
-      const scoreVal = studentScores[ex.id];
+      html += '<tr><td class="ord-col">' + globalOrderIdx + '</td><td class="r-name">' + esc(st.name) + '<br><span style="font-weight:400;font-size:7px;direction:ltr">' + esc(localPhone(st.phone)) + '</span></td>';
 
-      if(noteText) studentNotes.push('<span class="r-exam-note"><b>' + esc(ex.name) + ':</b> ' + esc(noteText) + '</span>');
+      exams.forEach(ex => {
+        const isExcluded = !!exclusions[ex.id];
+        const noteText = notes[ex.id] || '';
+        const scoreVal = studentScores[ex.id];
 
-      if(isExcluded){
-        html += '<td><span class="r-exam-exc">🚫 لم يدخل</span></td>';
-      } else if(scoreVal !== undefined && scoreVal !== '' && !isNaN(Number(scoreVal))){
-        const sNum = Number(scoreVal);
-        if(ex.maxScore > 0){
-          totalPct += Math.round((sNum / ex.maxScore) * 100);
-          count++;
+        if(noteText) studentNotes.push('<span class="r-exam-note"><b>' + esc(ex.name) + ':</b> ' + esc(noteText) + '</span>');
+
+        if(isExcluded){
+          html += '<td><span class="r-exam-exc">🚫 لم يدخل</span></td>';
+        } else if(scoreVal !== undefined && scoreVal !== '' && !isNaN(Number(scoreVal))){
+          const sNum = Number(scoreVal);
+          if(ex.maxScore > 0){
+            totalPct += Math.round((sNum / ex.maxScore) * 100);
+            count++;
+          }
+          const pct = ex.maxScore > 0 ? Math.round((sNum / ex.maxScore) * 100) : 0;
+          const clr = pct >= 50 ? '#15803d' : '#b91c1c';
+          html += '<td><b style="color:' + clr + '">' + sNum + '</b><br><span style="font-size:6.5px;color:#64748b">' + pct + '%</span></td>';
+        } else {
+          html += '<td><span style="color:#94a3b8">-</span></td>';
         }
-        const pct = ex.maxScore > 0 ? Math.round((sNum / ex.maxScore) * 100) : 0;
-        const clr = pct >= 50 ? '#15803d' : '#b91c1c';
-        html += '<td><b style="color:' + clr + '">' + sNum + '</b><br><span style="font-size:6.5px;color:#64748b">' + pct + '%</span></td>';
-      } else {
-        html += '<td><span style="color:#94a3b8">-</span></td>';
-      }
-    });
+      });
 
-    const avgPct = count > 0 ? Math.round(totalPct / count) : null;
-    const avgClr = avgPct !== null ? (avgPct >= 50 ? '#15803d' : '#b91c1c') : 'var(--muted)';
-    html += '<td><b style="color:' + avgClr + '">' + (avgPct !== null ? avgPct + '%' : '-') + '</b></td>';
-    html += '<td style="text-align:right;font-size:7.5px;max-width:140px">' + (studentNotes.length > 0 ? studentNotes.join('') : '<span style="color:#94a3b8">-</span>') + '</td></tr>';
+      const avgPct = count > 0 ? Math.round(totalPct / count) : null;
+      const avgClr = avgPct !== null ? (avgPct >= 50 ? '#15803d' : '#b91c1c') : 'var(--muted)';
+      html += '<td><b style="color:' + avgClr + '">' + (avgPct !== null ? avgPct + '%' : '-') + '</b></td>';
+      html += '<td style="text-align:right;font-size:7.5px;max-width:140px">' + (studentNotes.length > 0 ? studentNotes.join('') : '<span style="color:#94a3b8">-</span>') + '</td></tr>';
+    });
   });
 
   // Footer row for averages
@@ -4624,8 +5488,11 @@ function printExamsReport(lesson){
   html += '</div>';
 
   $('#printArea').innerHTML = html;
-  window.print();
-  $('#printPageRule').textContent = '';
+  showToastMessage('💡 لحفظ التقرير كـ PDF وإرساله للمطبعة: اختر من شاشة الطباعة «حفظ بتنسيق PDF» أو «Save as PDF» ثم اضغط حفظ.', 6000);
+  setTimeout(() => {
+    window.print();
+    $('#printPageRule').textContent = '';
+  }, 150);
 }
 
 function openExamReportModal(lesson){
@@ -4635,6 +5502,9 @@ function openExamReportModal(lesson){
     showToastMessage('⚠️ لا توجد اختبارات مسجلة في هذا الشهر.');
     return;
   }
+  const lessonGroups = lesson.groups || [];
+  const examGroups = lesson.examGroups || [];
+
   const html = '<div class="reset-box" style="text-align:right">'
     + '<p style="font-size:13px;font-weight:700;margin-bottom:12px">اختر صيغة أو نوع التقرير المطلوب لدرجات الاختبارات:</p>'
     + '<div style="display:flex;flex-direction:column;gap:10px">'
@@ -4655,25 +5525,55 @@ function openExamReportModal(lesson){
     +     '<span class="muted" style="font-size:11px;font-weight:400">للحاضرين فقط</span>'
     +   '</button>'
     + '</div>'
+    + '<div style="margin-top:14px;padding:10px 12px;background:var(--card-bg,#f8fafc);border:1px solid var(--border);border-radius:8px">'
+    +   '<label style="font-size:12px;font-weight:800;display:block;margin-bottom:6px">🗂️ خيار تقسيم وترتيب المجموعات (في PDF و Excel):</label>'
+    +   '<select id="ex_rep_group_mode" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-weight:700">'
+    +     '<option value="none">بدون تقسيم (ترتيب عام)</option>'
+    +     (lessonGroups.length > 0 ? '<option value="lesson" selected>تقسيم حسب مجموعات الدرس الأساسية (' + lessonGroups.length + ')</option>' : '')
+    +     (examGroups.length > 0 ? '<option value="exam"' + (lessonGroups.length === 0 ? ' selected' : '') + '>تقسيم حسب مجموعات الاختبار (' + examGroups.length + ')</option>' : '')
+    +   '</select>'
+    + '</div>'
     + '<div class="modal-actions" style="margin-top:16px">'
     +   '<button class="btn" id="ex_rep_close">إغلاق</button>'
     + '</div></div>';
 
   openModal('📝 تقارير درجات الاختبارات - ' + esc(lesson.name), html);
   $('#ex_rep_close').onclick = closeModal;
-  $('#ex_rep_pdf').onclick = () => { closeModal(); printExamsReport(lesson); };
-  $('#ex_rep_csv').onclick = () => { closeModal(); exportExamsCSV(lesson); };
+  $('#ex_rep_pdf').onclick = () => {
+    const gMode = $('#ex_rep_group_mode') ? $('#ex_rep_group_mode').value : 'none';
+    closeModal();
+    printExamsReport(lesson, gMode);
+  };
+  $('#ex_rep_csv').onclick = () => {
+    const gMode = $('#ex_rep_group_mode') ? $('#ex_rep_group_mode').value : 'none';
+    closeModal();
+    exportExamsCSV(lesson, gMode);
+  };
   $('#ex_rep_comp').onclick = () => { closeModal(); showComprehensiveReport(lesson, 'exams'); };
   $('#ex_rep_msg').onclick = () => { closeModal(); openExamReportMessageModal(lesson); };
 }
 
 /* ---------- تصدير CSV ---------- */
-function exportCSV(students, sessions, records, title, statuses){
+function exportCSV(students, sessions, records, title, statuses, groupByGroups){
   const sd = state.settings;
   const stList = statuses || state.settings.statuses;
-  const rows = computeStats(students, sessions, records, statuses);
+  const curL = curLesson();
+  const groups = (curL && curL.groups) ? curL.groups : [];
+
+  let groupsToIterate = [];
+  if(groupByGroups && groups.length > 0){
+    groups.forEach(g => {
+      groupsToIterate.push({ name: g.name, list: students.filter(st => st.groupId === g.id) });
+    });
+    const noGrp = students.filter(st => !st.groupId);
+    if(noGrp.length > 0) groupsToIterate.push({ name: 'بدون مجموعة', list: noGrp });
+  } else {
+    groupsToIterate = [{ name: '', list: students }];
+  }
+
   const lines = [];
   let head = ['م', 'اسم الطالب (الرقم تحته)'];
+  if(groupByGroups) head.push('المجموعة');
   sd.customFields.forEach(f => head.push(f.label));
   sessions.forEach(s => head.push(s.label + (s.dateLabel ? ' ('+s.dateLabel+')' : '') + (s.event ? ' ['+s.event+']' : '')));
   head.push(sd.notesLabel);
@@ -4681,31 +5581,87 @@ function exportCSV(students, sessions, records, title, statuses){
   head.push('نسبة الحضور %');
   lines.push(head.join(','));
 
-  rows.forEach((r, i) => {
-    const row = [i + 1, '"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
-    sd.customFields.forEach(f => row.push('"' + String((r.st.fields && r.st.fields[f.id]) || '').replace(/"/g,'""') + '"'));
-    sessions.forEach(s => {
-      const rec = (records[r.st.id] && records[r.st.id][s.id]) || {};
-      const lbl = rec.status ? (stList.find(x=>x.id===rec.status)||{}).label || '' : '';
-      const cell = lbl + (rec.note ? ' (' + rec.note + ')' : '');
-      row.push('"' + String(cell).replace(/"/g,'""') + '"');
+  let globalIdx = 0;
+  groupsToIterate.forEach(sec => {
+    if(sec.list.length === 0) return;
+    if(groupByGroups && sec.name){
+      lines.push('"-- [مجموعة: ' + sec.name.replace(/"/g,'""') + ' (' + sec.list.length + ' طالب)] --"');
+    }
+    const rows = computeStats(sec.list, sessions, records, statuses);
+    rows.forEach((r) => {
+      globalIdx++;
+      const row = [globalIdx, '"' + String(r.st.name).replace(/"/g,'""') + '\n' + String(localPhone(r.st.phone)).replace(/"/g,'""') + '"'];
+      if(groupByGroups) row.push('"' + String(sec.name || '-').replace(/"/g,'""') + '"');
+      sd.customFields.forEach(f => row.push('"' + String((r.st.fields && r.st.fields[f.id]) || '').replace(/"/g,'""') + '"'));
+      sessions.forEach(s => {
+        const rec = (records[r.st.id] && records[r.st.id][s.id]) || {};
+        const lbl = rec.status ? (stList.find(x=>x.id===rec.status)||{}).label || '' : '';
+        const cell = lbl + (rec.note ? ' (' + rec.note + ')' : '');
+        row.push('"' + String(cell).replace(/"/g,'""') + '"');
+      });
+      const note = (records[r.st.id] && records[r.st.id]['__note__']) || '';
+      row.push('"' + String(note).replace(/"/g,'""') + '"');
+      stList.forEach(s => row.push(r.counts[s.id]||0));
+      row.push(r.pct);
+      lines.push(row.join(','));
     });
-    const note = (records[r.st.id] && records[r.st.id]['__note__']) || '';
-    row.push('"' + String(note).replace(/"/g,'""') + '"');
-    stList.forEach(s => row.push(r.counts[s.id]||0));
-    row.push(r.pct);
-    lines.push(row.join(','));
   });
 
   const csv = '\uFEFF' + lines.join('\r\n');
-  downloadBlob(csv, 'تقرير_' + (title||'حضور').replace(/[^\w\u0600-\u06FF ]/g,'') + '.csv', 'text/csv;charset=utf-8');
+  const safe = (title||'حضور').replace(/[^\w\u0600-\u06FF ]/g,'');
+  downloadBlob(csv, 'تقرير_' + safe + (groupByGroups ? '_مقسم_بالمجموعات' : '') + '.csv', 'text/csv;charset=utf-8');
 }
 
 /* ---------- طباعة A4 ---------- */
-function printReport(students, sessions, records, title, statuses){
+/* ===== 💾 حفظ PDF للطباعة (v37) ===== */
+/**
+ * يعرض نافذة توجيه جميلة تشرح للمستخدم كيف يحفظ الصفحة كـ PDF،
+ * ثم يشغّل دالة الطباعة المطلوبة بعد النقر على "طباعة / حفظ PDF".
+ */
+function showSavePdfGuide(printCallback){
+  openModal('💾 حفظ التقرير كملف PDF',
+    '<div style="text-align:right;direction:rtl">'
+    + '<p style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--primary)">📄 خطوات حفظ التقرير كملف PDF على جهازك:</p>'
+    + '<ol style="padding-right:20px;line-height:2;font-size:13px;color:var(--text)">'
+    +   '<li>اضغط على زر <b style="color:#15803d">🖨️ طباعة / حفظ PDF</b> أدناه</li>'
+    +   '<li>ستظهر نافذة الطباعة — في قائمة <b>الطابعة</b> اختر <b style="color:var(--primary)">"حفظ كـ PDF"</b> أو <b style="color:var(--primary)">"Save as PDF"</b></li>'
+    +   '<li>اختر مكان الحفظ على جهازك واضغط <b>حفظ</b></li>'
+    +   '<li>أرسل الملف المحفوظ للمطبعة عبر واتساب أو أي وسيلة</li>'
+    + '</ol>'
+    + '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin:14px 0;font-size:12px;color:#166534">'
+    +   '💡 <b>نصيحة:</b> على الهاتف افتح بمتصفح Chrome واختر «إرسال إلى» ← «الطباعة» ← «حفظ كـ PDF»'
+    + '</div>'
+    + '<div class="modal-actions">'
+    +   '<button class="btn btn-primary" id="pdf_printNow" style="font-size:15px;padding:12px 28px">🖨️ طباعة / حفظ PDF</button>'
+    +   '<button class="btn btn-outline" id="pdf_cancel">إلغاء</button>'
+    + '</div>'
+    + '</div>');
+  $('#pdf_printNow').onclick = () => { closeModal(); setTimeout(() => printCallback(), 200); };
+  $('#pdf_cancel').onclick = closeModal;
+}
+
+/**
+ * طباعة جدول الحضور الحالي وعرض دليل حفظه كـ PDF
+ */
+function saveCurrentLessonAsPdf(){
+  const L = curLesson();
+  if(!L) return;
+  let students = L.students;
+  let reportTitle = L.name + ' - ' + buildMonthTitle(L.monthNumber);
+  if(groupFilterQuery && groupFilterQuery !== '__none__'){
+    const grp = (L.groups || []).find(g => g.id === groupFilterQuery);
+    if(grp){ students = students.filter(st => st.groupId === groupFilterQuery); reportTitle += ' (مجموعة: ' + grp.name + ')'; }
+  } else if(groupFilterQuery === '__none__'){
+    students = students.filter(st => !st.groupId); reportTitle += ' (بدون مجموعة)';
+  }
+  const eff = effectiveStatuses(L);
+  showSavePdfGuide(() => printReport(students, L.sessions, L.records, reportTitle, eff));
+}
+
+function printReport(students, sessions, records, title, statuses, groupByGroups){
   const rows = computeStats(students, sessions, records, statuses);
   $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
-  $('#printArea').innerHTML = buildReportHTML(students, sessions, records, rows, title, statuses);
+  $('#printArea').innerHTML = buildReportHTML(students, sessions, records, rows, title, statuses, groupByGroups);
   window.print();
   $('#printPageRule').textContent = '';
 }
@@ -4717,12 +5673,19 @@ function showBlankSheetOptions(){
   const body = '<div style="text-align:center;padding:8px 0">'
     + '<p style="margin-bottom:12px;font-size:14px">اختر صيغة ورقة الحضور الفارغة:</p>'
     + '<div class="modal-actions" style="justify-content:center;gap:12px">'
-    + '<button class="btn btn-primary" id="blankPdfBtn">🖨️ طباعة / PDF (A4)</button>'
+    + '<button class="btn btn-primary" id="blankPdfBtn">📄 حفظ كـ PDF / طباعة A4</button>'
+    + '<button class="btn btn-outline" id="blankDownloadHtml">📥 تنزيل للطباعة (للمطبعة)</button>'
     + '<button class="btn btn-outline" id="blankExcelBtn">⬇️ Excel (A4)</button>'
     + '<button class="btn" id="blankCloseBtn">إغلاق</button>'
     + '</div></div>';
   openModal('📄 ورقة حضور فارغة', body);
   $('#blankPdfBtn').onclick = () => { closeModal(); printBlankSheet(L); };
+  if($('#blankDownloadHtml')){
+    $('#blankDownloadHtml').onclick = () => {
+      closeModal();
+      downloadBlankSheetPrintableHTML(L);
+    };
+  }
   $('#blankExcelBtn').onclick = () => { closeModal(); exportBlankSheetExcel(L); };
   $('#blankCloseBtn').onclick = closeModal;
 }
@@ -4770,8 +5733,51 @@ function printBlankSheet(lesson){
   /* عمودي (portrait) — 15 طالب في الصفحة */
   $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
   $('#printArea').innerHTML = html;
-  window.print();
-  $('#printPageRule').textContent = '';
+  showToastMessage('💡 لحفظ ورقة الحضور كـ PDF وإرسالها للمطبعة: اختر من شاشة الطباعة «حفظ بتنسيق PDF» أو «Save as PDF» ثم اضغط حفظ.', 6000);
+  setTimeout(() => {
+    window.print();
+    $('#printPageRule').textContent = '';
+  }, 150);
+}
+
+function downloadBlankSheetPrintableHTML(lesson){
+  const sd = state.settings;
+  const students = lesson.students || [];
+  const sessions = lesson.sessions || [];
+  const monthTitle = buildMonthTitle(lesson.monthNumber);
+  const yearLabel = lesson.year || '';
+  const scheduleStr = scheduleLabel(lesson);
+
+  let html = '<div class="report" dir="rtl">';
+  html += '<div class="r-title">كشف حضور وغياب عن ' + esc(lesson.name) + ' - ' + esc(monthTitle) + (yearLabel ? ' ' + esc(String(yearLabel)) : '') + '</div>';
+  if(scheduleStr) html += '<div style="text-align:center;font-size:10px;color:#475569;margin-bottom:6px">' + esc(scheduleStr) + '</div>';
+
+  html += '<table class="r-table blank-sheet"><thead><tr>';
+  html += '<th class="ord-col">م</th>';
+  html += '<th class="r-name">الاسم</th>';
+  sessions.forEach(s => {
+    const dayLabel = s.dateLabel || '';
+    html += '<th>' + (dayLabel ? esc(dayLabel) : esc(s.label));
+    if(s.event) html += '<br><span style="color:#b45309;font-size:7px">📝 ' + esc(s.event) + '</span>';
+    html += '</th>';
+  });
+  html += '<th>ملاحظات</th>';
+  html += '</tr></thead><tbody>';
+
+  students.forEach((st, i) => {
+    html += '<tr>';
+    html += '<td class="ord-col"><span class="ord-num">' + (i + 1) + '</span></td>';
+    html += '<td class="r-name"><span class="st-name">' + esc(st.name) + '</span><br><span class="st-phone">' + esc(localPhone(st.phone || '')) + '</span></td>';
+    sessions.forEach(() => { html += '<td class="blank-cell"></td>'; });
+    html += '<td></td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  html += '<div class="r-foot">عدد الطلاب: ' + students.length + ' · عدد الحصص: ' + sessions.length + '</div>';
+  html += '</div>';
+
+  downloadPrintableReportHTML(html, 'ورقة_حضور_فارغة_' + lesson.name);
 }
 
 function exportBlankSheetExcel(lesson){
@@ -4811,27 +5817,50 @@ function exportBlankSheetExcel(lesson){
   downloadBlob(csv, 'ورقة_حضور_' + title.replace(/[^\w\u0600-\u06FF ]/g,'') + '.csv', 'text/csv;charset=utf-8');
 }
 
-function buildReportHTML(students, sessions, records, rows, title, statuses){
+function buildReportHTML(students, sessions, records, rows, title, statuses, groupByGroups){
   const sd = state.settings;
   const stList = statuses || state.settings.statuses;
+  const curL = curLesson();
+  const groups = (curL && curL.groups) ? curL.groups : [];
+
+  let groupsToIterate = [];
+  if(groupByGroups && groups.length > 0){
+    groups.forEach(g => {
+      groupsToIterate.push({ name: g.name, list: students.filter(st => st.groupId === g.id) });
+    });
+    const noGrp = students.filter(st => !st.groupId);
+    if(noGrp.length > 0) groupsToIterate.push({ name: 'بدون مجموعة', list: noGrp });
+  } else {
+    groupsToIterate = [{ name: '', list: students }];
+  }
+
   let html = '<div class="report compact" dir="rtl">';
   html += '<div class="r-title">' + esc(APP_NAME) + '</div>';
-  html += '<div class="r-sub">' + esc(title) + '</div>';
+  html += '<div class="r-sub">' + esc(title) + (groupByGroups ? ' (مقسم حسب المجموعات)' : '') + '</div>';
 
   html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">'+esc(sd.studentLabel)+'</th>';
   sd.customFields.forEach(f => html += '<th>'+esc(f.label)+'</th>');
   sessions.forEach(s => html += '<th>'+esc(s.label)+'<br><span>'+esc(s.dateLabel||'')+'</span>' + (s.event ? '<br><span style="color:#b45309;font-size:7px">📝 '+esc(s.event)+'</span>' : '') + '</th>');
   html += '<th>'+esc(sd.notesLabel)+'</th></tr></thead><tbody>';
-  students.forEach((st, i) => {
-    html += '<tr><td class="ord-col">'+(i+1)+'</td><td class="r-name">'+esc(st.name)+'<br><span style="font-weight:400;font-size:7px;color:#64748b;direction:ltr">'+esc(localPhone(st.phone))+'</span></td>';
-    sd.customFields.forEach(f => html += '<td>'+esc((st.fields && st.fields[f.id]) || '')+'</td>');
-    sessions.forEach(s => {
-      const rec = (records[st.id] && records[st.id][s.id]) || {};
-      const lbl = rec.status ? (stList.find(x=>x.id===rec.status)||{}).label || '' : '';
-      html += '<td>'+esc(lbl||'-') + (rec.note ? '<br><span style="font-size:7px;color:#b45309">'+esc(rec.note)+'</span>' : '') + '</td>';
+  
+  let globalRepIdx = 0;
+  groupsToIterate.forEach(sec => {
+    if(sec.list.length === 0) return;
+    if(groupByGroups && sec.name){
+      html += '<tr class="r-group-section"><td colspan="' + (2 + sd.customFields.length + sessions.length + 1) + '" style="background:#f1f5f9;font-weight:bold;padding:4px 8px;border-top:2px solid #cbd5e1;color:#1e293b">👥 مجموعة: ' + esc(sec.name) + ' (' + sec.list.length + ' طالب)</td></tr>';
+    }
+    sec.list.forEach(st => {
+      globalRepIdx++;
+      html += '<tr><td class="ord-col">'+globalRepIdx+'</td><td class="r-name">'+esc(st.name)+'<br><span style="font-weight:400;font-size:7px;color:#64748b;direction:ltr">'+esc(localPhone(st.phone))+'</span></td>';
+      sd.customFields.forEach(f => html += '<td>'+esc((st.fields && st.fields[f.id]) || '')+'</td>');
+      sessions.forEach(s => {
+        const rec = (records[st.id] && records[st.id][s.id]) || {};
+        const lbl = rec.status ? (stList.find(x=>x.id===rec.status)||{}).label || '' : '';
+        html += '<td>'+esc(lbl||'-') + (rec.note ? '<br><span style="font-size:7px;color:#b45309">'+esc(rec.note)+'</span>' : '') + '</td>';
+      });
+      const note = (records[st.id] && records[st.id]['__note__']) || '';
+      html += '<td>'+esc(note)+'</td></tr>';
     });
-    const note = (records[st.id] && records[st.id]['__note__']) || '';
-    html += '<td>'+esc(note)+'</td></tr>';
   });
   html += '</tbody></table>';
 
@@ -4839,40 +5868,57 @@ function buildReportHTML(students, sessions, records, rows, title, statuses){
   html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">'+esc(sd.studentLabel)+'</th>';
   stList.forEach(s => html += '<th>'+esc(s.label)+'</th>');
   html += '<th>نسبة الحضور</th></tr></thead><tbody>';
-  rows.forEach((r, i) => {
-    html += '<tr><td class="ord-col">'+(i+1)+'</td><td class="r-name">'+esc(r.st.name)+'</td>';
-    stList.forEach(s => html += '<td>'+(r.counts[s.id]||0)+'</td>');
-    html += '<td><b>'+r.pct+'%</b></td></tr>';
+  let globalAnalysisIdx = 0;
+  groupsToIterate.forEach(sec => {
+    if(sec.list.length === 0) return;
+    if(groupByGroups && sec.name){
+      html += '<tr class="r-group-section"><td colspan="' + (2 + stList.length + 1) + '" style="background:#f1f5f9;font-weight:bold;padding:4px 8px;border-top:2px solid #cbd5e1;color:#1e293b">👥 مجموعة: ' + esc(sec.name) + ' (' + sec.list.length + ' طالب)</td></tr>';
+    }
+    sec.list.forEach(st => {
+      const r = rows.find(x => x.st && x.st.id === st.id);
+      if(!r) return;
+      globalAnalysisIdx++;
+      html += '<tr><td class="ord-col">'+globalAnalysisIdx+'</td><td class="r-name">'+esc(r.st.name)+'</td>';
+      stList.forEach(s => html += '<td>'+(r.counts[s.id]||0)+'</td>');
+      html += '<td><b>'+r.pct+'%</b></td></tr>';
+    });
   });
   html += '</tbody></table>';
 
-  const curL = curLesson();
   if(curL && Array.isArray(curL.exams) && curL.exams.length > 0){
     html += '<div class="r-section">نتائج ودرجات الاختبارات</div>';
     html += '<table class="r-table"><thead><tr><th class="ord-col">م</th><th class="r-name">'+esc(sd.studentLabel)+'</th>';
     curL.exams.forEach(ex => html += '<th>' + esc(ex.name) + '<br><span style="font-size:7px">(' + ex.maxScore + ')</span></th>');
     html += '<th>المتوسط</th></tr></thead><tbody>';
-    students.forEach((st, i) => {
-      html += '<tr><td class="ord-col">'+(i+1)+'</td><td class="r-name">'+esc(st.name)+'</td>';
-      let tot = 0, ecnt = 0;
-      curL.exams.forEach(ex => {
-        const isExcluded = (curL.examExclusions && curL.examExclusions[st.id] && curL.examExclusions[st.id][ex.id]);
-        const note = (curL.examNotes && curL.examNotes[st.id] && curL.examNotes[st.id][ex.id]) || '';
-        const sc = (curL.examScores && curL.examScores[st.id] && curL.examScores[st.id][ex.id]);
-        if(isExcluded){
-          html += '<td style="color:#dc2626;font-size:7px;font-weight:700">🚫 لم يدخل' + (note ? '<br><span style="color:#64748b;font-weight:normal">📝 '+esc(note)+'</span>' : '') + '</td>';
-        } else if(sc !== undefined && sc !== '' && !isNaN(Number(sc))){
-          const numSc = Number(sc);
-          tot += (numSc / ex.maxScore) * 100;
-          ecnt++;
-          const isPass = (numSc / ex.maxScore) >= 0.5;
-          html += '<td style="color:' + (isPass ? '#15803d' : '#b91c1c') + ';font-weight:700">' + sc + (note ? '<br><span style="color:#64748b;font-weight:normal;font-size:7px">📝 '+esc(note)+'</span>' : '') + '</td>';
-        } else {
-          html += '<td style="color:#94a3b8">-' + (note ? '<br><span style="color:#64748b;font-size:7px">📝 '+esc(note)+'</span>' : '') + '</td>';
-        }
+    let globalExamIdx = 0;
+    groupsToIterate.forEach(sec => {
+      if(sec.list.length === 0) return;
+      if(groupByGroups && sec.name){
+        html += '<tr class="r-group-section"><td colspan="' + (2 + curL.exams.length + 1) + '" style="background:#f1f5f9;font-weight:bold;padding:4px 8px;border-top:2px solid #cbd5e1;color:#1e293b">👥 مجموعة: ' + esc(sec.name) + ' (' + sec.list.length + ' طالب)</td></tr>';
+      }
+      sec.list.forEach(st => {
+        globalExamIdx++;
+        html += '<tr><td class="ord-col">'+globalExamIdx+'</td><td class="r-name">'+esc(st.name)+'</td>';
+        let tot = 0, ecnt = 0;
+        curL.exams.forEach(ex => {
+          const isExcluded = (curL.examExclusions && curL.examExclusions[st.id] && curL.examExclusions[st.id][ex.id]);
+          const note = (curL.examNotes && curL.examNotes[st.id] && curL.examNotes[st.id][ex.id]) || '';
+          const sc = (curL.examScores && curL.examScores[st.id] && curL.examScores[st.id][ex.id]);
+          if(isExcluded){
+            html += '<td style="color:#dc2626;font-size:7px;font-weight:700">🚫 لم يدخل' + (note ? '<br><span style="color:#64748b;font-weight:normal">📝 '+esc(note)+'</span>' : '') + '</td>';
+          } else if(sc !== undefined && sc !== '' && !isNaN(Number(sc))){
+            const numSc = Number(sc);
+            tot += (numSc / ex.maxScore) * 100;
+            ecnt++;
+            const isPass = (numSc / ex.maxScore) >= 0.5;
+            html += '<td style="color:' + (isPass ? '#15803d' : '#b91c1c') + ';font-weight:700">' + sc + (note ? '<br><span style="color:#64748b;font-weight:normal;font-size:7px">📝 '+esc(note)+'</span>' : '') + '</td>';
+          } else {
+            html += '<td style="color:#94a3b8">-' + (note ? '<br><span style="color:#64748b;font-size:7px">📝 '+esc(note)+'</span>' : '') + '</td>';
+          }
+        });
+        const avg = ecnt > 0 ? Math.round(tot / ecnt) + '%' : '-';
+        html += '<td><b>' + avg + '</b></td></tr>';
       });
-      const avg = ecnt > 0 ? Math.round(tot / ecnt) + '%' : '-';
-      html += '<td><b>' + avg + '</b></td></tr>';
     });
     html += '</tbody></table>';
   }
@@ -5592,37 +6638,96 @@ function waHrefNumber(phone, text, type){
 }
 
 /* ---------- تقرير الشهر كرسالة واتساب ---------- */
-function buildMonthReportText(name, monthNumber, year, students, sessions, records, statuses, lessonObj){
+function buildMonthReportText(name, monthNumber, year, students, sessions, records, statuses, lessonObj, groupByGroups){
   const ps = pastSessions(sessions);
-  const rows = computeStats(students, ps, records, statuses).slice().sort((a,b) => b.pct - a.pct);
+  const L = lessonObj || curLesson();
+  const groups = (L && Array.isArray(L.groups)) ? L.groups : [];
+  const isGrouped = groupByGroups && groups.length > 0;
+
   let text = '📊 تقرير شهر ' + monthNumber + '/' + year + ' - ' + name + '\n';
   text += 'عدد الحصص: ' + sessions.length + ' · عدد الطلاب: ' + students.length + '\n';
-  text += '\n📈 نسب الحضور:';
-  rows.forEach((r, i) => {
-    text += '\n' + (i+1) + '. ' + r.st.name + ' - ' + r.pct + '% (' + r.done + '/' + r.total + ')';
-  });
-  const low = rows.filter(r => r.pct < 50);
+
+  if(isGrouped){
+    text += '\n📈 نسب الحضور (مقسمة بالمجموعات):';
+    groups.forEach(g => {
+      const gStudents = students.filter(st => st.groupId === g.id);
+      if(gStudents.length === 0) return;
+      const gRows = computeStats(gStudents, ps, records, statuses).slice().sort((a,b) => b.pct - a.pct);
+      text += '\n\n*👥 مجموعة: ' + g.name + ' (' + gStudents.length + ' طالب)*';
+      gRows.forEach((r, i) => {
+        text += '\n' + (i+1) + '. ' + r.st.name + ' ⬅️ ' + r.pct + '% (' + r.done + '/' + r.total + ')';
+      });
+    });
+    const noGrp = students.filter(st => !st.groupId);
+    if(noGrp.length > 0){
+      const noRows = computeStats(noGrp, ps, records, statuses).slice().sort((a,b) => b.pct - a.pct);
+      text += '\n\n*👥 بدون مجموعة (' + noGrp.length + ' طالب)*';
+      noRows.forEach((r, i) => {
+        text += '\n' + (i+1) + '. ' + r.st.name + ' ⬅️ ' + r.pct + '% (' + r.done + '/' + r.total + ')';
+      });
+    }
+  } else {
+    const rows = computeStats(students, ps, records, statuses).slice().sort((a,b) => b.pct - a.pct);
+    text += '\n📈 نسب الحضور:';
+    rows.forEach((r, i) => {
+      text += '\n' + (i+1) + '. ' + r.st.name + ' - ' + r.pct + '% (' + r.done + '/' + r.total + ')';
+    });
+  }
+
+  const allRows = computeStats(students, ps, records, statuses);
+  const low = allRows.filter(r => r.pct < 50);
   if(low.length){
     text += '\n\n⚠️ نسبة أقل من 50% (يحتاجون متابعة):';
     low.forEach(r => { text += '\n• ' + r.st.name + ' - ' + r.pct + '%'; });
   }
 
   /* نتائج درجات الاختبارات */
-  const L = lessonObj || curLesson();
   if(L && Array.isArray(L.exams) && L.exams.length > 0){
     text += '\n\n📝 نتائج درجات الاختبارات:';
     L.exams.forEach(ex => {
       text += '\n▪️ ' + ex.name + ' (من ' + ex.maxScore + '):';
-      students.forEach(st => {
-        const isExcluded = (L.examExclusions && L.examExclusions[st.id] && L.examExclusions[st.id][ex.id]);
-        const note = (L.examNotes && L.examNotes[st.id] && L.examNotes[st.id][ex.id]);
-        const sc = (L.examScores && L.examScores[st.id] && L.examScores[st.id][ex.id]);
-        if(isExcluded){
-          text += '\n  - ' + st.name + ': لم يدخل الاختبار 🚫' + (note ? ' (' + note + ')' : '');
-        } else if(sc !== undefined && sc !== '' && !isNaN(Number(sc))){
-          text += '\n  - ' + st.name + ': ' + sc + '/' + ex.maxScore + (note ? ' (' + note + ')' : '');
+      if(isGrouped){
+        groups.forEach(g => {
+          const gStudents = students.filter(st => st.groupId === g.id);
+          if(gStudents.length === 0) return;
+          text += '\n  *👥 مجموعة: ' + g.name + '*';
+          gStudents.forEach(st => {
+            const isExcluded = (L.examExclusions && L.examExclusions[st.id] && L.examExclusions[st.id][ex.id]);
+            const note = (L.examNotes && L.examNotes[st.id] && L.examNotes[st.id][ex.id]);
+            const sc = (L.examScores && L.examScores[st.id] && L.examScores[st.id][ex.id]);
+            if(isExcluded){
+              text += '\n    - ' + st.name + ': لم يدخل الاختبار 🚫' + (note ? ' (' + note + ')' : '');
+            } else if(sc !== undefined && sc !== '' && !isNaN(Number(sc))){
+              text += '\n    - ' + st.name + ': ' + sc + '/' + ex.maxScore + (note ? ' (' + note + ')' : '');
+            }
+          });
+        });
+        const noGrp = students.filter(st => !st.groupId);
+        if(noGrp.length > 0){
+          text += '\n  *👥 بدون مجموعة*';
+          noGrp.forEach(st => {
+            const isExcluded = (L.examExclusions && L.examExclusions[st.id] && L.examExclusions[st.id][ex.id]);
+            const note = (L.examNotes && L.examNotes[st.id] && L.examNotes[st.id][ex.id]);
+            const sc = (L.examScores && L.examScores[st.id] && L.examScores[st.id][ex.id]);
+            if(isExcluded){
+              text += '\n    - ' + st.name + ': لم يدخل الاختبار 🚫' + (note ? ' (' + note + ')' : '');
+            } else if(sc !== undefined && sc !== '' && !isNaN(Number(sc))){
+              text += '\n    - ' + st.name + ': ' + sc + '/' + ex.maxScore + (note ? ' (' + note + ')' : '');
+            }
+          });
         }
-      });
+      } else {
+        students.forEach(st => {
+          const isExcluded = (L.examExclusions && L.examExclusions[st.id] && L.examExclusions[st.id][ex.id]);
+          const note = (L.examNotes && L.examNotes[st.id] && L.examNotes[st.id][ex.id]);
+          const sc = (L.examScores && L.examScores[st.id] && L.examScores[st.id][ex.id]);
+          if(isExcluded){
+            text += '\n  - ' + st.name + ': لم يدخل الاختبار 🚫' + (note ? ' (' + note + ')' : '');
+          } else if(sc !== undefined && sc !== '' && !isNaN(Number(sc))){
+            text += '\n  - ' + st.name + ': ' + sc + '/' + ex.maxScore + (note ? ' (' + note + ')' : '');
+          }
+        });
+      }
     });
   }
 
@@ -5634,39 +6739,77 @@ function buildMonthReportText(name, monthNumber, year, students, sessions, recor
   return text.trim();
 }
 
-function showReportMessageModal(text){
+function showReportMessageModal(textOrGetter, lessonObj){
   const targets = waTargetOptions();
   const targetSel = '<select id="mr_target">' + targets.map(x => '<option value="'+esc(x.id)+'">'+esc(x.label)+'</option>').join('') + '</select>';
+  const L = lessonObj || curLesson();
+  const hasGroups = L && Array.isArray(L.groups) && L.groups.length > 0;
+
+  const groupToggleHTML = hasGroups
+    ? '<div style="margin:6px 0 10px;padding:6px 10px;background:var(--card-bg,#f8fafc);border:1px solid var(--border);border-radius:8px">'
+      + '<label class="switch-row" style="font-size:12px;font-weight:700;display:flex;align-items:center;cursor:pointer">'
+      +   '<input type="checkbox" id="mr_group_by" style="margin-left:6px">'
+      +   '<span>🗂️ تقسيم الطلاب وترتيبهم حسب المجموعات في نص الرسالة</span>'
+      + '</label>'
+      + '</div>'
+    : '';
+
   openModal('📨 تقرير الشهر كرسالة',
     '<div class="form-row"><label>إرسال إلى' + targetSel + '</label></div>'
     + '<div class="form-row"><label>نوع الواتساب<select id="mr_type"><option value="normal">واتساب عادي</option><option value="business">واتساب أعمال</option></select></label></div>'
+    + groupToggleHTML
     + '<div class="form-row"><label>نص التقرير<textarea id="mr_preview" rows="12" dir="rtl" readonly></textarea></label></div>'
     + '<div class="modal-actions"><a class="btn btn-whatsapp" id="mr_send" href="#" target="_blank" rel="noopener">📨 فتح واتساب</a><button class="btn btn-outline" id="mr_copy">📋 نسخ</button><button class="btn btn-outline" id="mr_close">إغلاق</button></div>');
+  
   const preview = $('#mr_preview');
   const link = $('#mr_send');
+  const groupChk = $('#mr_group_by');
+
+  function getText(){
+    const isGrouped = groupChk ? groupChk.checked : false;
+    if(typeof textOrGetter === 'function'){
+      return textOrGetter(isGrouped);
+    }
+    if(L){
+      const isArch = !L.students && L.lessonId;
+      const nm = L.lessonName || L.name;
+      const sts = archiveStudents(L);
+      const recs = L.records || {};
+      const sess = L.sessions || [];
+      const stss = effectiveStatuses(L);
+      return buildMonthReportText(nm, L.monthNumber, L.year, sts, sess, recs, stss, L, isGrouped);
+    }
+    return typeof textOrGetter === 'string' ? textOrGetter : '';
+  }
+
   function upd(){
-    preview.value = text;
+    const currentText = getText();
+    preview.value = currentText;
     const type = $('#mr_type').value === 'business' ? 'business' : 'normal';
-    const t = resolveWaTarget($('#mr_target').value, text, type);
+    const t = resolveWaTarget($('#mr_target').value, currentText, type);
     link.href = t.href;
   }
+
   $('#mr_target').addEventListener('change', upd);
   $('#mr_type').addEventListener('change', upd);
+  if(groupChk) groupChk.addEventListener('change', upd);
   upd();
+
   $('#mr_copy').onclick = () => {
-    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(() => showToastMessage('📋 تم نسخ التقرير.')); }
-    else fallbackCopy(text);
+    const curT = getText();
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(curT).then(() => showToastMessage('📋 تم نسخ التقرير.')); }
+    else fallbackCopy(curT);
   };
   $('#mr_close').onclick = closeModal;
 }
 
 function monthlyReportMessage(lesson){
-  showReportMessageModal(buildMonthReportText(lesson.name, lesson.monthNumber, lesson.year, lesson.students, lesson.sessions, lesson.records, effectiveStatuses(lesson), lesson));
+  showReportMessageModal(null, lesson);
 }
 
 function archiveMonthlyMessage(a){
   const L = state.lessons.find(x => x.id === a.lessonId);
-  showReportMessageModal(buildMonthReportText(a.lessonName, a.monthNumber, a.year, archiveStudents(a), a.sessions, a.records, L ? effectiveStatuses(L) : null, a));
+  showReportMessageModal(null, a);
 }
 function fallbackCopy(text){
   const ta = document.createElement('textarea');
@@ -5845,6 +6988,7 @@ function updateSessionCounterUI(ssid){
 
 /* ---------- المودال ---------- */
 function openModal(title, bodyHTML){
+  pushAppHistory({ modal: true });
   $('#modalTitle').textContent = title;
   $('#modalBody').innerHTML = bodyHTML;
   $('#modalOverlay').hidden = false;
@@ -6063,10 +7207,19 @@ function openStudentProfile(student, lesson){
   });
 }
 
-function studentForm(lesson, student){
+function studentForm(lesson, student, isArchive, archIdx){
   const isEdit = !!student;
   const isSub = lesson ? !!lesson.subscription : false;
   let photoBase64 = (student && student.photo) || '';
+  const syncSwitchHTML = isArchive ? (
+    '<div class="form-row" style="margin-top:10px;padding:8px 12px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0">'
+    + '<label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-weight:bold;color:#166534">'
+    +   '<span>🔄 تحديث هذه البيانات في الشهر الحالي تلقائياً</span>'
+    +   '<input type="checkbox" id="f_syncCurrentMonth" checked style="width:20px;height:20px;accent-color:#15803d">'
+    + '</label>'
+    + '<div style="font-size:11px;color:#15803d;margin-top:4px">مزامنة الاسم والهاتف والعنوان وباقي البيانات الشخصية في الشهر الحالي للدرس وباقي الأرشيف.</div>'
+    + '</div>'
+  ) : '';
 
   let groupSel = '';
   if(lesson.groups && lesson.groups.length){
@@ -6119,6 +7272,7 @@ function studentForm(lesson, student){
     + groupSel
     + profileExtraHTML
     + fieldInputs
+    + syncSwitchHTML
     + '<div class="modal-actions"><button class="btn" id="f_save">حفظ</button><button class="btn btn-outline" id="f_cancel">إلغاء</button></div>');
 
   $('#btnPickPhoto').onclick = () => $('#f_photo').click();
@@ -6220,6 +7374,7 @@ function studentForm(lesson, student){
       student.profileNotes = pNotes;
       student.photo = photoBase64;
     } else {
+      if(!Array.isArray(lesson.students)) lesson.students = [];
       lesson.students.push({
         id: uid('s'),
         name: nm,
@@ -6238,7 +7393,60 @@ function studentForm(lesson, student){
         photo: photoBase64
       });
     }
-    saveState(); renderAll(); closeModal();
+
+    // مزامنة البيانات الشخصية مع الشهر الحالي وباقي الشهور عند طلب المستخدم (v36/v37)
+    if(isArchive && $('#f_syncCurrentMonth') && $('#f_syncCurrentMonth').checked){
+      const lid = lesson.lessonId || lesson.id;
+      const curL = state.lessons.find(x => x.id === lid);
+      if(curL && Array.isArray(curL.students)){
+        const match = curL.students.find(x => x.id === (student ? student.id : null) || normalizeForSearch(x.name) === normalizeForSearch(nm));
+        if(match){
+          match.name = nm;
+          if(ph) match.phone = ph;
+          match.guardianPhone = gp;
+          match.guardianExtraPhones = gExtras;
+          match.extraPhones = extras;
+          match.job = job;
+          match.address = addr;
+          match.age = age;
+          match.email = eml;
+          match.profileNotes = pNotes;
+          if(photoBase64) match.photo = photoBase64;
+        }
+      }
+      (state.archive || []).forEach(otherA => {
+        if(otherA !== lesson && (otherA.lessonId === lid)){
+          if(Array.isArray(otherA.students)){
+            const matchA = otherA.students.find(x => x.id === (student ? student.id : null) || normalizeForSearch(x.name) === normalizeForSearch(nm));
+            if(matchA){
+              matchA.name = nm;
+              if(ph) matchA.phone = ph;
+              matchA.guardianPhone = gp;
+              matchA.guardianExtraPhones = gExtras;
+              matchA.extraPhones = extras;
+              matchA.job = job;
+              matchA.address = addr;
+              matchA.age = age;
+              matchA.email = eml;
+              matchA.profileNotes = pNotes;
+              if(photoBase64) matchA.photo = photoBase64;
+            }
+          }
+        }
+      });
+    }
+
+    saveState();
+    closeModal();
+    if(isArchive && archIdx !== undefined && archIdx !== null){
+      currentArchiveIdx = archIdx;
+      renderArchiveDetail(archIdx);
+    } else if(currentLessonId){
+      renderLessonDetail();
+    } else {
+      renderAll();
+    }
+    showToastMessage(isEdit ? '✅ تم حفظ تعديل العضو بنجاح.' : '✅ تم إضافة العضو بنجاح.');
   };
   $('#f_cancel').onclick = closeModal;
 }
@@ -6343,8 +7551,58 @@ function switchTab(name){
 }
 
 /* ---------- ربط الأحداث ---------- */
+/* القوائم المنسدلة عامة ومتاحة لكافة الشاشات (v37) */
+function toggleDropdown(menuIdOrEl, btnIdOrEl){
+  const menu = typeof menuIdOrEl === 'string' ? document.getElementById(menuIdOrEl) : menuIdOrEl;
+  const btn = typeof btnIdOrEl === 'string' ? document.getElementById(btnIdOrEl) : btnIdOrEl;
+  if(!menu || !btn) return;
+  const wasOpen = !menu.hidden;
+  $$('.dropdown-menu').forEach(m => { m.hidden = true; m.style.maxHeight = ''; m.style.bottom = ''; m.style.top = ''; });
+  if(wasOpen) return;
+  const rect = btn.getBoundingClientRect();
+  const vh = window.innerHeight;
+  const vw = window.innerWidth;
+  const spaceBelow = vh - rect.bottom - 14;
+  const spaceAbove = rect.top - 14;
+  const rightPx = Math.max(8, Math.min(vw - rect.right, vw - 208));
+  menu.style.right = rightPx + 'px';
+  menu.style.left = 'auto';
+  if(spaceBelow >= 180 || spaceBelow >= spaceAbove){
+    menu.style.top = (rect.bottom + 4) + 'px';
+    menu.style.bottom = 'auto';
+    menu.style.maxHeight = Math.max(140, spaceBelow) + 'px';
+  } else {
+    menu.style.bottom = (vh - rect.top + 4) + 'px';
+    menu.style.top = 'auto';
+    menu.style.maxHeight = Math.max(140, spaceAbove) + 'px';
+  }
+  menu.hidden = false;
+}
+
 function bindEvents(){
+  window.addEventListener('popstate', handleAppBack);
+
   $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+  if($('#clearLessonSearch')){
+    $('#clearLessonSearch').onclick = () => {
+      const inp = $('#lessonSearch');
+      if(inp) inp.value = '';
+      lessonFilterQuery = '';
+      fastFilterLessonSearch();
+      if(inp) inp.focus();
+    };
+  }
+
+  if($('#addOldMonthArchiveBtn')){
+    $('#addOldMonthArchiveBtn').onclick = () => addOldMonthModal();
+  }
+  if($('#addOldMonthLessonBtn')){
+    $('#addOldMonthLessonBtn').onclick = () => {
+      const L = curLesson();
+      addOldMonthModal(L ? L.id : null);
+    };
+  }
 
   $('#addLessonBtn').onclick = () => lessonForm(null);
   $('#brandHome').onclick = () => {
@@ -6495,36 +7753,7 @@ function bindEvents(){
     saveState(); renderAll();
   };
   /* القوائم المنسدلة */
-  function toggleDropdown(menuId, btnId){
-    const menu = document.getElementById(menuId);
-    const btn = document.getElementById(btnId);
-    if(!menu || !btn) return;
-    const wasOpen = !menu.hidden;
-    /* أغلق كل القوائم وأعد ضبط الأنماط */
-    $$('.dropdown-menu').forEach(m => { m.hidden = true; m.style.maxHeight = ''; m.style.bottom = ''; m.style.top = ''; });
-    if(wasOpen) return;
-    const rect = btn.getBoundingClientRect();
-    const vh = window.innerHeight;
-    const vw = window.innerWidth;
-    const spaceBelow = vh - rect.bottom - 14;
-    const spaceAbove = rect.top - 14;
-    /* محاذاة أفقية: من اليمين مع حماية من الخروج من الشاشة */
-    const rightPx = Math.max(8, Math.min(vw - rect.right, vw - 208));
-    menu.style.right = rightPx + 'px';
-    menu.style.left = 'auto';
-    if(spaceBelow >= 180 || spaceBelow >= spaceAbove){
-      /* افتح لتحت بارتفاع يناسب المساحة */
-      menu.style.top = (rect.bottom + 4) + 'px';
-      menu.style.bottom = 'auto';
-      menu.style.maxHeight = Math.max(140, spaceBelow) + 'px';
-    } else {
-      /* افتح لفوق */
-      menu.style.bottom = (vh - rect.top + 4) + 'px';
-      menu.style.top = 'auto';
-      menu.style.maxHeight = Math.max(140, spaceAbove) + 'px';
-    }
-    menu.hidden = false;
-  }
+
   $('#reportsMenuBtn').onclick = () => toggleDropdown('reportsMenu', 'reportsMenuBtn');
   $('#manageMenuBtn').onclick = () => toggleDropdown('manageMenu', 'manageMenuBtn');
   /* إغلاق عند الضغط خارج القائمة */
@@ -6596,11 +7825,28 @@ function bindEvents(){
     const idx = t.dataset.idx;
     const lessonId = t.dataset.lesson;
 
-    if(act === 'open-lesson'){ currentLessonId = id; lessonFilterQuery = ''; groupFilterQuery = ''; examGroupFilterQuery = ''; $('#lessonSearch').value = ''; renderLessonDetail(); }
+    if(act === 'open-lesson'){
+      pushAppHistory('lesson-detail', { lessonId: id });
+      currentLessonId = id;
+      lessonFilterQuery = '';
+      groupFilterQuery = '';
+      examGroupFilterQuery = '';
+      if($('#lessonSearch')) $('#lessonSearch').value = '';
+      renderLessonDetail();
+    }
     else if(act === 'view-student'){
       const L = curLesson();
       const st = L && L.students.find(x => x.id === id);
       if(L && st) openStudentProfile(st, L);
+    }
+    else if(act === 'view-arch-student'){
+      const archIdx = (t.dataset.arch !== undefined) ? parseInt(t.dataset.arch, 10) : currentArchiveIdx;
+      const a = (archIdx !== null && archIdx !== undefined) ? state.archive[archIdx] : null;
+      if(!a) return;
+      const st = (a.students || archiveStudents(a)).find(x => x.id === id);
+      if(st){
+        studentForm(a, st, true, archIdx);
+      }
     }
     else if(act === 'open-student'){
       currentLessonId = lessonId;
@@ -6850,32 +8096,34 @@ function bindEvents(){
       if(L && st) openStudentProfile(st, L);
     }
     else if(act === 'edit-exam'){
-      const L = curLesson();
-      const ex = L && (L.exams||[]).find(x => x.id === id);
-      if(L && ex) addExamModal(L, ex);
+      const archIdx = t.dataset.arch !== undefined ? parseInt(t.dataset.arch, 10) : (currentArchiveIdx !== null ? currentArchiveIdx : null);
+      const targetObj = archIdx !== null ? state.archive[archIdx] : curLesson();
+      const ex = targetObj && (targetObj.exams||[]).find(x => x.id === id);
+      if(targetObj && ex) addExamModal(targetObj, ex, archIdx !== null, archIdx);
     }
     else if(act === 'del-exam'){
-      const L = curLesson();
-      const ex = L && (L.exams||[]).find(x => x.id === id);
-      if(L && ex){
+      const archIdx = t.dataset.arch !== undefined ? parseInt(t.dataset.arch, 10) : (currentArchiveIdx !== null ? currentArchiveIdx : null);
+      const targetObj = archIdx !== null ? state.archive[archIdx] : curLesson();
+      const ex = targetObj && (targetObj.exams||[]).find(x => x.id === id);
+      if(targetObj && ex){
         confirmDangerModal({
           title: '⚠️ حذف الاختبار',
           message: 'هل أنت متأكد من رغبتك في حذف هذا الاختبار ورصد درجاته؟',
           itemName: ex.name + ' (الدرجة العظمى: ' + ex.maxScore + ')',
           dangerNote: 'سيتم مسح درجات وملاحظات جميع الطلاب في هذا الاختبار نهائياً.',
           onConfirm: () => {
-            L.exams = L.exams.filter(x => x.id !== id);
-            if(L.examScores){
-              Object.keys(L.examScores).forEach(sid => { delete L.examScores[sid][id]; });
+            targetObj.exams = targetObj.exams.filter(x => x.id !== id);
+            if(targetObj.examScores){
+              Object.keys(targetObj.examScores).forEach(sid => { delete targetObj.examScores[sid][id]; });
             }
-            if(L.examNotes){
-              Object.keys(L.examNotes).forEach(sid => { delete L.examNotes[sid][id]; });
+            if(targetObj.examNotes){
+              Object.keys(targetObj.examNotes).forEach(sid => { delete targetObj.examNotes[sid][id]; });
             }
-            if(L.examExclusions){
-              Object.keys(L.examExclusions).forEach(sid => { delete L.examExclusions[sid][id]; });
+            if(targetObj.examExclusions){
+              Object.keys(targetObj.examExclusions).forEach(sid => { delete targetObj.examExclusions[sid][id]; });
             }
             saveState();
-            renderExamsTable(L);
+            if(archIdx !== null) renderArchiveDetail(archIdx); else renderLessonDetail();
             showToastMessage('🗑️ تم حذف الاختبار بنجاح.');
           }
         });
@@ -6931,7 +8179,11 @@ function bindEvents(){
         });
       }
     }
-    else if(act === 'open-archive'){ renderArchiveDetail(parseInt(idx,10)); }
+    else if(act === 'open-archive'){
+      const aIdx = parseInt(idx, 10);
+      pushAppHistory('archive-detail', { archIdx: aIdx });
+      renderArchiveDetail(aIdx);
+    }
     else if(act === 'analytics'){
       const a = state.archive[parseInt(idx,10)];
       const L = state.lessons.find(x => x.id === a.lessonId);
@@ -7160,7 +8412,7 @@ function bindEvents(){
       }
     }
     else if(e.target.matches('.exam-input')){
-      const L = curLesson();
+      const L = (currentArchiveIdx !== null ? state.archive[currentArchiveIdx] : curLesson());
       if(!L) return;
       const sid = e.target.dataset.sid;
       const eid = e.target.dataset.eid;
@@ -7243,6 +8495,18 @@ function reorderStudent(lesson, fromId, toId){
   renderLessonDetail();
 }
 
+function reorderArchiveStudent(archIdx, fromId, toId){
+  const a = state.archive[archIdx];
+  if(!a || !Array.isArray(a.students)) return;
+  const from = a.students.findIndex(s => s.id === fromId);
+  const to = a.students.findIndex(s => s.id === toId);
+  if(from < 0 || to < 0 || from === to) return;
+  const [moved] = a.students.splice(from, 1);
+  a.students.splice(to, 0, moved);
+  saveState();
+  renderArchiveDetail(archIdx);
+}
+
 function moveStudentTo(lesson, studentId, pos){
   const from = lesson.students.findIndex(s => s.id === studentId);
   if(from < 0) return;
@@ -7286,18 +8550,26 @@ function endTouchDrag(){
   clearTimeout(dragState.touchTimer);
   dragState.touchTimer = null;
   if(dragState.touchActive){
-    const L = curLesson();
     const targetRow = document.querySelector('tr.student-row.drop-target');
-    if(L && dragState.dragId && targetRow && targetRow.dataset.dragId !== dragState.dragId){
-      reorderStudent(L, dragState.dragId, targetRow.dataset.dragId);
+    if(dragState.dragId && targetRow && targetRow.dataset.dragId !== dragState.dragId){
+      const archIdx = targetRow.dataset.archIdx !== undefined ? parseInt(targetRow.dataset.archIdx, 10) : null;
+      const fromArchIdx = dragState.archIdx !== undefined ? dragState.archIdx : null;
+      if(archIdx !== null && fromArchIdx !== null && !isNaN(archIdx)){
+        reorderArchiveStudent(archIdx, dragState.dragId, targetRow.dataset.dragId);
+      } else {
+        const L = curLesson();
+        if(L) reorderStudent(L, dragState.dragId, targetRow.dataset.dragId);
+      }
     }
   }
   if(dragState.ghost){ dragState.ghost.remove(); dragState.ghost = null; }
   $$('tr.student-row').forEach(r => r.classList.remove('dragging','drop-target'));
   dragState.touchActive = false;
   dragState.dragId = null;
+  dragState.archIdx = undefined;
   dragState.row = null;
 }
+
 
 function autoScrollOnDrag(clientY){
   const edge = 90, step = 16;
@@ -7325,6 +8597,7 @@ function initDragReorder(){
     const row = e.target.closest('tr.student-row');
     if(!row) return;
     dragState.dragId = row.dataset.dragId;
+    dragState.archIdx = row.dataset.archIdx !== undefined ? parseInt(row.dataset.archIdx, 10) : undefined;
     row.classList.add('dragging');
     if(e.dataTransfer){
       e.dataTransfer.effectAllowed = 'move';
@@ -7383,14 +8656,22 @@ function initDragReorder(){
       return;
     }
     const row = e.target.closest('tr.student-row');
-    const L = curLesson();
-    if(!L || !dragState.dragId) return;
+    if(!dragState.dragId) return;
     e.preventDefault();
     if(row && row.dataset.dragId !== dragState.dragId){
-      reorderStudent(L, dragState.dragId, row.dataset.dragId);
+      // تحقق: هل السحب داخل الأرشيف أم الدرس العادي؟
+      const archIdx = row.dataset.archIdx !== undefined ? parseInt(row.dataset.archIdx, 10) : null;
+      const fromArchIdx = dragState.archIdx !== undefined ? dragState.archIdx : null;
+      if(archIdx !== null && fromArchIdx !== null && !isNaN(archIdx)){
+        reorderArchiveStudent(archIdx, dragState.dragId, row.dataset.dragId);
+      } else {
+        const L = curLesson();
+        if(L) reorderStudent(L, dragState.dragId, row.dataset.dragId);
+      }
     }
     $$('tr.student-row').forEach(r => r.classList.remove('dragging','drop-target'));
     dragState.dragId = null;
+    dragState.archIdx = undefined;
   });
 
   /* السحب الأفقي للجدول (يمين/يسار) بالماوس */
@@ -7470,18 +8751,104 @@ function initDragReorder(){
   }, {passive:true});
 }
 
-/* ---------- تشغيل ---------- */
-document.addEventListener('DOMContentLoaded', () => {
-  renderAll();
-  bindEvents();
-  initDragReorder();
-  initAutoSave();
-  renderToday();
-  scheduleReminders();
-  maybeShowChangelog(() => maybePromptNotifications());
-  if('serviceWorker' in navigator){
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
-    });
+
+/* ---------- 📱 إدارة زر الرجوع وسحب الهاتف (History API) ---------- */
+function pushAppHistory(stateObj){
+  try {
+    window.history.pushState(stateObj || { app: 'daftar', time: Date.now() }, '');
+  } catch(e){}
+}
+
+function handleAppBack(){
+  // 1. إذا كان المودال مفتوحاً -> إغلاقه
+  const overlay = $('#modalOverlay');
+  if(overlay && !overlay.hidden && overlay.style.display !== 'none'){
+    closeModal();
+    return true;
   }
-});
+
+  // 2. إذا كانت لوحة الإشعارات مفتوحة -> إغلاقها
+  const notifPanel = $('#notifPanel');
+  if(notifPanel && !notifPanel.hidden){
+    notifPanel.hidden = true;
+    return true;
+  }
+
+  // 3. إذا كانت هناك قوائم منسدلة مفتوحة -> إغلاقها
+  const openMenus = $$('.dropdown-menu').filter(m => !m.hidden);
+  if(openMenus.length > 0){
+    openMenus.forEach(m => { m.hidden = true; });
+    return true;
+  }
+
+  // 4. إذا كان التحديد المتعدد مفعل -> إلغاؤه
+  if(isBulkSelecting){
+    isBulkSelecting = false;
+    selectedStudentIds.clear();
+    renderLessonDetail();
+    return true;
+  }
+
+  // 5. إذا كان المستخدم داخل تفاصيل شهر مؤرشف -> الرجوع لقائمة الأرشيف
+  const archDetail = $('#archiveDetail');
+  const archList = $('#archiveList');
+  if(archDetail && archDetail.style.display !== 'none' && currentArchiveIdx !== null){
+    archDetail.style.display = 'none';
+    archDetail.innerHTML = '';
+    if(archList) archList.style.display = 'grid';
+    currentArchiveIdx = null;
+    return true;
+  }
+
+  // 6. إذا كان المستخدم داخل تفاصيل درس -> الرجوع لقائمة الدروس
+  const detail = $('#lessonDetail');
+  if(detail && detail.style.display !== 'none' && currentLessonId){
+    currentLessonId = null;
+    renderLessonsHome();
+    return true;
+  }
+
+  // 7. إذا كان في تبويب غير الدروس -> الرجوع لتبويب الدروس
+  const activeTab = $('.tab.active');
+  if(activeTab && activeTab.dataset.tab !== 'lessons'){
+    switchTab('lessons');
+    return true;
+  }
+
+  // 8. في الشاشة الرئيسية -> منع الخروج إلا بضغطة مزدوجة
+  const now = Date.now();
+  if(now - lastBackPressTime < 2000){
+    return false;
+  } else {
+    lastBackPressTime = now;
+    showToastMessage('اضغط مرة أخرى للخروج من التطبيق');
+    pushAppHistory({ root: true });
+    return true;
+  }
+}
+
+/* ---------- تشغيل ---------- */
+function initApp(){
+  try {
+    pushAppHistory({ root: true });
+    renderAll();
+    bindEvents();
+    initDragReorder();
+    initAutoSave();
+    renderToday();
+    scheduleReminders();
+    maybeShowChangelog(() => maybePromptNotifications());
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  } catch(err) {
+    console.error('Initialization error:', err);
+  }
+}
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
