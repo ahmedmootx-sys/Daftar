@@ -169,8 +169,10 @@
       <h2>الأرشيف</h2>
       <p class="muted">الشهور المؤرشفة لكل الدروس محفوظة هنا (كل شهر مستقل)، ويمكنك فتح أي شهر لمراجعته وتعديل بياناته وتصدير تقاريره.</p>
     </div>
-    <div class="toolbar" style="margin-bottom:14px">
+    <div class="toolbar" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="addOldMonthArchiveBtn" class="btn btn-primary">➕ إضافة شهر قديم للأرشيف</button>
+      <button id="importSingleMonthArchiveBtn" class="btn btn-outline" title="استيراد ملف شهر مؤرشف مستقل تم تصديره">📥 استيراد شهر للأرشيف</button>
+      <input type="file" id="importSingleMonthInput" accept=".daftar-month,.json" style="display:none">
     </div>
     <div id="archiveList" class="archive-list"></div>
     <div id="archiveDetail" style="display:none"></div>

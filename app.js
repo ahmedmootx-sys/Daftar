@@ -34,8 +34,15 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v37';
+const APP_VERSION = 'v38';
 const CHANGELOG = {
+  v38: [
+    '📤 تصدير واستيراد شهر مؤرشف منفرد: إمكانية تصدير أي شهر مؤرشف لوحده كملف مستقل (.daftar-month) واستيراده في أي حساب دون التأثير على باقي الشهور',
+    '☑️ نقل ونسخ الطلاب بالتحديد المتعدد من وإلى الأرشيف: دعم نقل أو نسخ الطلاب بين الدروس الحالية والشهور المؤرشفة بسلاسة تامة',
+    '🛡️ عزل تام لحذف الطلاب في الأرشيف: حذف الطالب من شهر مؤرشف قديم لا يؤثر نهائياً على وجوده في الشهور التالية أو الشهر الحالي',
+    '📈 ترتيب وخواص الشهر المؤرشف بالكامل: إتاحة كافة أزرار وخواص وإدارة الشهر العادي داخل الشهر المؤرشف (ترتيب حسب الحضور، سحب يدوي، تحريك ▲/▼، كتابة رقم الترتيب #، وتعديل الحصص)',
+    '📱 دعم مثالي لزر الرجوع وإيماءات سحب الهاتف: إغلاق النوافذ والقوائم المفتوحة أولاً ثم الرجوع للرئيسية وحماية الخروج بضغطة مزدوجة'
+  ],
   v37: [
     '📥 تنزيل وحفظ التقارير كملف PDF جاهز للطباعة والمطبعة: إمكانية حفظ أي تقرير (حضور، اختبارات، شامل، ورقة حضور) كملف PDF على جهازك لإرساله للمطبعة، مع توجيه ذكي يرشد المعلم لاختيار «حفظ بتنسيق PDF» وزر مخصص لتنزيل نسخة ويب جاهزة للمطبعة بصيغة HTML',
     '🗂️ تقسيم المجاميع عبر كافة التقارير والرسائل: خيار تفاعلي للاختيار بين مجموعات الدرس ومجموعات الاختبار في تقارير الاختبارات والتقرير الشامل، وتقسيم منسق بالمجموعات في رسائل واتساب لتقرير الشهر وتقرير الاختبارات',
@@ -2651,72 +2658,106 @@ function addExamModal(lesson, examToEdit){
 }
 
 /* ---------- 5. التحديد المتعدد ونقل/تكرار الطلاب (Bulk Move / Copy) ---------- */
-function bulkMoveStudentsModal(lesson, isCopy){
-  if(!lesson || selectedStudentIds.size === 0) return;
-  const otherLessons = state.lessons.filter(l => l.id !== lesson.id);
-  if(otherLessons.length === 0){
-    alert('لا توجد دروس أخرى متاحة للنقل أو التكرار إليها. قم بإنشاء درس آخر أولاً.');
+function bulkMoveStudentsModal(sourceObj, isCopy, isSourceArchive, sourceArchIdx){
+  if(!sourceObj || selectedStudentIds.size === 0) return;
+
+  const sourceName = sourceObj.name || sourceObj.lessonName || 'الدرس';
+  const sourceStudents = sourceObj.students || [];
+
+  // جمع كافة الوجهات المتاحة (دروس حالية + شهور مؤرشفة)
+  const targetOptions = [];
+  state.lessons.forEach(l => {
+    if(!isSourceArchive && l.id === sourceObj.id) return;
+    targetOptions.push({
+      type: 'lesson',
+      id: 'lesson_' + l.id,
+      actualId: l.id,
+      label: '📚 ' + l.name + ' (شهر حالي ' + l.monthNumber + '/' + l.year + ')',
+      groups: l.groups || []
+    });
+  });
+
+  (state.archive || []).forEach((a, aIdx) => {
+    if(isSourceArchive && aIdx === sourceArchIdx) return;
+    targetOptions.push({
+      type: 'archive',
+      id: 'arch_' + aIdx,
+      actualIdx: aIdx,
+      label: '🗄️ أرشيف: ' + a.lessonName + ' (شهر ' + a.monthNumber + '/' + a.year + ')',
+      groups: a.groups || []
+    });
+  });
+
+  if(targetOptions.length === 0){
+    alert('لا توجد دروس أو شهور مؤرشفة أخرى متاحة للنقل أو النسخ إليها.');
     return;
   }
 
-  let html = '<p style="font-size:13px;font-weight:700;margin-bottom:12px">تم تحديد <b style="color:var(--primary)">' + selectedStudentIds.size + '</b> طالب من درس «' + esc(lesson.name) + '».</p>'
-    + '<div class="form-row"><label>الدرس المستهدف'
-    +   '<select id="bm_target_lesson">'
-    +     otherLessons.map(l => '<option value="' + l.id + '">' + esc(l.name) + ' (شهر ' + l.monthNumber + '/' + l.year + ')</option>').join('')
+  let html = '<p style="font-size:13px;font-weight:700;margin-bottom:12px">تم تحديد <b style="color:var(--primary)">' + selectedStudentIds.size + '</b> طالب من «' + esc(sourceName) + '».</p>'
+    + '<div class="form-row"><label>الوجهة المستهدفة (درس حالي أو شهر مؤرشف)'
+    +   '<select id="bm_target_destination" style="font-weight:700">'
+    +     targetOptions.map(t => '<option value="' + t.id + '">' + esc(t.label) + '</option>').join('')
     +   '</select>'
     + '</label></div>'
-    + '<div class="form-row"><label>المجموعة في الدرس المستهدف'
+    + '<div class="form-row"><label>المجموعة في الوجهة المستهدفة'
     +   '<select id="bm_target_group"><option value="">بدون مجموعة</option></select>'
     + '</label></div>'
-    + '<div class="form-row" style="margin-top:10px">'
-    +   '<label class="switch-row" style="padding:4px 0">'
-    +     '<div>'
-    +       '<div class="switch-label">ترحيل سجل حضور الشهر الحالي أيضاً</div>'
-    +       '<div class="muted" style="font-size:11px">إن كانت الحصص متطابقة، تُنقل حالات الحضور والغياب مع الطالب.</div>'
-    +     '</div>'
-    +     '<label class="switch"><input type="checkbox" id="bm_inc_att"><span class="switch-slider"></span></label>'
-    +   '</label>'
-    + '</div>'
-    + '<div class="modal-actions">'
-    +   '<button class="btn btn-primary" id="bm_submit">' + (isCopy ? '📋 نسخ الطلاب للدرس المحدد' : '🔄 نقل الطلاب وحذفهم من الحالي') + '</button>'
+    + '<div class="modal-actions" style="margin-top:16px">'
+    +   '<button class="btn btn-primary" id="bm_submit">' + (isCopy ? '📋 نسخ الطلاب للوجهة المحددة' : '🔄 نقل الطلاب وحذفهم من المصدر') + '</button>'
     +   '<button class="btn btn-outline" id="bm_cancel">إلغاء</button>'
     + '</div>';
 
-  openModal(isCopy ? '📋 نسخ وتكرار الطلاب' : '🔄 نقل الطلاب بين الدروس', html);
+  openModal(isCopy ? '📋 نسخ الطلاب' : '🔄 نقل الطلاب', html);
 
   function updateGroups(){
-    const targetL = state.lessons.find(l => l.id === $('#bm_target_lesson').value);
+    const destVal = $('#bm_target_destination').value;
+    const destObj = targetOptions.find(t => t.id === destVal);
     const grpSel = $('#bm_target_group');
-    if(!targetL || !grpSel) return;
+    if(!destObj || !grpSel) return;
     let opts = '<option value="">بدون مجموعة</option>';
-    (targetL.groups || []).forEach(g => {
+    (destObj.groups || []).forEach(g => {
       opts += '<option value="' + esc(g.id) + '">' + esc(g.name) + '</option>';
     });
     grpSel.innerHTML = opts;
   }
-  $('#bm_target_lesson').onchange = updateGroups;
+  $('#bm_target_destination').onchange = updateGroups;
   updateGroups();
 
   $('#bm_cancel').onclick = closeModal;
 
   $('#bm_submit').onclick = () => {
-    const targetL = state.lessons.find(l => l.id === $('#bm_target_lesson').value);
-    if(!targetL) return;
-    const targetGid = $('#bm_target_group').value;
-    const incAtt = $('#bm_inc_att').checked;
+    const destVal = $('#bm_target_destination').value;
+    const destObj = targetOptions.find(t => t.id === destVal);
+    if(!destObj) return;
 
-    const toProcess = lesson.students.filter(st => selectedStudentIds.has(st.id));
+    let targetContainer = null;
+    let targetStudentsList = null;
+    let targetName = destObj.label;
+
+    if(destObj.type === 'lesson'){
+      targetContainer = state.lessons.find(l => l.id === destObj.actualId);
+      if(!targetContainer) return;
+      if(!Array.isArray(targetContainer.students)) targetContainer.students = [];
+      targetStudentsList = targetContainer.students;
+    } else {
+      targetContainer = state.archive[destObj.actualIdx];
+      if(!targetContainer) return;
+      if(!Array.isArray(targetContainer.students)) targetContainer.students = [];
+      targetStudentsList = targetContainer.students;
+    }
+
+    const targetGid = $('#bm_target_group').value;
+    const toProcess = sourceStudents.filter(st => selectedStudentIds.has(st.id));
     if(toProcess.length === 0){
       alert('لم يتم تحديد أي طلاب.');
       return;
     }
 
-    // فحص الأسماء المكررة في الدرس المستهدف
     const existingDuplicates = [];
     const studentsToTransfer = [];
 
     toProcess.forEach(st => {
-      const isDup = targetL.students.some(x => normalizeForSearch(x.name) === normalizeForSearch(st.name));
+      const isDup = targetStudentsList.some(x => normalizeForSearch(x.name) === normalizeForSearch(st.name));
       if(isDup){
         existingDuplicates.push(st);
       } else {
@@ -2725,48 +2766,73 @@ function bulkMoveStudentsModal(lesson, isCopy){
     });
 
     if(studentsToTransfer.length === 0){
-      alert('⚠️ تعذر تنفيذ العملية:\nجميع الطلاب المحددين (' + existingDuplicates.map(s => s.name).join('، ') + ') مسجلون بالفعل في درس «' + targetL.name + '»!\nلن يتم تكرار أسمائهم منعاً للازدواجية.');
+      alert('⚠️ تعذر تنفيذ العملية:\nجميع الطلاب المحددين (' + existingDuplicates.map(s => s.name).join('، ') + ') مسجلون بالفعل في «' + targetName + '»!\nلن يتم تكرار أسمائهم منعاً للازدواجية.');
       return;
     }
 
-    // رسالة تأكيد واضحة قبل النقل أو النسخ
-    let confirmMsg = 'هل أنت متأكد من ' + (isCopy ? 'نسخ' : 'نقل') + ' (' + studentsToTransfer.length + ') طالب من درس «' + lesson.name + '» إلى درس «' + targetL.name + '»؟';
+    let confirmMsg = 'هل أنت متأكد من ' + (isCopy ? 'نسخ' : 'نقل') + ' (' + studentsToTransfer.length + ') طالب إلى «' + targetName + '»؟';
     if(existingDuplicates.length > 0){
-      confirmMsg += '\n\n⚠️ تنبيه: تم اكتشاف (' + existingDuplicates.length + ') طالب مسجلين بالفعل في الدرس المستهدف وسيتم تخطيهم منعاً للتكرار:\n• ' + existingDuplicates.map(s => s.name).join('\n• ');
+      confirmMsg += '\n\n⚠️ تنبيه: تم اكتشاف (' + existingDuplicates.length + ') طالب مسجلين بالفعل في الوجهة المستهدفة وسيتم تخطيهم:\n• ' + existingDuplicates.map(s => s.name).join('\n• ');
     }
 
     if(!confirm(confirmMsg)) return;
 
+    // نقل/نسخ البيانات الشخصية
     studentsToTransfer.forEach(st => {
-      const targetStudent = JSON.parse(JSON.stringify(st));
-      targetStudent.id = uid('s');
-      targetStudent.groupId = targetGid;
-      targetL.students.push(targetStudent);
-
-      if(incAtt){
-        if(!targetL.records[targetStudent.id]) targetL.records[targetStudent.id] = {};
-        lesson.sessions.forEach((s, idx) => {
-          const rec = (lesson.records[st.id] && lesson.records[st.id][s.id]);
-          if(rec && targetL.sessions[idx]){
-            targetL.records[targetStudent.id][targetL.sessions[idx].id] = JSON.parse(JSON.stringify(rec));
-          }
-        });
-      }
-
-      if(!isCopy){
-        // حذف من الدرس الأصلي عند النقل
-        lesson.students = lesson.students.filter(x => x.id !== st.id);
-        delete lesson.records[st.id];
-      }
+      const newSt = {
+        id: uid('s'),
+        name: st.name,
+        phone: st.phone || '',
+        guardianPhone: st.guardianPhone || '',
+        guardianExtraPhones: Array.isArray(st.guardianExtraPhones) ? [...st.guardianExtraPhones] : [],
+        extraPhones: Array.isArray(st.extraPhones) ? [...st.extraPhones] : [],
+        groupId: targetGid || '',
+        fields: st.fields ? JSON.parse(JSON.stringify(st.fields)) : {},
+        job: st.job || '',
+        address: st.address || '',
+        age: st.age || '',
+        email: st.email || '',
+        profileNotes: st.profileNotes || '',
+        photo: st.photo || '',
+        paid: false
+      };
+      targetStudentsList.push(newSt);
     });
 
+    // إذا كان نقل (وليس نسخ) -> احذفهم من المصدر
+    if(!isCopy){
+      const transferredIds = new Set(studentsToTransfer.map(s => s.id));
+      if(isSourceArchive){
+        sourceObj.students = sourceObj.students.filter(st => !transferredIds.has(st.id));
+        transferredIds.forEach(id => {
+          delete (sourceObj.records || {})[id];
+          delete (sourceObj.examScores || {})[id];
+          delete (sourceObj.examExclusions || {})[id];
+          delete (sourceObj.examNotes || {})[id];
+        });
+      } else {
+        sourceObj.students = sourceObj.students.filter(st => !transferredIds.has(st.id));
+        transferredIds.forEach(id => {
+          delete (sourceObj.records || {})[id];
+          delete (sourceObj.examScores || {})[id];
+          delete (sourceObj.examExclusions || {})[id];
+          delete (sourceObj.examNotes || {})[id];
+        });
+      }
+    }
+
+    saveState();
     selectedStudentIds.clear();
     isBulkSelecting = false;
-    saveState();
-    renderLessonDetail();
     closeModal();
-    const dupNote = existingDuplicates.length > 0 ? ' (تم تخطي ' + existingDuplicates.length + ' طالب مكررين)' : '';
-    showToastMessage('✅ تم ' + (isCopy ? 'نسخ' : 'نقل') + ' ' + studentsToTransfer.length + ' طالب بنجاح.' + dupNote);
+
+    if(isSourceArchive && sourceArchIdx !== undefined && sourceArchIdx !== null){
+      renderArchiveDetail(sourceArchIdx);
+    } else {
+      renderLessonDetail();
+    }
+
+    showToastMessage('✅ تم ' + (isCopy ? 'نسخ' : 'نقل') + ' (' + studentsToTransfer.length + ') طالب بنجاح.');
   };
 }
 
@@ -3857,6 +3923,150 @@ function archiveStudents(a){
 }
 
 /* ---------- 🏛️ ترقية شاشة الشهر المؤرشف بالكامل (v36) ---------- */
+
+/* ---------- 📤 تصدير واستيراد شهر مؤرشف منفرد (v38) ---------- */
+function exportSingleArchiveMonth(idx){
+  const a = state.archive[idx];
+  if(!a){
+    showToastMessage('⚠️ تعذر العثور على الشهر المؤرشف.');
+    return;
+  }
+  const payload = {
+    type: 'daftar_single_archive_month',
+    version: APP_VERSION,
+    lessonName: a.lessonName,
+    monthNumber: a.monthNumber,
+    year: a.year,
+    exportedAt: new Date().toISOString(),
+    exporterName: state.settings.ownerName || '',
+    data: JSON.parse(JSON.stringify(a))
+  };
+  const safeName = (a.lessonName || 'درس').replace(/[^\w\u0600-\u06FF ]/g, '');
+  const filename = 'شهر_مؤرشف_' + safeName + '_شهر_' + a.monthNumber + '_' + a.year + '.daftar-month';
+  downloadBlob(JSON.stringify(payload, null, 2), filename, 'application/json');
+  showToastMessage('📤 تم تصدير ملف الشهر المؤرشف بنجاح.');
+}
+
+function handleImportSingleArchiveMonth(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      let monthData = null;
+      if(parsed && parsed.type === 'daftar_single_archive_month' && parsed.data){
+        monthData = parsed.data;
+      } else if(parsed && parsed.lessonName && parsed.monthNumber && Array.isArray(parsed.sessions)){
+        monthData = parsed;
+      } else {
+        alert('⚠️ صيغة الملف غير صحيحة أو تالفة. يرجى اختيار ملف شهر مؤرشف صالح (.daftar-month).');
+        return;
+      }
+
+      // تطبيع بيانات الشهر المستورد
+      if(!Array.isArray(monthData.students)) monthData.students = [];
+      if(!Array.isArray(monthData.sessions)) monthData.sessions = [];
+      if(!monthData.records) monthData.records = {};
+      if(!Array.isArray(monthData.exams)) monthData.exams = [];
+      if(!monthData.examScores) monthData.examScores = {};
+      if(!monthData.examExclusions) monthData.examExclusions = {};
+      if(!monthData.examNotes) monthData.examNotes = {};
+      if(!Array.isArray(monthData.hiddenExamStudents)) monthData.hiddenExamStudents = [];
+
+      const existingIdx = state.archive.findIndex(x => 
+        (x.lessonId === monthData.lessonId || normalizeForSearch(x.lessonName) === normalizeForSearch(monthData.lessonName)) &&
+        Number(x.monthNumber) === Number(monthData.monthNumber) &&
+        Number(x.year) === Number(monthData.year)
+      );
+
+      if(existingIdx !== -1){
+        confirmDangerModal({
+          title: '⚠️ تحديث شهر مؤرشف موجود',
+          message: 'يوجد بالفعل شهر مؤرشف لنفس الدرس (' + esc(monthData.lessonName) + ' - شهر ' + monthData.monthNumber + '/' + monthData.year + '). هل تريد استبداله بالبيانات المستوردة؟',
+          itemName: monthData.lessonName + ' - شهر ' + monthData.monthNumber + '/' + monthData.year,
+          confirmText: 'نعم، استبدل وتحديث 🔄',
+          onConfirm: () => {
+            state.archive[existingIdx] = monthData;
+            saveState();
+            renderArchive();
+            showToastMessage('✅ تم تحديث بيانات الشهر المؤرشف بنجاح.');
+          }
+        });
+      } else {
+        state.archive.unshift(monthData);
+        saveState();
+        renderArchive();
+        showToastMessage('✅ تم استيراد وإضافة الشهر للأرشيف بنجاح (' + monthData.students.length + ' طالب).');
+      }
+    } catch(err){
+      alert('⚠️ حدث خطأ أثناء قراءة ملف الشهر: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function sortArchiveMonthByAttendance(idx){
+  const a = state.archive[idx];
+  if(!a || !Array.isArray(a.students) || a.students.length === 0) return;
+  const ps = pastSessions(a.sessions);
+  const eff = effectiveStatuses(a);
+
+  const stats = computeStats(a.students, ps, a.records, eff);
+  // ترتيب الطلاب بناء على نسبة الحضور من الأعلى للأقل
+  stats.sort((s1, s2) => {
+    if(s2.pct !== s1.pct) return s2.pct - s1.pct;
+    return s2.done - s1.done;
+  });
+
+  const orderedIds = stats.map(s => s.st.id);
+  a.students.sort((stA, stB) => {
+    const idxA = orderedIds.indexOf(stA.id);
+    const idxB = orderedIds.indexOf(stB.id);
+    return idxA - idxB;
+  });
+
+  saveState();
+  renderArchiveDetail(idx);
+  showToastMessage('📈 تم ترتيب الطلاب حسب الحضور (الأعلى أولاً).');
+}
+
+function reorderArchiveStudent(archIdx, studentId, targetIdOr1BasedOrder){
+  const a = state.archive[archIdx];
+  if(!a || !Array.isArray(a.students)) return;
+  const oldIdx = a.students.findIndex(s => s.id === studentId);
+  if(oldIdx === -1) return;
+  let targetIdx;
+  if(typeof targetIdOr1BasedOrder === 'number'){
+    targetIdx = Math.max(0, Math.min(a.students.length - 1, targetIdOr1BasedOrder - 1));
+  } else if(typeof targetIdOr1BasedOrder === 'string'){
+    const num = parseInt(targetIdOr1BasedOrder, 10);
+    if(!isNaN(num) && String(num) === targetIdOr1BasedOrder){
+      targetIdx = Math.max(0, Math.min(a.students.length - 1, num - 1));
+    } else {
+      targetIdx = a.students.findIndex(s => s.id === targetIdOr1BasedOrder);
+    }
+  }
+  if(targetIdx === undefined || targetIdx === -1 || oldIdx === targetIdx) return;
+  const [st] = a.students.splice(oldIdx, 1);
+  a.students.splice(targetIdx, 0, st);
+  saveState();
+  renderArchiveDetail(archIdx);
+  showToastMessage('↕️ تم تعديل ترتيب الطالب.');
+}
+
+function moveArchiveStudentRelative(archIdx, studentId, direction){
+  const a = state.archive[archIdx];
+  if(!a || !Array.isArray(a.students)) return;
+  const oldIdx = a.students.findIndex(s => s.id === studentId);
+  if(oldIdx === -1) return;
+  const targetIdx = direction === 'up' ? oldIdx - 1 : oldIdx + 1;
+  if(targetIdx < 0 || targetIdx >= a.students.length) return;
+  const [st] = a.students.splice(oldIdx, 1);
+  a.students.splice(targetIdx, 0, st);
+  saveState();
+  renderArchiveDetail(archIdx);
+}
+
 function renderArchiveDetail(idx){
   currentArchiveIdx = idx;
   const a = state.archive[idx];
@@ -3922,10 +4132,12 @@ function renderArchiveDetail(idx){
     +   '<button class="btn btn-outline" id="archManageMenuBtn">⚙️ إدارة ▾</button>'
     +   '<div class="dropdown-menu" id="archManageMenu" hidden>'
     +     '<button id="archAddSessionBtn" class="dropdown-item">➕ حصة</button>'
+    +     '<button id="archGenSessionsBtn" class="dropdown-item">🔄 توليد الحصص</button>'
     +     '<button id="archAddExamBtn" class="dropdown-item">➕ اختبار جديد</button>'
     +     '<button id="archExamGroupsBtn" class="dropdown-item">👥 مجموعات الاختبار</button>'
-    +     '<button id="archEditMonthBtn" class="dropdown-item">🗓️ تعديل بيانات الشهر</button>'
-    +     '<button id="archExportMonthBtn" class="dropdown-item">⬇️ تصدير الشهر</button>'
+    +     '<button id="archSortAttendanceBtn" class="dropdown-item">📈 ترتيب حسب الحضور</button>'
+    +     '<button id="archEditMonthBtn" class="dropdown-item">🗓️ تعديل بيانات الشهر والاسم</button>'
+    +     '<button id="archExportSingleMonthBtn" class="dropdown-item">📤 تصدير هذا الشهر كملف مستقل</button>'
     +     '<button id="archRestoreBtn" class="dropdown-item">♻️ استعادة الشهر للرئيسية</button>'
     +     '<button id="archDeleteBtn" class="dropdown-item" style="color:var(--danger)">🗑️ حذف الشهر من الأرشيف</button>'
     +   '</div>'
@@ -4017,6 +4229,27 @@ function renderArchiveDetail(idx){
     e.stopPropagation();
     toggleDropdown('archManageMenu', 'archManageMenuBtn');
   };
+
+  if($('#archSortAttendanceBtn')){
+    $('#archSortAttendanceBtn').onclick = () => {
+      toggleDropdown('archManageMenu', 'archManageMenuBtn');
+      sortArchiveMonthByAttendance(idx);
+    };
+  }
+
+  if($('#archExportSingleMonthBtn')){
+    $('#archExportSingleMonthBtn').onclick = () => {
+      toggleDropdown('archManageMenu', 'archManageMenuBtn');
+      exportSingleArchiveMonth(idx);
+    };
+  }
+
+  if($('#archGenSessionsBtn')){
+    $('#archGenSessionsBtn').onclick = () => {
+      toggleDropdown('archManageMenu', 'archManageMenuBtn');
+      generateSessionsModal(a, true, idx);
+    };
+  }
 
   // تقارير
   $('#archRepMonthBtn').onclick = () => showAnalytics(archiveStudents(a), pastSessions(a.sessions), a.records, a.lessonName, eff);
@@ -4165,12 +4398,25 @@ function archiveTableHTML(a, idx, statuses, displayStudents){
     }
     h += '<td class="sticky-col student-cell">'
        +   '<div class="student-name">'
-       +     '<span class="student-num">' + (i + 1) + '.</span> '
-       +     '<span class="st-name-click" data-act="view-arch-student" data-id="' + st.id + '" data-arch="' + idx + '" style="cursor:pointer;font-weight:700;color:var(--primary);text-decoration:underline" title="اضغط لعرض وتعديل بطاقة الطالب">' + esc(st.name) + '</span>'
-       +     (ind ? '<span class="att-ind-dot ' + ind.cls + '" style="background:' + ind.color + '" title="حضور ' + stPct + '%: ' + ind.label + '"></span>' : '')
-       +     (grp ? '<span class="group-badge" title="مجموعة: ' + esc(grp.name) + '">' + esc(grp.name) + '</span>' : '')
+       +     '<input class="order-input" type="number" min="1" max="' + a.students.length + '" value="' + (i + 1) + '" data-act="arch-order" data-arch="' + idx + '" data-id="' + st.id + '" title="اكتب رقم الترتيب الجديد ثم اضغط Enter"> '
+       +     (st.photo ? '<img src="' + st.photo + '" class="st-avatar-mini" alt="">' : '<span class="st-avatar-initial">' + esc((st.name||'').trim().charAt(0) || '👤') + '</span>')
+       +     ' <span class="st-name-click" data-act="view-arch-student" data-id="' + st.id + '" data-arch="' + idx + '" style="cursor:pointer;font-weight:700;color:var(--primary);text-decoration:underline" title="اضغط لعرض وتعديل بطاقة الطالب">' + esc(st.name) + '</span>'
+       +     (grp ? ' <span class="badge-group" title="مجموعة: ' + esc(grp.name) + '">' + esc(grp.name) + '</span>' : '')
+       +     (ind ? ' <span class="badge-indicator" style="background:' + ind.color + '" title="' + esc(ind.label) + ' (' + stPct + '%)">' + esc(ind.label) + '</span>' : '')
        +   '</div>'
-       +   '<div style="font-size:10px;color:#64748b;direction:ltr;margin-top:2px">' + esc(localPhone(st.phone)) + '</div>'
+       +   '<div class="student-phone">' + esc(st.phone) + '</div>'
+       +   (st.guardianPhone ? '<div class="student-phone">👨 ولي الأمر: ' + esc(st.guardianPhone) + ' <a class="mini-btn mini-call" href="tel:' + esc(st.guardianPhone) + '">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="' + st.id + '" data-phone="' + esc(st.guardianPhone) + '">واتساب</button></div>' : '')
+       +   ((st.guardianExtraPhones||[]).map(p => '<div class="student-phone">👨 ' + esc(p) + ' <a class="mini-btn mini-call" href="tel:' + esc(p) + '">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="' + st.id + '" data-phone="' + esc(p) + '">واتساب</button></div>').join(''))
+       +   ((st.extraPhones||[]).map(p => '<div class="student-phone">📱 ' + esc(p) + ' <a class="mini-btn mini-call" href="tel:' + esc(p) + '">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="' + st.id + '" data-phone="' + esc(p) + '">واتساب</button></div>').join(''))
+       +   '<div class="student-actions">'
+       +     '<button class="mini-btn mini-move" data-act="arch-move-student" data-arch="' + idx + '" data-id="' + st.id + '" data-dir="up"' + (i === 0 ? ' disabled' : '') + ' title="تحريك لأعلى">▲</button>'
+       +     '<button class="mini-btn mini-move" data-act="arch-move-student" data-arch="' + idx + '" data-id="' + st.id + '" data-dir="down"' + (i === a.students.length - 1 ? ' disabled' : '') + ' title="تحريك لأسفل">▼</button>'
+       +     (st.phone ? '<a class="mini-btn mini-call" href="tel:' + esc(st.phone) + '">📞 اتصال</a>' : '')
+       +     (st.phone ? '<button class="mini-btn mini-wa" data-act="wa" data-id="' + st.id + '">واتساب</button>' : '')
+       +     '<button class="mini-btn mini-wa" data-act="student-summary" data-arch="' + idx + '" data-id="' + st.id + '" title="ملخص حضور الطالب في هذا الشهر">📤 ملخص</button>'
+       +     '<button class="mini-btn mini-edit" data-act="edit-arch-student" data-arch="' + idx + '" data-id="' + st.id + '" title="تعديل بيانات الطالب">✏️</button>'
+       +     '<button class="mini-btn mini-del" data-act="del-arch-student" data-arch="' + idx + '" data-id="' + st.id + '" title="حذف الطالب من هذا الشهر المؤرشف فقط">🗑️</button>'
+       +   '</div>'
        + '</td>';
 
     sd.customFields.forEach(f => { h += '<td>' + esc((st && st.fields && st.fields[f.id]) || '') + '</td>'; });
@@ -7597,6 +7843,16 @@ function bindEvents(){
   if($('#addOldMonthArchiveBtn')){
     $('#addOldMonthArchiveBtn').onclick = () => addOldMonthModal();
   }
+  if($('#importSingleMonthArchiveBtn') && $('#importSingleMonthInput')){
+    $('#importSingleMonthArchiveBtn').onclick = () => {
+      $('#importSingleMonthInput').value = '';
+      $('#importSingleMonthInput').click();
+    };
+    $('#importSingleMonthInput').onchange = (e) => {
+      const file = e.target.files && e.target.files[0];
+      if(file) handleImportSingleArchiveMonth(file);
+    };
+  }
   if($('#addOldMonthLessonBtn')){
     $('#addOldMonthLessonBtn').onclick = () => {
       const L = curLesson();
@@ -8758,6 +9014,12 @@ function pushAppHistory(stateObj){
     window.history.pushState(stateObj || { app: 'daftar', time: Date.now() }, '');
   } catch(e){}
 }
+
+// تهيئة أولية لسجل التاريخ لمنع الخروج المفاجئ في الهواتف
+try {
+  window.history.replaceState({ root: true, app: 'daftar' }, '');
+  window.history.pushState({ active: true, app: 'daftar' }, '');
+} catch(e){}
 
 function handleAppBack(){
   // 1. إذا كان المودال مفتوحاً -> إغلاقه
