@@ -1125,7 +1125,7 @@ function renderLessonsHome(){
     + '<div class="lesson-info">'
     +   '<div class="lesson-name">' + esc(L.name) + (L.subscription ? ' <span class="badge-sub">اشتراك شهري</span>' : '') + '</div>'
     +   '<div class="lesson-meta">' + esc(scheduleLabel(L)) + ' · ' + L.students.length + ' طالب · ' + L.sessions.length + ' حصة</div>'
-    +   '<div class="lesson-meta">شهر ' + L.monthNumber + '/' + L.year + (L.groups.length ? ' · ' + L.groups.length + ' مجموعة' : '') + '</div>'
+    +   '<div class="lesson-meta">شهر ' + L.monthNumber + '/' + L.year + ((L.groups && L.groups.length) ? ' · ' + L.groups.length + ' مجموعة' : '') + '</div>'
     + '</div>'
     + '<div class="lesson-actions">'
     +   '<button class="btn btn-sm" data-act="open-lesson" data-id="'+L.id+'">فتح</button>'
@@ -2671,178 +2671,190 @@ function addExamModal(lesson, examToEdit){
 }
 
 /* ---------- 5. التحديد المتعدد ونقل/تكرار الطلاب (Bulk Move / Copy) ---------- */
-function bulkMoveStudentsModal(lesson, isCopy){
-  if(!lesson || selectedStudentIds.size === 0) return;
-  const otherLessons = state.lessons.filter(l => l.id !== lesson.id);
-  if(otherLessons.length === 0){
-    alert('لا توجد دروس أخرى متاحة للنقل أو التكرار إليها. قم بإنشاء درس آخر أولاً.');
+function bulkMoveStudentsModal(sourceContainer, isCopy, isFromArchive = false, archIdx = null){
+  if(!sourceContainer || selectedStudentIds.size === 0) return;
+  const isArch = isFromArchive || (archIdx !== null && archIdx !== undefined);
+  const sourceName = isArch ? (sourceContainer.lessonName + ' (شهر ' + sourceContainer.monthNumber + '/' + sourceContainer.year + ' - أرشيف)') : sourceContainer.name;
+
+  const activeLessons = (state.lessons || []).map(l => ({
+    type: 'lesson',
+    id: l.id,
+    obj: l,
+    label: '📚 ' + l.name + ' (شهر ' + l.monthNumber + '/' + l.year + ')'
+  })).filter(item => isArch || item.id !== sourceContainer.id);
+
+  const archiveMonths = (state.archive || []).map((a, aIndex) => ({
+    type: 'archive',
+    id: 'arch_' + aIndex,
+    aIdx: aIndex,
+    obj: a,
+    label: '📦 ' + (a.lessonName || 'درس') + ' — شهر ' + a.monthNumber + '/' + a.year + ' (' + (a.students ? a.students.length : 0) + ' طالب)'
+  })).filter(item => !isArch || item.aIdx !== archIdx);
+
+  const allDestinations = [...activeLessons, ...archiveMonths];
+
+  if(allDestinations.length === 0){
+    alert('لا توجد دروس أو شهور أخرى متاحة للنقل أو التكرار إليها.');
     return;
   }
 
-  let html = '<p style="font-size:13px;font-weight:700;margin-bottom:12px">تم تحديد <b style="color:var(--primary)">' + selectedStudentIds.size + '</b> طالب من درس «' + esc(lesson.name) + '».</p>'
-    + '<div class="form-row"><label>الدرس المستهدف'
-    +   '<select id="bm_target_lesson">'
-    +     otherLessons.map(l => '<option value="' + l.id + '">' + esc(l.name) + ' (شهر ' + l.monthNumber + '/' + l.year + ')</option>').join('')
+  let html = '<p style="font-size:13px;font-weight:700;margin-bottom:12px">تم تحديد <b style="color:var(--primary)">' + selectedStudentIds.size + '</b> طالب من «' + esc(sourceName) + '».</p>'
+    + '<div class="form-row"><label>الوجهة المستهدفة (درس حالي أو شهر مؤرشف)'
+    +   '<select id="bm_target_destination" style="font-weight:700;padding:8px">'
+    +     (activeLessons.length > 0 ? ('<optgroup label="📚 الدروس الحالية">' + activeLessons.map(d => '<option value="' + d.id + '">' + esc(d.label) + '</option>').join('') + '</optgroup>') : '')
+    +     (archiveMonths.length > 0 ? ('<optgroup label="📦 الشهور المؤرشفة">' + archiveMonths.map(d => '<option value="' + d.id + '">' + esc(d.label) + '</option>').join('') + '</optgroup>') : '')
     +   '</select>'
     + '</label></div>'
-    + '<div class="form-row"><label>المجموعة في الدرس المستهدف'
+    + '<div class="form-row" id="bm_group_row"><label>المجموعة في الوجهة المستهدفة'
     +   '<select id="bm_target_group"><option value="">بدون مجموعة</option></select>'
     + '</label></div>'
     + '<div class="form-row" style="margin-top:10px">'
     +   '<label class="switch-row" style="padding:4px 0">'
     +     '<div>'
-    +       '<div class="switch-label">ترحيل سجل حضور الشهر الحالي أيضاً</div>'
+    +       '<div class="switch-label">ترحيل سجل حضور الشهر أيضاً</div>'
     +       '<div class="muted" style="font-size:11px">إن كانت الحصص متطابقة، تُنقل حالات الحضور والغياب مع الطالب.</div>'
     +     '</div>'
     +     '<label class="switch"><input type="checkbox" id="bm_inc_att"><span class="switch-slider"></span></label>'
     +   '</label>'
     + '</div>'
     + '<div class="modal-actions">'
-    +   '<button class="btn btn-primary" id="bm_submit">' + (isCopy ? '📋 نسخ الطلاب للدرس المحدد' : '🔄 نقل الطلاب وحذفهم من الحالي') + '</button>'
+    +   '<button class="btn btn-primary" id="bm_submit">' + (isCopy ? '📋 نسخ الطلاب للوجهة المحددة' : '🔄 نقل الطلاب وحذفهم من الحالي') + '</button>'
     +   '<button class="btn btn-outline" id="bm_cancel">إلغاء</button>'
     + '</div>';
 
-  openModal(isCopy ? '📋 نسخ وتكرار الطلاب' : '🔄 نقل الطلاب بين الدروس', html);
+  openModal(isCopy ? '📋 نسخ وتكرار الطلاب' : '🔄 نقل الطلاب بين الدروس والشهور', html);
+
+  function getSelectedDestination(){
+    const val = $('#bm_target_destination') ? $('#bm_target_destination').value : '';
+    return allDestinations.find(d => d.id === val);
+  }
 
   function updateGroups(){
-    const targetL = state.lessons.find(l => l.id === $('#bm_target_lesson').value);
+    const dest = getSelectedDestination();
     const grpSel = $('#bm_target_group');
-    if(!targetL || !grpSel) return;
+    if(!dest || !grpSel) return;
+    const targetObj = dest.obj;
+    const groups = (targetObj.groups || (dest.type === 'archive' && state.lessons.find(l => l.id === targetObj.lessonId)?.groups)) || [];
     let opts = '<option value="">بدون مجموعة</option>';
-    (targetL.groups || []).forEach(g => {
+    groups.forEach(g => {
       opts += '<option value="' + esc(g.id) + '">' + esc(g.name) + '</option>';
     });
     grpSel.innerHTML = opts;
   }
-  $('#bm_target_lesson').onchange = updateGroups;
+
+  if($('#bm_target_destination')) $('#bm_target_destination').onchange = updateGroups;
   updateGroups();
 
   $('#bm_cancel').onclick = closeModal;
 
   $('#bm_submit').onclick = () => {
-    const targetL = state.lessons.find(l => l.id === $('#bm_target_lesson').value);
-    if(!targetL) return;
+    const dest = getSelectedDestination();
+    if(!dest) return;
+    const targetObj = dest.obj;
+    const isTargetArchive = dest.type === 'archive';
     const targetGid = $('#bm_target_group').value;
-    const incAtt = $('#bm_inc_att').checked;
+    const incAtt = $('#bm_inc_att') ? $('#bm_inc_att').checked : false;
 
-    const toProcess = lesson.students.filter(st => selectedStudentIds.has(st.id));
+    const sourceStudents = Array.isArray(sourceContainer.students) ? sourceContainer.students : archiveStudents(sourceContainer);
+    const toProcess = sourceStudents.filter(st => selectedStudentIds.has(st.id));
     if(toProcess.length === 0){
       alert('لم يتم تحديد أي طلاب.');
       return;
     }
 
-    // فحص الأسماء المكررة في الدرس المستهدف
+    if(!Array.isArray(targetObj.students)){
+      targetObj.students = JSON.parse(JSON.stringify(archiveStudents(targetObj)));
+    }
+
+    // فحص الأسماء المكررة في الوجهة المستهدفة
     const existingDuplicates = [];
     const studentsToTransfer = [];
 
     toProcess.forEach(st => {
-      const isDup = targetL.students.some(x => normalizeForSearch(x.name) === normalizeForSearch(st.name));
+      const isDup = targetObj.students.some(x => normalizeForSearch(x.name) === normalizeForSearch(st.name));
       if(isDup){
-        existingDuplicates.push(st);
+        existingDuplicates.push(st.name);
       } else {
         studentsToTransfer.push(st);
       }
     });
 
     if(studentsToTransfer.length === 0){
-      alert('⚠️ تعذر تنفيذ العملية:\nجميع الطلاب المحددين (' + existingDuplicates.map(s => s.name).join('، ') + ') مسجلون بالفعل في درس «' + targetL.name + '»!\nلن يتم تكرار أسمائهم منعاً للازدواجية.');
+      alert('⚠️ تعذّر النقل / النسخ:\nجميع الطلاب المحددين موجودون بالفعل بنفس الأسماء في الوجهة المستهدفة (' + existingDuplicates.join('، ') + ').');
       return;
     }
 
-    // رسالة تأكيد واضحة قبل النقل أو النسخ
-    let confirmMsg = 'هل أنت متأكد من ' + (isCopy ? 'نسخ' : 'نقل') + ' (' + studentsToTransfer.length + ') طالب من درس «' + lesson.name + '» إلى درس «' + targetL.name + '»؟';
     if(existingDuplicates.length > 0){
-      confirmMsg += '\n\n⚠️ تنبيه: تم اكتشاف (' + existingDuplicates.length + ') طالب مسجلين بالفعل في الدرس المستهدف وسيتم تخطيهم منعاً للتكرار:\n• ' + existingDuplicates.map(s => s.name).join('\n• ');
+      const proceed = confirm('تنبيه: تم تخطي (' + existingDuplicates.length + ') طالب لأنهم موجودون بالفعل في الوجهة المستهدفة:\n' + existingDuplicates.join('، ') + '\n\nهل ترغب في متابعة نقل / نسخ باقي الطلاب (' + studentsToTransfer.length + ' طالب)؟');
+      if(!proceed) return;
     }
 
-    if(!confirm(confirmMsg)) return;
-
+    // إتمام النقل أو النسخ
     studentsToTransfer.forEach(st => {
-      const targetStudent = JSON.parse(JSON.stringify(st));
-      targetStudent.id = uid('s');
-      targetStudent.groupId = targetGid;
-      targetL.students.push(targetStudent);
+      const cloned = JSON.parse(JSON.stringify(st));
+      cloned.id = uid('st');
+      cloned.groupId = targetGid || '';
+      targetObj.students.push(cloned);
 
-      if(incAtt){
-        if(!targetL.records[targetStudent.id]) targetL.records[targetStudent.id] = {};
-        lesson.sessions.forEach((s, idx) => {
-          const rec = (lesson.records[st.id] && lesson.records[st.id][s.id]);
-          if(rec && targetL.sessions[idx]){
-            targetL.records[targetStudent.id][targetL.sessions[idx].id] = JSON.parse(JSON.stringify(rec));
+      if(!targetObj.records) targetObj.records = {};
+      targetObj.records[cloned.id] = {};
+
+      if(incAtt && sourceContainer.records && sourceContainer.records[st.id]){
+        (targetObj.sessions || []).forEach(ts => {
+          const matchingSourceSession = (sourceContainer.sessions || []).find(ss => ss.date === ts.date || ss.label === ts.label);
+          if(matchingSourceSession && sourceContainer.records[st.id][matchingSourceSession.id]){
+            targetObj.records[cloned.id][ts.id] = JSON.parse(JSON.stringify(sourceContainer.records[st.id][matchingSourceSession.id]));
           }
         });
       }
-
-      if(!isCopy){
-        // حذف من الدرس الأصلي عند النقل
-        lesson.students = lesson.students.filter(x => x.id !== st.id);
-        delete lesson.records[st.id];
-      }
     });
+
+    // إذا كان نقل وليس نسخ: حذف من المصدر
+    if(!isCopy){
+      const movedIds = new Set(studentsToTransfer.map(s => s.id));
+      sourceContainer.students = sourceContainer.students.filter(s => !movedIds.has(s.id));
+      if(sourceContainer.records){
+        movedIds.forEach(sid => {
+          delete sourceContainer.records[sid];
+          if(sourceContainer.examScores) delete sourceContainer.examScores[sid];
+          if(sourceContainer.examNotes) delete sourceContainer.examNotes[sid];
+          if(sourceContainer.examExclusions) delete sourceContainer.examExclusions[sid];
+        });
+      }
+    }
 
     selectedStudentIds.clear();
     isBulkSelecting = false;
     saveState();
-    renderLessonDetail();
     closeModal();
-    const dupNote = existingDuplicates.length > 0 ? ' (تم تخطي ' + existingDuplicates.length + ' طالب مكررين)' : '';
-    showToastMessage('✅ تم ' + (isCopy ? 'نسخ' : 'نقل') + ' ' + studentsToTransfer.length + ' طالب بنجاح.' + dupNote);
+
+    if(isArch && archIdx !== null) renderArchiveDetail(archIdx);
+    else renderAll();
+
+    showToastMessage('✅ تم ' + (isCopy ? 'نسخ' : 'نقل') + ' (' + studentsToTransfer.length + ') طالب إلى «' + dest.label + '» بنجاح.');
   };
 }
 
-/* ---------- 6. النسخ الاحتياطي السحابي (Cloud Backup) ---------- */
-async function cloudShareBackup(){
-  const safeState = sanitizeExportState(state);
-  const json = JSON.stringify(safeState, null, 2);
-  const fn = 'daftar-backup-' + todayStr() + '.json';
-
-  try {
-    const file = new File([json], fn, { type: 'application/json' });
-    if(navigator.canShare && navigator.canShare({ files: [file] })){
-      await navigator.share({
-        files: [file],
-        title: 'نسخة احتياطية - تطبيق دفتر',
-        text: 'نسخة احتياطية كاملة لبيانات دفتر بتاريخ ' + todayStr()
-      });
-      showToastMessage('✅ تمت المشاركة السحابية بنجاح.');
-      return;
-    }
-  } catch(err) {
-    if(err.name === 'AbortError') return;
-  }
-
-  // Fallback: تنزيل الملف للجهاز مع إشعار للمستخدم
-  downloadBlob(json, fn, 'application/json');
-  showToastMessage('⬇️ تم تنزيل النسخة الاحتياطية. يمكنك رفعها لـ Google Drive أو حفظها.');
-}
-
-/* ---------- إدارة بوتات ومحادثات تيليجرام المتعددة (v33) ---------- */
 function renderTgBotsList(){
-  const listEl = $('#tgBotsList');
-  if(!listEl) return;
+  const container = $('#tgBotsList');
+  if(!container) return;
   const bots = state.settings.tgBots || [];
-  const activeId = state.settings.activeTgBotId;
-
   if(bots.length === 0){
-    listEl.innerHTML = '<p class="muted" style="font-size:12px;margin:6px 0">لا توجد بوتات محفوظة حالياً. اضغط على «➕ إضافة بوت أو محادثة» لحفظ بيانات البوت والدردشة.</p>';
+    container.innerHTML = '<p class="muted" style="font-size:12px;margin:6px 0">لم يتم حفظ أي بوتات إضافية بعد. يمكنك إضافة بوت تيليجرام لإرسال النسخ الاحتياطية إليه مباشرة.</p>';
     return;
   }
-
-  listEl.innerHTML = bots.map(b => {
-    const isActive = (b.id === activeId);
-    const tokenPreview = b.token ? (b.token.slice(0, 7) + '...' + b.token.slice(-4)) : 'بدون توكن';
-    return '<div class="tg-bot-card ' + (isActive ? 'active' : '') + '">'
-      + '<div class="tg-bot-info">'
-      +   '<div class="tg-bot-name">'
-      +     '🤖 ' + esc(b.name)
-      +     (isActive ? '<span class="tg-bot-badge">النشط حالياً ⭐</span>' : '')
-      +   '</div>'
-      +   '<div class="tg-bot-meta">Chat ID: ' + esc(b.chatId || '-') + ' · Token: ' + esc(tokenPreview) + '</div>'
+  const activeId = state.settings.activeTgBotId || (bots[0] ? bots[0].id : null);
+  container.innerHTML = bots.map(b => {
+    const isAct = b.id === activeId;
+    return '<div class="tg-bot-item' + (isAct ? ' active' : '') + '" style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border:1px solid ' + (isAct ? 'var(--primary)' : 'var(--border)') + ';border-radius:8px;margin-bottom:6px;background:' + (isAct ? '#f0f4ff' : '#fff') + '">'
+      + '<div>'
+      +   '<div style="font-weight:800;font-size:13px">' + (isAct ? '⭐ ' : '') + esc(b.name) + '</div>'
+      +   '<div class="muted" style="font-size:11px">Chat ID: ' + esc(b.chatId) + '</div>'
       + '</div>'
-      + '<div class="tg-bot-actions">'
-      +   (!isActive ? '<button class="btn btn-sm btn-outline" data-act="set-active-bot" data-id="' + b.id + '" title="تعيين كافتراضي">⭐ تعيين</button>' : '')
-      +   '<button class="mini-btn mini-edit" data-act="edit-bot" data-id="' + b.id + '" title="تعديل">✏️</button>'
-      +   '<button class="mini-btn mini-del" data-act="del-bot" data-id="' + b.id + '" title="حذف">🗑️</button>'
+      + '<div style="display:flex;gap:6px">'
+      +   (!isAct ? '<button class="btn btn-sm btn-outline" data-act="set-active-bot" data-id="' + b.id + '" style="font-size:11px;padding:2px 8px">تعيين كافتراضي</button>' : '<span class="badge" style="font-size:11px;background:var(--primary);color:#fff;padding:2px 8px;border-radius:4px">الافتراضي</span>')
+      +   '<button class="btn btn-sm btn-outline" data-act="edit-bot" data-id="' + b.id + '" style="font-size:11px;padding:2px 6px" title="تعديل">✏️</button>'
+      +   '<button class="btn btn-sm btn-outline" data-act="del-bot" data-id="' + b.id + '" style="font-size:11px;padding:2px 6px;color:#b91c1c" title="حذف">🗑️</button>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -2894,6 +2906,36 @@ function addTgBotModal(botToEdit){
     closeModal();
     showToastMessage('✅ تم حفظ بيانات البوت بنجاح.');
   };
+}
+
+async function cloudShareBackup(){
+  const safeState = sanitizeExportState(state);
+  const jsonStr = JSON.stringify(safeState, null, 2);
+  const fileName = 'نسخة_احتياطية_Daftar_' + todayStr() + '.json';
+  
+  if(typeof navigator !== 'undefined' && navigator.share && navigator.canShare){
+    try {
+      const file = new File([jsonStr], fileName, { type: 'application/json' });
+      if(navigator.canShare({ files: [file] })){
+        await navigator.share({
+          title: 'نسخة احتياطية - تطبيق دفتر',
+          text: 'ملف النسخة الاحتياطية لتطبيق دفتر بتاريخ ' + todayStr(),
+          files: [file]
+        });
+        showToastMessage('✅ تمت المشاركة بنجاح.');
+        return;
+      }
+    } catch(e){
+      if(e.name !== 'AbortError'){
+        console.error(e);
+      } else {
+        return;
+      }
+    }
+  }
+  
+  exportBackup();
+  showToastMessage('⬇️ تم تنزيل النسخة الاحتياطية على جهازك لمشاركتها.');
 }
 
 async function telegramBackup(){
@@ -3157,6 +3199,42 @@ async function telegramBackup(){
   };
 }
 
+
+async function executeTelegramUpload(token, chatId, content, filename, caption){
+  const cleanToken = (token || '').trim();
+  const cleanChatId = (chatId || '').trim();
+  if(!cleanToken || !cleanChatId){
+    showToastMessage('❌ خطأ: يرجى التأكد من كتابة Bot Token و Chat ID بشكل صحيح.');
+    return;
+  }
+  showToastMessage('⏳ جاري إرسال النسخة عبر بوت تيليجرام...');
+  try {
+    const blob = new Blob([content], { type: 'application/json' });
+    const formData = new FormData();
+    formData.append('chat_id', cleanChatId);
+    formData.append('document', blob, filename);
+    if(caption) formData.append('caption', caption);
+
+    const res = await fetch('https://api.telegram.org/bot' + encodeURIComponent(cleanToken) + '/sendDocument', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await res.json();
+    if(result && result.ok){
+      showToastMessage('🚀 تم إرسال الملف بنجاح إلى تيليجرام!');
+      if($('#tgStatus')) $('#tgStatus').textContent = '✅ تم الإرسال بنجاح في ' + new Date().toLocaleTimeString('ar-EG');
+    } else {
+      const errMsg = (result && result.description) ? result.description : 'فشل الإرسال';
+      alert('❌ فشل الإرسال إلى تيليجرام:\n' + errMsg + '\n\nتأكد من صحة التوكن ورقم المحادثة (Chat ID) وأن البوت مضاف في المحادثة أو الجروب ومعه صلاحية الإرسال.');
+      if($('#tgStatus')) $('#tgStatus').textContent = '❌ فشل الإرسال: ' + errMsg;
+    }
+  } catch(err) {
+    console.error(err);
+    alert('❌ تعذّر الاتصال بخوادم تيليجرام. تأكد من اتصال الإنترنت وصلاحيات البوت.');
+    if($('#tgStatus')) $('#tgStatus').textContent = '❌ تعذّر الاتصال بالإنترنت';
+  }
+}
+
 function openResetModal(){
   const lessons = state.lessons || [];
 
@@ -3395,7 +3473,7 @@ function renderLessonDetail(){
   detail.style.display = 'block';
 
   $('#lessonTitle').textContent = L.name;
-  $('#lessonMeta').textContent = esc(scheduleLabel(L)) + ' · ' + L.students.length + ' طالب · شهر ' + L.monthNumber + '/' + L.year + (L.subscription ? ' · اشتراك شهري' : '') + (L.groups.length ? ' · ' + L.groups.length + ' مجموعة' : '');
+  $('#lessonMeta').textContent = esc(scheduleLabel(L)) + ' · ' + L.students.length + ' طالب · شهر ' + L.monthNumber + '/' + L.year + (L.subscription ? ' · اشتراك شهري' : '') + ((L.groups && L.groups.length) ? ' · ' + L.groups.length + ' مجموعة' : '');
 
   // الدخل داخل الدرس (اشتراك)
   const incEl = $('#lessonIncome');
@@ -4186,9 +4264,10 @@ function renderArchiveDetail(idx){
     };
     $('#arch_mCancel').onclick = closeModal;
   };
-  $('#archExportMonthBtn').onclick = () => exportArchiveMonth(a);
-  $('#archRestoreBtn').onclick = () => restoreArchiveMonth(idx);
-  $('#archDeleteBtn').onclick = () => {
+  if($('#archExportSingleMonthBtn')) $('#archExportSingleMonthBtn').onclick = () => exportSingleArchivedMonth(idx);
+  if($('#archExportMonthBtn')) $('#archExportMonthBtn').onclick = () => exportSingleArchivedMonth(idx);
+  if($('#archRestoreBtn')) $('#archRestoreBtn').onclick = () => restoreArchiveMonth(idx);
+  if($('#archDeleteBtn')) $('#archDeleteBtn').onclick = () => {
     confirmDangerModal({
       title: '⚠️ حذف شهر من الأرشيف',
       message: 'هل أنت متأكد تماماً من حذف شهر (' + a.monthNumber + '/' + a.year + ') لـ «' + esc(a.lessonName) + '» من الأرشيف نهائياً؟',
@@ -4294,12 +4373,23 @@ function archiveTableHTML(a, idx, statuses, displayStudents){
     }
     h += '<td class="sticky-col student-cell">'
        +   '<div class="student-name">'
-       +     '<span class="student-num">' + (i + 1) + '.</span> '
-       +     '<span class="st-name-click" data-act="view-arch-student" data-id="' + st.id + '" data-arch="' + idx + '" style="cursor:pointer;font-weight:700;color:var(--primary);text-decoration:underline" title="اضغط لعرض وتعديل بطاقة الطالب">' + esc(st.name) + '</span>'
-       +     (ind ? '<span class="att-ind-dot ' + ind.cls + '" style="background:' + ind.color + '" title="حضور ' + stPct + '%: ' + ind.label + '"></span>' : '')
-       +     (grp ? '<span class="group-badge" title="مجموعة: ' + esc(grp.name) + '">' + esc(grp.name) + '</span>' : '')
+       +     '<input class="order-input" type="number" min="1" max="' + students.length + '" value="' + (i + 1) + '" data-act="order" data-arch="' + idx + '" data-id="' + st.id + '" title="اكتب رقم الترتيب الجديد ثم اضغط Enter للنقل المباشر"> '
+       +     (st.photo ? '<img src="' + st.photo + '" class="st-avatar-mini" alt="">' : '<span class="st-avatar-initial">' + esc((st.name||'').trim().charAt(0) || '👤') + '</span>')
+       +     ' <span class="st-name-click" data-act="view-arch-student" data-id="' + st.id + '" data-arch="' + idx + '" style="cursor:pointer;font-weight:700;color:var(--primary);text-decoration:underline" title="اضغط لعرض وتعديل بطاقة الطالب">' + esc(st.name) + '</span>'
+       +     (grp ? ' <span class="badge-group">' + esc(grp.name) + '</span>' : '')
+       +     (ind ? ' <span class="badge-indicator" style="background:' + ind.color + '" title="' + esc(ind.label) + ' (' + stPct + '%)">' + esc(ind.label) + '</span>' : '')
        +   '</div>'
-       +   '<div style="font-size:10px;color:#64748b;direction:ltr;margin-top:2px">' + esc(localPhone(st.phone)) + '</div>'
+       +   '<div class="student-phone">' + esc(st.phone) + '</div>'
+       +   ((st.extraPhones||[]).map(p => '<div class="student-phone">📱 ' + esc(p) + ' <a class="mini-btn mini-call" href="tel:' + esc(p) + '">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-arch="' + idx + '" data-id="' + st.id + '" data-phone="' + esc(p) + '">واتساب</button></div>').join(''))
+       +   '<div class="student-actions">'
+       +     '<button class="mini-btn mini-move" data-act="move-student" data-arch="' + idx + '" data-id="' + st.id + '" data-dir="up"' + (i === 0 ? ' disabled' : '') + ' title="تحريك لأعلى">▲</button>'
+       +     '<button class="mini-btn mini-move" data-act="move-student" data-arch="' + idx + '" data-id="' + st.id + '" data-dir="down"' + (i === students.length - 1 ? ' disabled' : '') + ' title="تحريك لأسفل">▼</button>'
+       +     (st.phone ? '<a class="mini-btn mini-call" href="tel:' + esc(st.phone) + '">📞 اتصال</a>' : '')
+       +     (st.phone ? '<button class="mini-btn mini-wa" data-act="wa" data-arch="' + idx + '" data-id="' + st.id + '">واتساب</button>' : '')
+       +     '<button class="mini-btn mini-wa" data-act="student-summary" data-arch="' + idx + '" data-id="' + st.id + '" title="ملخص حضور واختبارات الطالب عبر واتساب">📤 ملخص</button>'
+       +     '<button class="mini-btn mini-edit" data-act="view-arch-student" data-arch="' + idx + '" data-id="' + st.id + '" title="تعديل بيانات الطالب">✏️</button>'
+       +     '<button class="mini-btn mini-del" data-act="del-arch-student" data-arch="' + idx + '" data-id="' + st.id + '" title="حذف الطالب من هذا الشهر المؤرشف فقط">🗑️</button>'
+       +   '</div>'
        + '</td>';
 
     sd.customFields.forEach(f => { h += '<td>' + esc((st && st.fields && st.fields[f.id]) || '') + '</td>'; });
@@ -8121,6 +8211,35 @@ function bindEvents(){
       const L = curLesson();
       if(L) studentForm(L, L.students.find(x => x.id === id));
     }
+    else if(act === 'del-arch-student'){
+      const archAttr = t.dataset.arch;
+      const archIdx = (archAttr !== undefined && archAttr !== '' && !isNaN(parseInt(archAttr, 10)))
+        ? parseInt(archAttr, 10)
+        : (currentArchiveIdx !== null ? currentArchiveIdx : null);
+      if(archIdx === null || !state.archive[archIdx]) return;
+      const a = state.archive[archIdx];
+      if(!Array.isArray(a.students)) a.students = JSON.parse(JSON.stringify(archiveStudents(a)));
+      const st = a.students.find(x => x.id === id);
+      if(!st) return;
+
+      confirmDangerModal({
+        title: '⚠️ حذف الطالب من الشهر المؤرشف',
+        message: 'هل أنت متأكد من حذف الطالب «' + esc(st.name) + '» من هذا الشهر المؤرشف (' + a.monthNumber + '/' + a.year + ') فقط؟',
+        itemName: st.name + ' - شهر ' + a.monthNumber + '/' + a.year,
+        dangerNote: 'لن يتأثر وجود الطالب أو درجاته في أي شهور أخرى أو في الشهر الحالي.',
+        confirmText: 'نعم، احذف الطالب من هذا الشهر 🗑️',
+        onConfirm: () => {
+          a.students = a.students.filter(x => x.id !== id);
+          if(a.records) delete a.records[id];
+          if(a.examScores) delete a.examScores[id];
+          if(a.examNotes) delete a.examNotes[id];
+          if(a.examExclusions) delete a.examExclusions[id];
+          saveState();
+          renderArchiveDetail(archIdx);
+          showToastMessage('🗑️ تم حذف الطالب من هذا الشهر المؤرشف فقط بنجاح.');
+        }
+      });
+    }
     else if(act === 'del-student'){
       const L = curLesson();
       const st = L && L.students.find(x => x.id === id);
@@ -8143,19 +8262,37 @@ function bindEvents(){
       }
     }
     else if(act === 'move-student'){
-      const L = curLesson();
-      if(!L) return;
-      const i = L.students.findIndex(x => x.id === id);
-      const dir = t.dataset.dir;
-      const j = dir === 'up' ? i-1 : i+1;
-      if(i < 0 || j < 0 || j >= L.students.length) return;
-      const tmp = L.students[i]; L.students[i] = L.students[j]; L.students[j] = tmp;
-      saveState(); renderLessonDetail();
+      const archAttr = t.dataset.arch;
+      const archIdx = (archAttr !== undefined && archAttr !== '' && !isNaN(parseInt(archAttr, 10)))
+        ? parseInt(archAttr, 10)
+        : (currentArchiveIdx !== null ? currentArchiveIdx : null);
+      if(archIdx !== null && state.archive[archIdx]){
+        const a = state.archive[archIdx];
+        if(!Array.isArray(a.students)) a.students = JSON.parse(JSON.stringify(archiveStudents(a)));
+        const i = a.students.findIndex(x => x.id === id);
+        const dir = t.dataset.dir;
+        const j = dir === 'up' ? i-1 : i+1;
+        if(i < 0 || j < 0 || j >= a.students.length) return;
+        const tmp = a.students[i]; a.students[i] = a.students[j]; a.students[j] = tmp;
+        saveState(); renderArchiveDetail(archIdx);
+      } else {
+        const L = curLesson();
+        if(!L) return;
+        const i = L.students.findIndex(x => x.id === id);
+        const dir = t.dataset.dir;
+        const j = dir === 'up' ? i-1 : i+1;
+        if(i < 0 || j < 0 || j >= L.students.length) return;
+        const tmp = L.students[i]; L.students[i] = L.students[j]; L.students[j] = tmp;
+        saveState(); renderLessonDetail();
+      }
     }
     else if(act === 'reveal-money'){ revealMoney(); }
     else if(act === 'lock-money'){ lockMoney(); }
     else if(act === 'day-note'){
-      const archIdx = t.dataset.arch !== undefined ? parseInt(t.dataset.arch,10) : null;
+      const archAttr = t.dataset.arch;
+      const archIdx = (archAttr !== undefined && archAttr !== '' && !isNaN(parseInt(archAttr, 10)))
+        ? parseInt(archAttr, 10)
+        : (currentArchiveIdx !== null ? currentArchiveIdx : null);
       let container, students, sessions;
       if(archIdx !== null){
         container = state.archive[archIdx];
@@ -8590,13 +8727,28 @@ function bindEvents(){
       saveState();
     }
     else if(e.target.matches('[data-act="order"]')){
-      const L = curLesson();
-      if(!L) return;
-      const pos = parseInt(e.target.value, 10);
-      if(pos && pos >= 1 && pos <= L.students.length){
-        moveStudentTo(L, e.target.dataset.id, pos);
+      const archAttr = e.target.dataset.arch;
+      const archIdx = (archAttr !== undefined && archAttr !== '' && !isNaN(parseInt(archAttr, 10)))
+        ? parseInt(archAttr, 10)
+        : (currentArchiveIdx !== null ? currentArchiveIdx : null);
+      if(archIdx !== null && state.archive[archIdx]){
+        const a = state.archive[archIdx];
+        if(!Array.isArray(a.students)) a.students = JSON.parse(JSON.stringify(archiveStudents(a)));
+        const pos = parseInt(e.target.value, 10);
+        if(pos && pos >= 1 && pos <= a.students.length){
+          moveStudentTo(a, e.target.dataset.id, pos, true, archIdx);
+        } else {
+          renderArchiveDetail(archIdx);
+        }
       } else {
-        renderLessonDetail();
+        const L = curLesson();
+        if(!L) return;
+        const pos = parseInt(e.target.value, 10);
+        if(pos && pos >= 1 && pos <= L.students.length){
+          moveStudentTo(L, e.target.dataset.id, pos, false, null);
+        } else {
+          renderLessonDetail();
+        }
       }
     }
     else if(e.target.id === 'bulkSelectAll'){
@@ -8722,17 +8874,19 @@ function reorderArchiveStudent(archIdx, fromId, toId){
   renderArchiveDetail(archIdx);
 }
 
-function moveStudentTo(lesson, studentId, pos){
-  const from = lesson.students.findIndex(s => s.id === studentId);
+function moveStudentTo(container, studentId, pos, isArchive = false, archIdx = null){
+  if(!container || !Array.isArray(container.students)) return;
+  const from = container.students.findIndex(s => s.id === studentId);
   if(from < 0) return;
   let to = pos - 1;
   if(to < 0) to = 0;
-  if(to >= lesson.students.length) to = lesson.students.length - 1;
+  if(to >= container.students.length) to = container.students.length - 1;
   if(to === from) return;
-  const [moved] = lesson.students.splice(from, 1);
-  lesson.students.splice(to, 0, moved);
+  const [moved] = container.students.splice(from, 1);
+  container.students.splice(to, 0, moved);
   saveState();
-  renderLessonDetail();
+  if(isArchive && archIdx !== null) renderArchiveDetail(archIdx);
+  else renderLessonDetail();
 }
 
 function beginTouchDrag(row, t){
