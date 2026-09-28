@@ -34,8 +34,12 @@ const REMINDERS = [
   { value: 1440, label: 'قبل يوم' }
 ];
 const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
-const APP_VERSION = 'v39';
+const APP_VERSION = 'v40';
 const CHANGELOG = {
+  v40: [
+    '🔍 إصلاح جذري ونهائي لشريط البحث اللحظي داخل الشهور المؤرشفة: أصبحت بيانات البحث (data-name-norm و data-phone) مدمجة مباشرة في صفوف الجدول لضمان البحث الفوري المتوافق مع جدولي الحضور والاختبارات',
+    '♻️ رسالة إرشادية بعد استعادة الشهر: توضيح للمستخدم كيفية عرض شهوره المؤرشفة المتبقية بعد عملية الاستعادة'
+  ],
   v39: [
     '🔍 إصلاح شريط البحث السريع عن أسماء الطلاب داخل الشهور المؤرشفة (بالاسم أو الهاتف أو رقم الترتيب #)',
     '📈 إصلاح ترتيب الطلاب حسب الحضور وزر حذف الطالب داخل الشهر المؤرشف مع العزل التام',
@@ -3416,48 +3420,33 @@ function fastFilterLessonSearch(){
 
 function fastFilterArchiveSearch(){
   const rawVal = (archiveFilterQuery || '').trim();
-  const fq = rawVal.toLowerCase();
   const fqN = normalizeForSearch(rawVal);
-  const a = (currentArchiveIdx !== null) ? state.archive[currentArchiveIdx] : null;
   const clearBtn = $('#clearArchiveSearch');
   if(clearBtn){
     clearBtn.style.display = rawVal ? 'block' : 'none';
   }
-  if(!a) return;
 
   const isNumSearch = /^\d+$/.test(rawVal);
   const searchNum = isNumSearch ? parseInt(rawVal, 10) : null;
-  const students = Array.isArray(a.students) && a.students.length ? a.students : archiveStudents(a);
 
-  if(currentArchiveSubtab === 'exams'){
-    const rows = $('#archExamsTable tbody tr[data-sid]');
-    rows.forEach((tr, i) => {
-      const sid = tr.dataset.sid;
-      const st = students.find(x => x.id === sid);
-      if(!st || !rawVal){ tr.style.display = ''; return; }
-      const numMatch = (searchNum !== null && (i + 1) === searchNum);
-      const textMatch = normalizeForSearch(st.name || '').includes(fqN) ||
-        (st.phone || '').includes(fq) ||
-        (st.guardianPhone || '').includes(fq) ||
-        ((st.guardianExtraPhones || []).some(p => (p || '').includes(fq))) ||
-        ((st.extraPhones || []).some(p => (p || '').includes(fq)));
-      tr.style.display = (numMatch || textMatch) ? '' : 'none';
-    });
-  } else {
-    const rows = $('#archAttendanceTable tbody tr[data-sid]');
-    rows.forEach((tr, i) => {
-      const sid = tr.dataset.sid;
-      const st = students.find(x => x.id === sid);
-      if(!st || !rawVal){ tr.style.display = ''; return; }
-      const numMatch = (searchNum !== null && (i + 1) === searchNum);
-      const textMatch = normalizeForSearch(st.name || '').includes(fqN) ||
-        (st.phone || '').includes(fq) ||
-        (st.guardianPhone || '').includes(fq) ||
-        ((st.guardianExtraPhones || []).some(p => (p || '').includes(fq))) ||
-        ((st.extraPhones || []).some(p => (p || '').includes(fq)));
-      tr.style.display = (numMatch || textMatch) ? '' : 'none';
-    });
-  }
+  // حدد الجدول المناسب حسب التابّ
+  const tableId = (currentArchiveSubtab === 'exams') ? '#archExamsTable' : '#archAttendanceTable';
+  const rows = $$(tableId + ' tbody tr[data-sid]');
+
+  rows.forEach((tr, i) => {
+    if(!rawVal){
+      tr.style.display = '';
+      return;
+    }
+    // البحث بالرقم (ترتيب)
+    const numMatch = (searchNum !== null && (i + 1) === searchNum);
+    // البحث بالنص مباشرة من data-attributes المضافة في الصف
+    const nameNorm = tr.dataset.nameNorm || '';
+    const phone = tr.dataset.phone || '';
+    const textMatch = (nameNorm && nameNorm.includes(fqN)) ||
+      (phone && phone.includes(rawVal.toLowerCase()));
+    tr.style.display = (numMatch || textMatch) ? '' : 'none';
+  });
 }
 
 function renderLessonDetail(){
@@ -3863,11 +3852,20 @@ function sortArchiveChronologically(){
 
 function renderArchive(){
   const list = $('#archiveList');
+  const detail = $('#archiveDetail');
   if(!list) return;
+
+  if(currentArchiveIdx === null){
+    list.style.display = '';
+    if(detail){
+      detail.style.display = 'none';
+      detail.innerHTML = '';
+    }
+  }
 
   if(!Array.isArray(state.archive) || state.archive.length === 0){
     list.innerHTML = '<div class="empty-state">لا يوجد أرشيف بعد. عند أرشفة أي شهر لدرس أو إضافة شهر قديم سيظهر هنا.</div>';
-    $('#archiveDetail').innerHTML = '';
+    if(detail) detail.innerHTML = '';
     return;
   }
 
@@ -4367,7 +4365,9 @@ function archiveTableHTML(a, idx, statuses, displayStudents){
     const ind = ps.length > 0 ? attendanceIndicator(stPct) : null;
     const grp = ((L && L.groups) || a.groups || []).find(g => g.id === st.groupId);
 
-    h += '<tr class="student-row" draggable="true" data-drag-id="' + st.id + '" data-arch-idx="' + idx + '" data-sid="' + st.id + '">';
+    const _nameNorm = normalizeForSearch(st.name || '');
+    const _phone = ((st.phone || '') + ' ' + (st.guardianPhone || '') + ' ' + (st.extraPhones||[]).join(' ')).toLowerCase();
+    h += '<tr class="student-row" draggable="true" data-drag-id="' + st.id + '" data-arch-idx="' + idx + '" data-sid="' + st.id + '" data-name-norm="' + esc(_nameNorm) + '" data-phone="' + esc(_phone) + '">';
     if(isBulkSelecting){
       h += '<td class="bulk-select-cell"><input type="checkbox" class="arch-bulk-chk" data-id="' + st.id + '"' + (selectedStudentIds.has(st.id) ? ' checked' : '') + '></td>';
     }
@@ -4454,8 +4454,10 @@ function renderArchExamsTable(a, idx, displayStudents){
     const exclusions = (a.examExclusions && a.examExclusions[st.id]) || {};
     const notes = (a.examNotes && a.examNotes[st.id]) || {};
     let totalPct = 0, examCount = 0;
+    const _exNameNorm = normalizeForSearch(st.name || '');
+    const _exPhone = ((st.phone || '') + ' ' + (st.guardianPhone || '') + ' ' + (st.extraPhones||[]).join(' ')).toLowerCase();
 
-    h += '<tr data-sid="' + st.id + '"><td class="sticky-col student-cell">'
+    h += '<tr data-sid="' + st.id + '" data-name-norm="' + esc(_exNameNorm) + '" data-phone="' + esc(_exPhone) + '"><td class="sticky-col student-cell">'
       +   '<div class="student-name">'
       +     '<span class="student-num">' + (i + 1) + '.</span> '
       +     '<span class="st-name-click" data-act="view-arch-student" data-id="' + st.id + '" data-arch="' + idx + '" style="cursor:pointer;font-weight:700;color:var(--primary);text-decoration:underline">' + esc(st.name) + '</span>'
@@ -6754,7 +6756,7 @@ function restoreArchiveMonth(idx){
   renderAll();
   switchTab('lessons');
   renderLessonDetail();
-  showToastMessage('♻️ تم استعادة الشهر ' + a.monthNumber + '/' + a.year + ' للرئيسية بنجاح.');
+  showToastMessage('♻️ تم استعادة الشهر ' + a.monthNumber + '/' + a.year + ' للرئيسية بنجاح. لعرض شهورك المؤرشفة المتبقية، اضغط على تبويب الأرشيف مجدداً.');
 }
 
 function changeMonth(lesson){
@@ -7808,6 +7810,13 @@ function addStatusForm(){
 function switchTab(name){
   $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   $$('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  if(name === 'archive'){
+    if(currentArchiveIdx === null){
+      renderArchive();
+    } else {
+      renderArchiveDetail(currentArchiveIdx);
+    }
+  }
 }
 
 /* ---------- ربط الأحداث ---------- */
