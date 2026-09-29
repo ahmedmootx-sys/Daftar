@@ -37,12 +37,13 @@ const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
 const APP_VERSION = 'v40';
 const CHANGELOG = {
   v40: [
-    '⬇️ إصلاح زر تصدير الشهر: تفعيل زر تصدير أي شهر مؤرشف لوحده كملف مستقل (.daftar-month) بسلاسة تامة',
-    '📥 دعم شامل ومرن لاستيراد الشهور للأرشيف: إمكانية استيراد ملفات الشهور الفردية، حزم الدروس، والنسخ الاحتياطية وإضافتها أو دمجها في الأرشيف دون أخطاء الصيغة',
-    '🔔 ضبط إشعار التحديثات: منع تكرار ظهور نافذة ما الجديد المنبثقة عند فتح التطبيق مع الاحتفاظ بإمكانية فتحها دائماً من أيقونة الإشعارات 🔔',
-    '➕ إصلاح زر إضافة اختبار جديد في الشهور المؤرشفة: إضافة ورصد الاختبارات مباشرة وتحديث جدول الاختبارات داخل الشهر المؤرشف',
-    '🔍 البحث اللحظي فائق السرعة داخل الشهور المؤرشفة لجدولي الحضور والاختبارات',
-    '♻️ رسالة إرشادية واضحة بعد استعادة الشهر للرئيسية'
+    '⚡ التحضير السريع الجماعي في الشهور المؤرشفة: إضافة زر (⚡) في عناوين حصص الأرشيف لتحضير أو تغييب أو تسجيل اعتذار لجميع الطلاب بنقرة واحدة',
+    '📥 دعم استيراد الشهور المصدرة عبر تيليجرام: إمكانية استيراد ملفات الشهور الفردية المصدرة من بوت تيليجرام وفتحها في الأرشيف مباشرة دون أي أخطاء',
+    '📝 سلاسة كتابة الملاحظات: تسريع ومنع أي تعليق أو بطء عند كتابة الملاحظات في عمود ملاحظات الطالب داخل الشهور المؤرشفة',
+    '⬇️ إصلاح زر تصدير الشهر: تفعيل زر تصدير أي شهر مؤرشف لوحده كملف مستقل (.daftar-month)',
+    '➕ إصلاح زر إضافة اختبار جديد في الشهور المؤرشفة ورصد درجاته',
+    '🔔 ضبط إشعار التحديثات لعدم التكرار عند فتح التطبيق مع الاحتفاظ بفتحه من الإشعارات',
+    '🔍 البحث اللحظي الفوري داخل الشهور المؤرشفة'
   ],
   v39: [
     '🔍 إصلاح شريط البحث السريع عن أسماء الطلاب داخل الشهور المؤرشفة (بالاسم أو الهاتف أو رقم الترتيب #)',
@@ -1193,8 +1194,9 @@ let isBulkSelecting = false;
 let selectedStudentIds = new Set();
 
 /* ---------- 1. التحضير السريع الجماعي (Bulk Attendance) ---------- */
-function openBulkAttendanceModal(lesson, session){
-  if(!lesson || !session) return;
+function openBulkAttendanceModal(container, session, isArch = false, archIdx = null){
+  if(!container || !session) return;
+  const isArchive = isArch || (archIdx !== null && archIdx !== undefined) || (state.archive && state.archive.includes(container)) || currentArchiveIdx !== null;
   const html = '<div style="text-align:center;padding:8px">'
     + '<p style="font-size:14px;font-weight:700;margin-bottom:14px">تعيين حالة لجميع طلاب الحصة:<br><b style="color:var(--primary);font-size:15px">' + esc(session.label) + (session.dateLabel ? ' (' + esc(session.dateLabel) + ')' : '') + '</b></p>'
     + '<div style="display:flex;flex-direction:column;gap:10px;max-width:300px;margin:0 auto">'
@@ -1208,27 +1210,34 @@ function openBulkAttendanceModal(lesson, session){
   openModal('⚡ التحضير السريع الجماعي', html);
 
   function applyStatus(stCode){
-    let targetStudents = lesson.students;
-    if(groupFilterQuery && groupFilterQuery !== '__none__'){
-      targetStudents = targetStudents.filter(st => st.groupId === groupFilterQuery);
-    } else if(groupFilterQuery === '__none__'){
+    let targetStudents = Array.isArray(container.students) && container.students.length ? container.students : archiveStudents(container);
+    const filterQuery = isArchive ? archiveGroupFilterQuery : groupFilterQuery;
+    if(filterQuery && filterQuery !== '__none__'){
+      targetStudents = targetStudents.filter(st => st.groupId === filterQuery);
+    } else if(filterQuery === '__none__'){
       targetStudents = targetStudents.filter(st => !st.groupId);
     }
+    if(!container.records) container.records = {};
     targetStudents.forEach(st => {
-      if(!lesson.records[st.id]) lesson.records[st.id] = {};
+      if(!container.records[st.id]) container.records[st.id] = {};
       if(stCode === null){
-        delete lesson.records[st.id][session.id];
+        delete container.records[st.id][session.id];
       } else {
-        lesson.records[st.id][session.id] = {
+        container.records[st.id][session.id] = {
           status: stCode,
-          note: (lesson.records[st.id][session.id] && lesson.records[st.id][session.id].note) || ''
+          note: (container.records[st.id][session.id] && container.records[st.id][session.id].note) || ''
         };
       }
     });
     saveState();
-    renderLessonDetail();
+    if(isArchive){
+      const effectiveIdx = (archIdx !== null && archIdx !== undefined) ? archIdx : (currentArchiveIdx !== null ? currentArchiveIdx : state.archive.indexOf(container));
+      if(effectiveIdx >= 0) renderArchiveDetail(effectiveIdx);
+    } else {
+      renderLessonDetail();
+    }
     closeModal();
-    showToastMessage('تم تطبيق الحالة على ' + targetStudents.length + ' طالب.');
+    showToastMessage('✅ تم تطبيق الحالة على ' + targetStudents.length + ' طالب.');
   }
 
   $('#bulk_set_done').onclick = () => applyStatus('st_done');
@@ -3149,6 +3158,7 @@ async function telegramBackup(){
         exportedAt: new Date().toISOString(),
         isSingleMonthExport: true,
         archiveMonth: singleA,
+        archive: singleA,
         settings: {
           statuses: state.settings.statuses,
           customFields: state.settings.customFields
@@ -3989,22 +3999,36 @@ try { window.exportSingleArchiveMonth = exportSingleArchiveMonth; window.exportS
 function extractArchiveObjectsFromData(data){
   if(!data || typeof data !== 'object') return [];
   
-  // 1. كائن أرشيف ملف فردي مغلف
+  // 1. ملف تصدير تيليجرام أو ملفات الشهور الفردية (archiveMonth / singleMonth / archivedMonth / month)
+  if(data.archiveMonth && typeof data.archiveMonth === 'object'){
+    return Array.isArray(data.archiveMonth) ? data.archiveMonth : [data.archiveMonth];
+  }
+  if(data.archivedMonth && typeof data.archivedMonth === 'object'){
+    return Array.isArray(data.archivedMonth) ? data.archivedMonth : [data.archivedMonth];
+  }
+  if(data.singleMonth && typeof data.singleMonth === 'object'){
+    return Array.isArray(data.singleMonth) ? data.singleMonth : [data.singleMonth];
+  }
+  if(data.singleArchive && typeof data.singleArchive === 'object'){
+    return Array.isArray(data.singleArchive) ? data.singleArchive : [data.singleArchive];
+  }
+
+  // 2. كائن أرشيف ملف فردي مغلف (data.archive ككائن)
   if(data.archive && typeof data.archive === 'object' && !Array.isArray(data.archive)){
     return [data.archive];
   }
-  // 2. مصفوفة شهور مؤرشفة داخل data.archive أو data.archives
+  // 3. مصفوفة شهور مؤرشفة داخل data.archive أو data.archives
   if(Array.isArray(data.archive) && data.archive.length > 0){
     return data.archive;
   }
   if(Array.isArray(data.archives) && data.archives.length > 0){
     return data.archives;
   }
-  // 3. مصفوفة شهور مباشرة في الجذر
+  // 4. مصفوفة شهور مباشرة في الجذر
   if(Array.isArray(data) && data.length > 0){
     return data;
   }
-  // 4. ملف درس فردي { lesson: {...}, archives: [...] }
+  // 5. ملف درس فردي { lesson: {...}, archives: [...] }
   if(data.lesson && typeof data.lesson === 'object'){
     const list = Array.isArray(data.archives) ? data.archives.slice() : (Array.isArray(data.archive) ? data.archive.slice() : []);
     const lName = data.lesson.name || data.lesson.lessonName;
@@ -4031,11 +4055,11 @@ function extractArchiveObjectsFromData(data){
     }
     if(list.length > 0) return list;
   }
-  // 5. كائن شهر مباشر
+  // 6. كائن شهر مباشر
   if((data.lessonName || data.name || data.title) && (data.monthNumber !== undefined || data.month !== undefined || Array.isArray(data.sessions) || Array.isArray(data.students))){
     return [data];
   }
-  // 6. نسخة احتياطية كاملة تضم دروساً { lessons: [...], archive: [...] }
+  // 7. نسخة احتياطية كاملة تضم دروساً { lessons: [...], archive: [...] }
   if(Array.isArray(data.lessons) && data.lessons.length > 0){
     return data.lessons.map(L => ({
       id: uid('a'),
@@ -4479,8 +4503,9 @@ function archiveTableHTML(a, idx, statuses, displayStudents){
        + (s.event ? '<span class="week-event" data-act="edit-session-event" data-arch="' + idx + '" data-id="' + s.id + '">📝 ' + esc(s.event) + '</span>' : '')
        + '<button class="del-week" data-act="del-session" data-arch="' + idx + '" data-id="' + s.id + '" title="حذف الحصة">✕</button>'
        + '<div class="week-tools">'
-       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-arch="' + idx + '" data-id="' + s.id + '">📝</button>'
-       + '<button class="mini-btn mini-wa" data-act="session-summary" data-arch="' + idx + '" data-id="' + s.id + '">📤</button>'
+       + '<button class="mini-btn" data-act="bulk-attendance" data-arch="' + idx + '" data-id="' + s.id + '" title="⚡ التحضير السريع الجماعي للحصة">⚡</button>'
+       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-arch="' + idx + '" data-id="' + s.id + '" title="حدث الحصة">📝</button>'
+       + '<button class="mini-btn mini-wa" data-act="session-summary" data-arch="' + idx + '" data-id="' + s.id + '" title="ملخص واتساب">📤</button>'
        + '</div></div></th>';
   });
   h += '<th>' + esc(sd.notesLabel) + '</th>';
@@ -8576,9 +8601,19 @@ function bindEvents(){
       }
     }
     else if(act === 'bulk-attendance'){
-      const L = curLesson();
-      const s = L && L.sessions.find(x => x.id === id);
-      if(L && s) openBulkAttendanceModal(L, s);
+      const archAttr = t.dataset.arch;
+      const archIdx = (archAttr !== undefined && archAttr !== '' && !isNaN(parseInt(archAttr, 10)))
+        ? parseInt(archAttr, 10)
+        : (currentArchiveIdx !== null ? currentArchiveIdx : null);
+      if(archIdx !== null && state.archive && state.archive[archIdx]){
+        const a = state.archive[archIdx];
+        const s = a && (a.sessions || []).find(x => x.id === id);
+        if(a && s) openBulkAttendanceModal(a, s, true, archIdx);
+      } else {
+        const L = curLesson();
+        const s = L && (L.sessions || []).find(x => x.id === id);
+        if(L && s) openBulkAttendanceModal(L, s, false, null);
+      }
     }
     else if(act === 'open-payments'){
       const L = curLesson();
@@ -8800,6 +8835,26 @@ function bindEvents(){
       if(st){ if(!st.fields) st.fields = {}; st.fields[t.dataset.fid] = t.value; }
       clearTimeout(fieldSaveTimer);
       fieldSaveTimer = setTimeout(() => saveState(), 400);
+    }
+    if(t.matches('[data-act="note"]')){
+      const sid = t.dataset.id;
+      if(t.dataset.arch !== undefined){
+        const a = state.archive && state.archive[parseInt(t.dataset.arch, 10)];
+        if(a){
+          if(!a.records) a.records = {};
+          if(!a.records[sid]) a.records[sid] = {};
+          a.records[sid]['__note__'] = t.value;
+        }
+      } else {
+        const L = curLesson();
+        if(L){
+          if(!L.records) L.records = {};
+          if(!L.records[sid]) L.records[sid] = {};
+          L.records[sid]['__note__'] = t.value;
+        }
+      }
+      clearTimeout(fieldSaveTimer);
+      fieldSaveTimer = setTimeout(() => saveState(), 500);
     }
   });
 
