@@ -37,8 +37,12 @@ const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
 const APP_VERSION = 'v40';
 const CHANGELOG = {
   v40: [
-    '🔍 إصلاح جذري ونهائي لشريط البحث اللحظي داخل الشهور المؤرشفة: أصبحت بيانات البحث (data-name-norm و data-phone) مدمجة مباشرة في صفوف الجدول لضمان البحث الفوري المتوافق مع جدولي الحضور والاختبارات',
-    '♻️ رسالة إرشادية بعد استعادة الشهر: توضيح للمستخدم كيفية عرض شهوره المؤرشفة المتبقية بعد عملية الاستعادة'
+    '⬇️ إصلاح زر تصدير الشهر: تفعيل زر تصدير أي شهر مؤرشف لوحده كملف مستقل (.daftar-month) بسلاسة تامة',
+    '📥 دعم شامل ومرن لاستيراد الشهور للأرشيف: إمكانية استيراد ملفات الشهور الفردية، حزم الدروس، والنسخ الاحتياطية وإضافتها أو دمجها في الأرشيف دون أخطاء الصيغة',
+    '🔔 ضبط إشعار التحديثات: منع تكرار ظهور نافذة ما الجديد المنبثقة عند فتح التطبيق مع الاحتفاظ بإمكانية فتحها دائماً من أيقونة الإشعارات 🔔',
+    '➕ إصلاح زر إضافة اختبار جديد في الشهور المؤرشفة: إضافة ورصد الاختبارات مباشرة وتحديث جدول الاختبارات داخل الشهر المؤرشف',
+    '🔍 البحث اللحظي فائق السرعة داخل الشهور المؤرشفة لجدولي الحضور والاختبارات',
+    '♻️ رسالة إرشادية واضحة بعد استعادة الشهر للرئيسية'
   ],
   v39: [
     '🔍 إصلاح شريط البحث السريع عن أسماء الطلاب داخل الشهور المؤرشفة (بالاسم أو الهاتف أو رقم الترتيب #)',
@@ -2635,7 +2639,8 @@ function generateExamReportMessageText(lesson, targetExamId, targetGroupId){
   return { text: text.trim(), count };
 }
 
-function addExamModal(lesson, examToEdit){
+function addExamModal(lesson, examToEdit, isArch = false, archIdx = null){
+  if(!lesson) lesson = curLesson();
   if(!lesson) return;
   const isEdit = !!examToEdit;
   const html = '<div class="form-row"><label>اسم الاختبار أو الواجب<input id="ex_name" type="text" value="' + esc(isEdit ? examToEdit.name : '') + '" placeholder="مثال: اختبار الأسبوع الأول"></label></div>'
@@ -2668,11 +2673,23 @@ function addExamModal(lesson, examToEdit){
     }
 
     saveState();
-    renderExamsTable(lesson);
+    const effectiveArchIdx = (archIdx !== null && archIdx !== undefined) ? archIdx : ((isArch || currentArchiveIdx !== null) ? (Array.isArray(state.archive) ? state.archive.indexOf(lesson) : -1) : -1);
+    if(effectiveArchIdx !== -1 && effectiveArchIdx !== null && effectiveArchIdx !== undefined){
+      currentArchiveIdx = effectiveArchIdx;
+      currentArchiveSubtab = 'exams';
+      renderArchiveDetail(effectiveArchIdx);
+    } else if(currentArchiveIdx !== null){
+      currentArchiveSubtab = 'exams';
+      renderArchiveDetail(currentArchiveIdx);
+    } else {
+      renderExamsTable(lesson);
+    }
     closeModal();
     showToastMessage('✅ تم حفظ بيانات الاختبار.');
   };
 }
+const openAddExamModal = (lesson, examToEdit, isArch, archIdx) => addExamModal(lesson, examToEdit, isArch, archIdx);
+try { window.openAddExamModal = openAddExamModal; window.addExamModal = addExamModal; } catch(e){}
 
 /* ---------- 5. التحديد المتعدد ونقل/تكرار الطلاب (Bulk Move / Copy) ---------- */
 function bulkMoveStudentsModal(sourceContainer, isCopy, isFromArchive = false, archIdx = null){
@@ -3957,7 +3974,7 @@ function exportSingleArchiveMonth(idx){
   }
   const payload = {
     type: 'daftar-single-month',
-    version: 38,
+    version: 40,
     exportedAt: new Date().toISOString(),
     archive: JSON.parse(JSON.stringify(a))
   };
@@ -3966,56 +3983,166 @@ function exportSingleArchiveMonth(idx){
   downloadBlob(JSON.stringify(payload, null, 2), filename, 'application/json');
   showToastMessage('📤 تم تصدير شهر «' + a.lessonName + ' (' + a.monthNumber + '/' + a.year + ')» كملف منفصل بنجاح.');
 }
+const exportSingleArchivedMonth = exportSingleArchiveMonth;
+try { window.exportSingleArchiveMonth = exportSingleArchiveMonth; window.exportSingleArchivedMonth = exportSingleArchivedMonth; } catch(e){}
+
+function extractArchiveObjectsFromData(data){
+  if(!data || typeof data !== 'object') return [];
+  
+  // 1. كائن أرشيف ملف فردي مغلف
+  if(data.archive && typeof data.archive === 'object' && !Array.isArray(data.archive)){
+    return [data.archive];
+  }
+  // 2. مصفوفة شهور مؤرشفة داخل data.archive أو data.archives
+  if(Array.isArray(data.archive) && data.archive.length > 0){
+    return data.archive;
+  }
+  if(Array.isArray(data.archives) && data.archives.length > 0){
+    return data.archives;
+  }
+  // 3. مصفوفة شهور مباشرة في الجذر
+  if(Array.isArray(data) && data.length > 0){
+    return data;
+  }
+  // 4. ملف درس فردي { lesson: {...}, archives: [...] }
+  if(data.lesson && typeof data.lesson === 'object'){
+    const list = Array.isArray(data.archives) ? data.archives.slice() : (Array.isArray(data.archive) ? data.archive.slice() : []);
+    const lName = data.lesson.name || data.lesson.lessonName;
+    if(lName && (data.lesson.monthNumber !== undefined || data.lesson.month !== undefined || Array.isArray(data.lesson.sessions))){
+      list.push({
+        id: uid('a'),
+        lessonId: data.lesson.id || uid('l'),
+        lessonName: lName,
+        monthNumber: parseInt(data.lesson.monthNumber || data.lesson.month || 1, 10),
+        year: parseInt(data.lesson.year || new Date().getFullYear(), 10),
+        subscription: !!data.lesson.subscription,
+        students: Array.isArray(data.lesson.students) ? data.lesson.students : [],
+        sessions: Array.isArray(data.lesson.sessions) ? data.lesson.sessions : [],
+        records: (data.lesson.records && typeof data.lesson.records === 'object') ? data.lesson.records : {},
+        exams: Array.isArray(data.lesson.exams) ? data.lesson.exams : [],
+        examScores: (data.lesson.examScores && typeof data.lesson.examScores === 'object') ? data.lesson.examScores : {},
+        examNotes: (data.lesson.examNotes && typeof data.lesson.examNotes === 'object') ? data.lesson.examNotes : {},
+        examExclusions: (data.lesson.examExclusions && typeof data.lesson.examExclusions === 'object') ? data.lesson.examExclusions : {},
+        hiddenExamStudents: Array.isArray(data.lesson.hiddenExamStudents) ? data.lesson.hiddenExamStudents : [],
+        examGroups: Array.isArray(data.lesson.examGroups) ? data.lesson.examGroups : [],
+        groups: Array.isArray(data.lesson.groups) ? data.lesson.groups : [],
+        archivedAt: new Date().toISOString()
+      });
+    }
+    if(list.length > 0) return list;
+  }
+  // 5. كائن شهر مباشر
+  if((data.lessonName || data.name || data.title) && (data.monthNumber !== undefined || data.month !== undefined || Array.isArray(data.sessions) || Array.isArray(data.students))){
+    return [data];
+  }
+  // 6. نسخة احتياطية كاملة تضم دروساً { lessons: [...], archive: [...] }
+  if(Array.isArray(data.lessons) && data.lessons.length > 0){
+    return data.lessons.map(L => ({
+      id: uid('a'),
+      lessonId: L.id || uid('l'),
+      lessonName: L.name || 'درس',
+      monthNumber: parseInt(L.monthNumber || 1, 10),
+      year: parseInt(L.year || new Date().getFullYear(), 10),
+      subscription: !!L.subscription,
+      students: Array.isArray(L.students) ? L.students : [],
+      sessions: Array.isArray(L.sessions) ? L.sessions : [],
+      records: (L.records && typeof L.records === 'object') ? L.records : {},
+      exams: Array.isArray(L.exams) ? L.exams : [],
+      examScores: (L.examScores && typeof L.examScores === 'object') ? L.examScores : {},
+      examNotes: (L.examNotes && typeof L.examNotes === 'object') ? L.examNotes : {},
+      examExclusions: (L.examExclusions && typeof L.examExclusions === 'object') ? L.examExclusions : {},
+      hiddenExamStudents: Array.isArray(L.hiddenExamStudents) ? L.hiddenExamStudents : [],
+      examGroups: Array.isArray(L.examGroups) ? L.examGroups : [],
+      groups: Array.isArray(L.groups) ? L.groups : [],
+      archivedAt: new Date().toISOString()
+    }));
+  }
+  return [];
+}
+
+function normalizeImportedArchiveMonth(archObj){
+  const lessonName = archObj.lessonName || archObj.name || archObj.title || 'درس بدون اسم';
+  const monthNum = parseInt(archObj.monthNumber || archObj.month || archObj.mNum || 1, 10) || 1;
+  const yearNum = parseInt(archObj.year || new Date().getFullYear(), 10) || new Date().getFullYear();
+  return {
+    id: archObj.id || uid('a'),
+    lessonId: archObj.lessonId || uid('l'),
+    lessonName: lessonName,
+    monthNumber: monthNum,
+    year: yearNum,
+    subscription: !!archObj.subscription,
+    students: Array.isArray(archObj.students) ? archObj.students.map(normalizeStudent) : (Array.isArray(archObj.rawStudents) ? archObj.rawStudents.map(normalizeStudent) : []),
+    sessions: Array.isArray(archObj.sessions) ? archObj.sessions : [],
+    records: (archObj.records && typeof archObj.records === 'object') ? archObj.records : {},
+    exams: Array.isArray(archObj.exams) ? archObj.exams : [],
+    examScores: (archObj.examScores && typeof archObj.examScores === 'object') ? archObj.examScores : {},
+    examNotes: (archObj.examNotes && typeof archObj.examNotes === 'object') ? archObj.examNotes : {},
+    examExclusions: (archObj.examExclusions && typeof archObj.examExclusions === 'object') ? archObj.examExclusions : {},
+    hiddenExamStudents: Array.isArray(archObj.hiddenExamStudents) ? archObj.hiddenExamStudents : [],
+    examGroups: Array.isArray(archObj.examGroups) ? archObj.examGroups : [],
+    groups: Array.isArray(archObj.groups) ? archObj.groups : [],
+    archivedAt: archObj.archivedAt || new Date().toISOString()
+  };
+}
 
 function importSingleArchiveMonth(file){
   if(!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      const parsed = JSON.parse(e.target.result);
-      if(!parsed || (parsed.type !== 'daftar-single-month' && !parsed.archive)){
-        alert('الملف غير صالح أو ليس ملف شهر مؤرشف (.daftar-month / .json).');
+      let parsed = null;
+      try {
+        parsed = JSON.parse(e.target.result);
+      } catch(parseErr){
+        alert('تعذّر قراءة الملف: تأكد من اختيار ملف JSON أو .daftar-month صالح.');
         return;
       }
-      const archObj = parsed.archive || parsed;
-      if(!archObj.monthNumber || !archObj.year || !archObj.lessonName){
-        alert('بيانات الشهر داخل الملف غير مكتملة.');
-        return;
-      }
-      const normalizedMonth = {
-        id: archObj.id || uid('a'),
-        lessonId: archObj.lessonId || uid('l'),
-        lessonName: archObj.lessonName,
-        monthNumber: parseInt(archObj.monthNumber, 10),
-        year: parseInt(archObj.year, 10),
-        subscription: !!archObj.subscription,
-        students: Array.isArray(archObj.students) ? archObj.students.map(normalizeStudent) : [],
-        sessions: Array.isArray(archObj.sessions) ? archObj.sessions : [],
-        records: archObj.records || {},
-        exams: Array.isArray(archObj.exams) ? archObj.exams : [],
-        examScores: archObj.examScores || {},
-        examNotes: archObj.examNotes || {},
-        examExclusions: archObj.examExclusions || {},
-        hiddenExamStudents: Array.isArray(archObj.hiddenExamStudents) ? archObj.hiddenExamStudents : [],
-        examGroups: Array.isArray(archObj.examGroups) ? archObj.examGroups : [],
-        groups: Array.isArray(archObj.groups) ? archObj.groups : [],
-        archivedAt: archObj.archivedAt || new Date().toISOString()
-      };
 
-      if(!Array.isArray(state.archive)) state.archive = [];
-      const existingIdx = state.archive.findIndex(a => a.lessonId === normalizedMonth.lessonId && a.monthNumber === normalizedMonth.monthNumber && a.year === normalizedMonth.year);
-      if(existingIdx !== -1){
-        if(!confirm('الشهر (' + normalizedMonth.monthNumber + '/' + normalizedMonth.year + ') لـ «' + normalizedMonth.lessonName + '» موجود بالفعل في الأرشيف.\nهل تريد استبداله بالنسخة المستوردة؟')) return;
-        state.archive[existingIdx] = normalizedMonth;
-      } else {
-        state.archive.unshift(normalizedMonth);
+      const rawList = extractArchiveObjectsFromData(parsed);
+      if(!rawList || rawList.length === 0){
+        alert('الملف غير صالح أو لم يتم العثور على أي بيانات شهور صالحة بداخله.');
+        return;
       }
-      saveState();
-      renderArchive();
-      showToastMessage('📥 تم استيراد شهر «' + normalizedMonth.lessonName + ' (' + normalizedMonth.monthNumber + '/' + normalizedMonth.year + ')» للأرشيف بنجاح.');
-      switchTab('archive');
+
+      const normalizedList = rawList.map(normalizeImportedArchiveMonth);
+      if(!Array.isArray(state.archive)) state.archive = [];
+
+      if(normalizedList.length === 1){
+        const normalizedMonth = normalizedList[0];
+        const existingIdx = state.archive.findIndex(a => (a.lessonId === normalizedMonth.lessonId || a.lessonName === normalizedMonth.lessonName) && a.monthNumber === normalizedMonth.monthNumber && a.year === normalizedMonth.year);
+        if(existingIdx !== -1){
+          if(!confirm('الشهر (' + normalizedMonth.monthNumber + '/' + normalizedMonth.year + ') لـ «' + normalizedMonth.lessonName + '» موجود بالفعل في الأرشيف.\nهل تريد استبداله بالنسخة المستوردة؟')) return;
+          state.archive[existingIdx] = normalizedMonth;
+        } else {
+          state.archive.unshift(normalizedMonth);
+        }
+        saveState();
+        currentArchiveIdx = null;
+        renderArchive();
+        showToastMessage('📥 تم استيراد شهر «' + normalizedMonth.lessonName + ' (' + normalizedMonth.monthNumber + '/' + normalizedMonth.year + ')» للأرشيف بنجاح.');
+        switchTab('archive');
+      } else {
+        let addedCount = 0;
+        let replacedCount = 0;
+        normalizedList.forEach(m => {
+          const exIdx = state.archive.findIndex(a => (a.lessonId === m.lessonId || a.lessonName === m.lessonName) && a.monthNumber === m.monthNumber && a.year === m.year);
+          if(exIdx !== -1){
+            state.archive[exIdx] = m;
+            replacedCount++;
+          } else {
+            state.archive.unshift(m);
+            addedCount++;
+          }
+        });
+        saveState();
+        currentArchiveIdx = null;
+        renderArchive();
+        showToastMessage('📥 تم استيراد ' + (addedCount + replacedCount) + ' شهر إلى الأرشيف بنجاح.');
+        switchTab('archive');
+      }
     } catch(err){
-      alert('حدث خطأ أثناء قراءة ملف الشهر: ' + err.message);
+      console.error(err);
+      alert('حدث خطأ أثناء استيراد الشهر: ' + err.message);
     }
   };
   reader.readAsText(file);
@@ -4241,7 +4368,7 @@ function renderArchiveDetail(idx){
     renderArchiveDetail(idx);
     showToastMessage('✅ تم إضافة الحصة للأرشيف بنجاح.');
   };
-  $('#archAddExamBtn').onclick = () => openAddExamModal(a);
+  $('#archAddExamBtn').onclick = () => addExamModal(a, null, true, idx);
   $('#archExamGroupsBtn').onclick = () => openExamGroupsModal(a);
   if($('#archSortAttendanceBtn')) $('#archSortAttendanceBtn').onclick = () => {
     $$('.dropdown-menu').forEach(m => { m.hidden = true; });
@@ -4262,8 +4389,8 @@ function renderArchiveDetail(idx){
     };
     $('#arch_mCancel').onclick = closeModal;
   };
-  if($('#archExportSingleMonthBtn')) $('#archExportSingleMonthBtn').onclick = () => exportSingleArchivedMonth(idx);
-  if($('#archExportMonthBtn')) $('#archExportMonthBtn').onclick = () => exportSingleArchivedMonth(idx);
+  if($('#archExportSingleMonthBtn')) $('#archExportSingleMonthBtn').onclick = () => exportSingleArchiveMonth(idx);
+  if($('#archExportMonthBtn')) $('#archExportMonthBtn').onclick = () => exportSingleArchiveMonth(idx);
   if($('#archRestoreBtn')) $('#archRestoreBtn').onclick = () => restoreArchiveMonth(idx);
   if($('#archDeleteBtn')) $('#archDeleteBtn').onclick = () => {
     confirmDangerModal({
@@ -4432,7 +4559,7 @@ function renderArchExamsTable(a, idx, displayStudents){
     return '<div class="empty-state" style="padding:24px;text-align:center;background:var(--card);border-radius:12px;margin-top:12px">'
       + '<h3>📝 لا توجد اختبارات مسجلة في هذا الشهر المؤرشف</h3>'
       + '<p class="muted">يمكنك إضافة اختبارات ورصد درجاتها مباشرة لهذا الشهر دون الحاجة لاستعادته.</p>'
-      + '<button class="btn btn-primary" onclick="openAddExamModal(state.archive[' + idx + '])" style="margin-top:10px">➕ إضافة اختبار جديد</button>'
+      + '<button class="btn btn-primary" onclick="addExamModal(state.archive[' + idx + '], null, true, ' + idx + ')" style="margin-top:10px">➕ إضافة اختبار جديد</button>'
       + '</div>';
   }
 
@@ -4647,15 +4774,24 @@ function maybeShowChangelog(next){
   try{ saved = JSON.parse(localStorage.getItem(CHANGELOG_STORE_KEY) || 'null'); }catch(e){}
   if(!saved || typeof saved !== 'object') saved = {};
   const current = versionNum(APP_VERSION);
-  const popupSeen = versionNum(saved.popupSeenVersion || '');
+  let dedicatedSeen = 0;
+  try { dedicatedSeen = versionNum(localStorage.getItem('daftar_popup_seen_version') || ''); }catch(e){}
+  const popupSeen = Math.max(versionNum(saved.popupSeenVersion || ''), dedicatedSeen);
+
   if(popupSeen >= current){
     if(next) next();
     return;
   }
+
+  // حفظ الإصدار فوراً لمنع تكرار النافذة المنبثقة حتى لو تم إغلاقها بالنقر بالخارج أو الرجوع أو التحديث
+  saved.popupSeenVersion = APP_VERSION;
+  try{
+    localStorage.setItem(CHANGELOG_STORE_KEY, JSON.stringify(saved));
+    localStorage.setItem('daftar_popup_seen_version', APP_VERSION);
+  }catch(e){}
+
   const entries = whatsNewList();
   if(entries.length === 0){
-    saved.popupSeenVersion = APP_VERSION;
-    try{ localStorage.setItem(CHANGELOG_STORE_KEY, JSON.stringify(saved)); }catch(e){}
     if(next) next();
     return;
   }
@@ -4664,11 +4800,6 @@ function maybeShowChangelog(next){
   ).join('');
   openModal('ما الجديد في ' + APP_VERSION + '؟', html + '<div class="modal-actions"><button class="btn" id="cl_ok">تمام</button></div>');
   $('#cl_ok').onclick = () => {
-    try{
-      let s2 = JSON.parse(localStorage.getItem(CHANGELOG_STORE_KEY) || '{}');
-      s2.popupSeenVersion = APP_VERSION;
-      localStorage.setItem(CHANGELOG_STORE_KEY, JSON.stringify(s2));
-    }catch(e){}
     closeModal();
     renderToday();
     if(next) setTimeout(next, 400);
