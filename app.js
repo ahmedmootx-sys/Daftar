@@ -21,6 +21,73 @@ const AUTOSAVE_FLAG = 'attendance_autosave_prompted';
 
 /* ---------- أدوات مساعدة ---------- */
 
+/* ---------- تجزئة الجداول الكبيرة (Pagination for 1000+ Students) ---------- */
+let tablePageSize = 50;
+let lessonCurrentPage = 1;
+let archiveCurrentPage = 1;
+let examsCurrentPage = 1;
+let archExamsCurrentPage = 1;
+
+function renderPaginationBarHTML(currentPage, totalPages, totalCount, pageSize, prefixId){
+  if(totalCount <= 25 && (pageSize === 50 || pageSize === 25)) return '';
+  const startIdx = (pageSize > 0 && totalCount > 0) ? (currentPage - 1) * pageSize + 1 : (totalCount > 0 ? 1 : 0);
+  const endIdx = (pageSize > 0 && totalCount > 0) ? Math.min(totalCount, currentPage * pageSize) : totalCount;
+
+  let pageOptions = '';
+  if(totalPages > 1){
+    for(let p = 1; p <= totalPages; p++){
+      pageOptions += '<option value="' + p + '"' + (p === currentPage ? ' selected' : '') + '>صفحة ' + p + ' من ' + totalPages + '</option>';
+    }
+  }
+
+  return '<div class="pagination-bar" style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--card-bg,#f8fafc);border:1px solid var(--border);border-radius:8px;margin:8px 0;flex-wrap:wrap;gap:8px;direction:rtl">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">'
+    +   '📄 عرض <b>' + (totalCount ? startIdx + ' - ' + endIdx : 0) + '</b> من إجمالي <span class="badge-count" style="background:#e0e7ff;color:#3730a3;padding:2px 7px;border-radius:999px;font-weight:800">' + totalCount + ' طالب</span>'
+    + '</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    +   '<div style="display:flex;align-items:center;gap:5px">'
+    +     '<label style="font-size:11.5px;font-weight:700">عدد الصفوف:</label>'
+    +     '<select class="page-size-select" data-prefix="' + prefixId + '" style="padding:4px 8px;font-size:11.5px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer">'
+    +       '<option value="25"' + (pageSize === 25 ? ' selected' : '') + '>25 طالب</option>'
+    +       '<option value="50"' + (pageSize === 50 ? ' selected' : '') + '>50 طالب</option>'
+    +       '<option value="100"' + (pageSize === 100 ? ' selected' : '') + '>100 طالب</option>'
+    +       '<option value="200"' + (pageSize === 200 ? ' selected' : '') + '>200 طالب</option>'
+    +       '<option value="0"' + (pageSize === 0 ? ' selected' : '') + '>عرض الكل (' + totalCount + ')</option>'
+    +     '</select>'
+    +   '</div>'
+    +   (totalPages > 1 ? '<div style="display:flex;align-items:center;gap:4px">'
+    +     '<button class="btn btn-outline btn-sm page-nav-btn" data-prefix="' + prefixId + '" data-dir="prev" ' + (currentPage <= 1 ? 'disabled' : '') + ' style="padding:3px 10px;font-size:12px;font-weight:700" title="الصفحة السابقة">◀ السابق</button>'
+    +     '<select class="page-jump-select" data-prefix="' + prefixId + '" style="padding:3px 8px;font-size:11.5px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer">' + pageOptions + '</select>'
+    +     '<button class="btn btn-outline btn-sm page-nav-btn" data-prefix="' + prefixId + '" data-dir="next" ' + (currentPage >= totalPages ? 'disabled' : '') + ' style="padding:3px 10px;font-size:12px;font-weight:700" title="الصفحة التالية">التالي ▶</button>'
+    +   '</div>' : '')
+    + '</div>'
+    + '</div>';
+}
+
+function downloadReportPrintableHTML(title, innerReportHTML){
+  const css = `
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+    @page { size: A4 portrait; margin: 8mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font-family: 'Cairo', system-ui, -apple-system, sans-serif; margin: 0; padding: 12px; direction: rtl; background: #fff; color: #0f172a; }
+    .report { width: 100%; max-width: 900px; margin: 0 auto; }
+    .r-title { font-size: 16px; font-weight: 900; text-align: center; color: #2E3A87; margin-bottom: 4px; }
+    .r-sub { font-size: 13px; font-weight: 700; text-align: center; color: #475569; margin-bottom: 12px; }
+    .r-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 12px; }
+    .r-table th, .r-table td { border: 1px solid #cbd5e1; padding: 4px 6px; text-align: center; }
+    .r-table th { background: #f1f5f9; font-weight: 800; }
+    .r-table .r-name { text-align: right; font-weight: 700; }
+    .r-table .ord-col { width: 30px; font-weight: 800; background: #fef08a; }
+    .r-section { font-size: 12px; font-weight: 800; margin: 10px 0 4px; color: #2E3A87; }
+    .r-foot { font-size: 11px; text-align: center; color: #64748b; margin-top: 8px; }
+    @media print { body { padding: 0; } }
+  `;
+  const doc = '<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>' + esc(title) + '</title>\n<style>' + css + '</style>\n</head>\n<body>\n' + innerReportHTML + '\n</body>\n</html>';
+  const safe = (title || 'تقرير').replace(/[^\w\u0600-\u06FF ]/g, '');
+  downloadBlob(doc, 'تقرير_' + safe + '.html', 'text/html;charset=utf-8');
+}
+
+
 /* ---------- دوال فحص وتحديد نوع الحالة (حاضر / اعتذار / غائب) ---------- */
 function isPresentStatus(statusId, statuses){
   if(!statusId) return false;
@@ -66,6 +133,7 @@ const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
 const APP_VERSION = 'v40';
 const CHANGELOG = {
   v40: [
+    '📄 عرض الجداول الضخمة عبر التجزئة والتنقل بالصفحات: دعم كامل لأكثر من 1000 طالب مع تجزئة ذكية (25 / 50 / 100 / 200 / عرض الكل) في جداول الحضور والاختبارات الحالية والمؤرشفة وسلاسة تامة بالـ DOM',
     '🏷️ تخصيص حالات وأزرار الحضور لكل درس: إمكانية إضافة وتعديل حالات حضور مخصصة لكل درس وتحديد نوع ومعنى كل حالة (حاضر / غائب / اعتذار) لاحتسابها تلقائياً وبدقة في نسب الحضور والإحصائيات والتحضير السريع (⚡) وكافة التقارير',
     '📦 أرشفة درجات واختبارات الشهر تلقائياً: عند الضغط على زر «أرشفة وإنهاء الشهر» يتم نقل كافة الاختبارات والدرجات والملاحظات ومجموعات الاختبار وحفظها داخل الشهر المؤرشف وتصفيرها للشهر الجديد',
     '⚡ التحضير السريع الجماعي في الشهور المؤرشفة: إضافة زر (⚡) في عناوين حصص الأرشيف لتحضير أو تغييب أو تسجيل اعتذار لجميع الطلاب بنقرة واحدة',
@@ -2002,8 +2070,28 @@ function renderExamsTable(lesson, filteredStudents){
     students = students.filter(st => !st.examGroupId);
   }
 
+  // Pagination for exams
+  const totalExamsStudentsCount = students.length;
+  let pagedExamsStudents = students;
+  let totalExamsPages = 1;
+  if(tablePageSize > 0 && totalExamsStudentsCount > tablePageSize){
+    totalExamsPages = Math.ceil(totalExamsStudentsCount / tablePageSize);
+    if(examsCurrentPage > totalExamsPages) examsCurrentPage = totalExamsPages;
+    if(examsCurrentPage < 1) examsCurrentPage = 1;
+    const startIdx = (examsCurrentPage - 1) * tablePageSize;
+    pagedExamsStudents = students.slice(startIdx, startIdx + tablePageSize);
+  } else {
+    examsCurrentPage = 1;
+  }
+
+  const examsPagTop = $('#examsPagWrapTop') || $('#examsPagWrap');
+  const examsPagBottom = $('#examsPagWrapBottom');
+  const examsPagHtml = renderPaginationBarHTML(examsCurrentPage, totalExamsPages, totalExamsStudentsCount, tablePageSize, 'exams');
+  if(examsPagTop) examsPagTop.innerHTML = examsPagHtml;
+  if(examsPagBottom) examsPagBottom.innerHTML = examsPagHtml;
+
   let b = '';
-  students.forEach((st, idx) => {
+  pagedExamsStudents.forEach((st, idx) => {
     const studentScores = (lesson.examScores && lesson.examScores[st.id]) || {};
     const exclusions = (lesson.examExclusions && lesson.examExclusions[st.id]) || {};
     const notes = (lesson.examNotes && lesson.examNotes[st.id]) || {};
@@ -3625,6 +3713,26 @@ function renderLessonDetail(){
   const head = $('#tableHead');
   const body = $('#tableBody');
 
+  // Pagination for large student list
+  const totalStudentsCount = students.length;
+  let pagedStudents = students;
+  let totalPages = 1;
+  if(tablePageSize > 0 && totalStudentsCount > tablePageSize){
+    totalPages = Math.ceil(totalStudentsCount / tablePageSize);
+    if(lessonCurrentPage > totalPages) lessonCurrentPage = totalPages;
+    if(lessonCurrentPage < 1) lessonCurrentPage = 1;
+    const startIdx = (lessonCurrentPage - 1) * tablePageSize;
+    pagedStudents = students.slice(startIdx, startIdx + tablePageSize);
+  } else {
+    lessonCurrentPage = 1;
+  }
+
+  const pagWrapTop = $('#lessonPagWrapTop');
+  const pagWrapBottom = $('#lessonPagWrapBottom');
+  const pagHtml = renderPaginationBarHTML(lessonCurrentPage, totalPages, totalStudentsCount, tablePageSize, 'lesson');
+  if(pagWrapTop) pagWrapTop.innerHTML = pagHtml;
+  if(pagWrapBottom) pagWrapBottom.innerHTML = pagHtml;
+
   let h = '<tr>';
   if(isBulkSelecting){
     const allChecked = students.length > 0 && students.every(st => selectedStudentIds.has(st.id));
@@ -3651,7 +3759,7 @@ function renderLessonDetail(){
   head.innerHTML = h;
 
   let b = '';
-  students.forEach(st => {
+  pagedStudents.forEach(st => {
     const realIdx = L.students.findIndex(x => x.id === st.id);
     const g = (L.groups||[]).find(x => x.id === st.groupId);
     const ps = pastSessions(L.sessions);
@@ -4542,8 +4650,25 @@ function archiveTableHTML(a, idx, statuses, displayStudents){
   const students = displayStudents || archiveStudents(a);
   const ps = pastSessions(a.sessions);
   const L = state.lessons.find(x => x.id === a.lessonId);
+  const eff = statuses || effectiveStatuses(a);
 
-  let h = '<div class="table-wrap" style="margin-top:12px"><table id="archAttendanceTable"><thead><tr>';
+  // Pagination for archive
+  const totalArchStudentsCount = students.length;
+  let pagedArchStudents = students;
+  let totalArchPages = 1;
+  if(tablePageSize > 0 && totalArchStudentsCount > tablePageSize){
+    totalArchPages = Math.ceil(totalArchStudentsCount / tablePageSize);
+    if(archiveCurrentPage > totalArchPages) archiveCurrentPage = totalArchPages;
+    if(archiveCurrentPage < 1) archiveCurrentPage = 1;
+    const startIdx = (archiveCurrentPage - 1) * tablePageSize;
+    pagedArchStudents = students.slice(startIdx, startIdx + tablePageSize);
+  } else {
+    archiveCurrentPage = 1;
+  }
+  const archPagHtml = renderPaginationBarHTML(archiveCurrentPage, totalArchPages, totalArchStudentsCount, tablePageSize, 'arch');
+  const archStartIdx = (tablePageSize > 0 && totalArchStudentsCount > 0) ? (archiveCurrentPage - 1) * tablePageSize : 0;
+
+  let h = archPagHtml + '<div class="table-wrap" style="margin-top:12px"><table id="archAttendanceTable"><thead><tr>';
   if(isBulkSelecting){
     const allChecked = students.length > 0 && students.every(st => selectedStudentIds.has(st.id));
     h += '<th class="bulk-select-cell"><input type="checkbox" id="archBulkSelectAll"' + (allChecked ? ' checked' : '') + ' title="تحديد/إلغاء الكل"></th>';
@@ -4566,7 +4691,7 @@ function archiveTableHTML(a, idx, statuses, displayStudents){
   if(a.subscription) h += '<th>دفع الاشتراك</th>';
   h += '</tr></thead><tbody>';
 
-  students.forEach((st, i) => {
+  pagedArchStudents.forEach((st, i) => {
     const stPct = ps.length ? Math.round(ps.filter(s => (a.records[st.id] || {})[s.id] && isPresentStatus(a.records[st.id][s.id].status, eff)).length / ps.length * 100) : 0;
     const ind = ps.length > 0 ? attendanceIndicator(stPct) : null;
     const grp = ((L && L.groups) || a.groups || []).find(g => g.id === st.groupId);
@@ -4579,7 +4704,7 @@ function archiveTableHTML(a, idx, statuses, displayStudents){
     }
     h += '<td class="sticky-col student-cell">'
        +   '<div class="student-name">'
-       +     '<input class="order-input" type="number" min="1" max="' + students.length + '" value="' + (i + 1) + '" data-act="order" data-arch="' + idx + '" data-id="' + st.id + '" title="اكتب رقم الترتيب الجديد ثم اضغط Enter للنقل المباشر"> '
+       +     '<input class="order-input" type="number" min="1" max="' + students.length + '" value="' + (archStartIdx + i + 1) + '" data-act="order" data-arch="' + idx + '" data-id="' + st.id + '" title="اكتب رقم الترتيب الجديد ثم اضغط Enter للنقل المباشر"> '
        +     (st.photo ? '<img src="' + st.photo + '" class="st-avatar-mini" alt="">' : '<span class="st-avatar-initial">' + esc((st.name||'').trim().charAt(0) || '👤') + '</span>')
        +     ' <span class="st-name-click" data-act="view-arch-student" data-id="' + st.id + '" data-arch="' + idx + '" style="cursor:pointer;font-weight:700;color:var(--primary);text-decoration:underline" title="اضغط لعرض وتعديل بطاقة الطالب">' + esc(st.name) + '</span>'
        +     (grp ? ' <span class="badge-group">' + esc(grp.name) + '</span>' : '')
@@ -4655,7 +4780,7 @@ function renderArchExamsTable(a, idx, displayStudents){
   });
   h += '<th>المتوسط %</th></tr></thead><tbody>';
 
-  students.forEach((st, i) => {
+  pagedStudents.forEach((st, i) => {
     const studentScores = (a.examScores && a.examScores[st.id]) || {};
     const exclusions = (a.examExclusions && a.examExclusions[st.id]) || {};
     const notes = (a.examNotes && a.examNotes[st.id]) || {};
@@ -4665,7 +4790,7 @@ function renderArchExamsTable(a, idx, displayStudents){
 
     h += '<tr data-sid="' + st.id + '" data-name-norm="' + esc(_exNameNorm) + '" data-phone="' + esc(_exPhone) + '"><td class="sticky-col student-cell">'
       +   '<div class="student-name">'
-      +     '<span class="student-num">' + (i + 1) + '.</span> '
+      +     '<span class="student-num">' + (startIdx + i + 1) + '.</span> '
       +     '<span class="st-name-click" data-act="view-arch-student" data-id="' + st.id + '" data-arch="' + idx + '" style="cursor:pointer;font-weight:700;color:var(--primary);text-decoration:underline">' + esc(st.name) + '</span>'
       +   '</div>'
       +   '<div style="font-size:10px;color:#64748b;direction:ltr;margin-top:2px">' + esc(localPhone(st.phone)) + '</div>'
@@ -4688,7 +4813,7 @@ function renderArchExamsTable(a, idx, displayStudents){
     h += '</tr>';
   });
 
-  h += '</tbody></table></div>';
+  h += '</tbody></table></div>' + archExamsPagHtml;
   return h;
 }
 
@@ -6116,24 +6241,34 @@ function exportCSV(students, sessions, records, title, statuses, groupByGroups){
  * يعرض نافذة توجيه جميلة تشرح للمستخدم كيف يحفظ الصفحة كـ PDF،
  * ثم يشغّل دالة الطباعة المطلوبة بعد النقر على "طباعة / حفظ PDF".
  */
-function showSavePdfGuide(printCallback){
-  openModal('💾 حفظ التقرير كملف PDF',
+function showSavePdfGuide(printCallback, reportTitle, reportHTML){
+  openModal('💾 حفظ التقرير كملف PDF / مستند',
     '<div style="text-align:right;direction:rtl">'
-    + '<p style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--primary)">📄 خطوات حفظ التقرير كملف PDF على جهازك:</p>'
-    + '<ol style="padding-right:20px;line-height:2;font-size:13px;color:var(--text)">'
-    +   '<li>اضغط على زر <b style="color:#15803d">🖨️ طباعة / حفظ PDF</b> أدناه</li>'
-    +   '<li>ستظهر نافذة الطباعة — في قائمة <b>الطابعة</b> اختر <b style="color:var(--primary)">"حفظ كـ PDF"</b> أو <b style="color:var(--primary)">"Save as PDF"</b></li>'
-    +   '<li>اختر مكان الحفظ على جهازك واضغط <b>حفظ</b></li>'
-    +   '<li>أرسل الملف المحفوظ للمطبعة عبر واتساب أو أي وسيلة</li>'
-    + '</ol>'
-    + '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin:14px 0;font-size:12px;color:#166534">'
-    +   '💡 <b>نصيحة:</b> على الهاتف افتح بمتصفح Chrome واختر «إرسال إلى» ← «الطباعة» ← «حفظ كـ PDF»'
+    + '<p style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--primary)">📄 اختر الطريقة المفضلة لحفظ أو طباعة التقرير:</p>'
+    + '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">'
+    +   (reportHTML ? '<button class="btn btn-primary" id="pdf_saveDirectBtn" style="font-size:14px;padding:12px 14px;justify-content:space-between;display:flex;align-items:center">'
+    +     '<span>💾 حفظ واختيار مكان الملف (مستند للطباعة)</span>'
+    +     '<span style="font-size:11px;opacity:0.9;font-weight:400">تحديد المجلد وحفظه</span>'
+    +   '</button>' : '')
+    +   '<button class="btn ' + (reportHTML ? 'btn-outline' : 'btn-primary') + '" id="pdf_printNow" style="font-size:14px;padding:12px 14px;justify-content:space-between;display:flex;align-items:center;font-weight:800">'
+    +     '<span>🖨️ طباعة / حفظ بتنسيق PDF عبر المتصفح</span>'
+    +     '<span class="muted" style="font-size:11px;font-weight:400">A4 للمطبعة والورق</span>'
+    +   '</button>'
     + '</div>'
-    + '<div class="modal-actions">'
-    +   '<button class="btn btn-primary" id="pdf_printNow" style="font-size:15px;padding:12px 28px">🖨️ طباعة / حفظ PDF</button>'
+    + '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:12px;color:#166534;line-height:1.6">'
+    +   '💡 <b>ملاحظة:</b> يمكنك اختيار مكان حفظ الملف على جهازك وتحديد المجلد المناسب، أو اختيار الطباعة والحفظ كـ PDF مباشرة.'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:16px">'
     +   '<button class="btn btn-outline" id="pdf_cancel">إلغاء</button>'
     + '</div>'
     + '</div>');
+
+  if($('#pdf_saveDirectBtn')){
+    $('#pdf_saveDirectBtn').onclick = () => {
+      closeModal();
+      downloadReportPrintableHTML(reportTitle || 'تقرير', reportHTML);
+    };
+  }
   $('#pdf_printNow').onclick = () => { closeModal(); setTimeout(() => printCallback(), 200); };
   $('#pdf_cancel').onclick = closeModal;
 }
@@ -6153,15 +6288,18 @@ function saveCurrentLessonAsPdf(){
     students = students.filter(st => !st.groupId); reportTitle += ' (بدون مجموعة)';
   }
   const eff = effectiveStatuses(L);
-  showSavePdfGuide(() => printReport(students, L.sessions, L.records, reportTitle, eff));
+  printReport(students, L.sessions, L.records, reportTitle, eff);
 }
 
 function printReport(students, sessions, records, title, statuses, groupByGroups){
   const rows = computeStats(students, sessions, records, statuses);
-  $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
-  $('#printArea').innerHTML = buildReportHTML(students, sessions, records, rows, title, statuses, groupByGroups);
-  window.print();
-  $('#printPageRule').textContent = '';
+  const html = buildReportHTML(students, sessions, records, rows, title, statuses, groupByGroups);
+  showSavePdfGuide(() => {
+    $('#printPageRule').textContent = '@page{size:A4 portrait;margin:8mm}';
+    $('#printArea').innerHTML = html;
+    window.print();
+    $('#printPageRule').textContent = '';
+  }, title, html);
 }
 
 /* ---------- ورقة حضور فارغة جاهزة للطباعة ---------- */
@@ -8319,6 +8457,30 @@ function bindEvents(){
     });
   }
   document.addEventListener('click', (e) => {
+
+    // معالجة التنقل بالصفحات وتغيير عدد الصفوف في الجداول الضخمة (v41)
+    const navBtn = e.target.closest('.page-nav-btn');
+    if(navBtn && !navBtn.disabled){
+      const prefix = navBtn.dataset.prefix;
+      const dir = navBtn.dataset.dir;
+      const delta = (dir === 'next' ? 1 : -1);
+      if(prefix === 'lesson'){
+        lessonCurrentPage += delta;
+        renderLessonDetail();
+      } else if(prefix === 'exams'){
+        examsCurrentPage += delta;
+        const L = curLesson();
+        if(L) renderExamsTable(L);
+      } else if(prefix === 'arch'){
+        archiveCurrentPage += delta;
+        if(currentArchiveIdx !== null) renderArchiveDetail(currentArchiveIdx);
+      } else if(prefix === 'archExams'){
+        archExamsCurrentPage += delta;
+        if(currentArchiveIdx !== null) renderArchiveDetail(currentArchiveIdx);
+      }
+      return;
+    }
+
     const p = $('#notifPanel');
     if(p && !p.hidden && !e.target.closest('.notif-wrap')) p.hidden = true;
   });
@@ -9009,6 +9171,43 @@ function bindEvents(){
   });
 
   document.addEventListener('change', (e) => {
+
+    // تغيير عدد صفوف الصفحة أو القفز لصفحة محددة (v41)
+    const sizeSel = e.target.closest('.page-size-select');
+    if(sizeSel){
+      tablePageSize = parseInt(sizeSel.value, 10) || 0;
+      lessonCurrentPage = 1;
+      archiveCurrentPage = 1;
+      examsCurrentPage = 1;
+      archExamsCurrentPage = 1;
+      if(currentArchiveIdx !== null && $('#archiveDetail') && $('#archiveDetail').style.display !== 'none'){
+        renderArchiveDetail(currentArchiveIdx);
+      } else {
+        renderLessonDetail();
+      }
+      return;
+    }
+    const jumpSel = e.target.closest('.page-jump-select');
+    if(jumpSel){
+      const pNum = parseInt(jumpSel.value, 10) || 1;
+      const prefix = jumpSel.dataset.prefix;
+      if(prefix === 'lesson'){
+        lessonCurrentPage = pNum;
+        renderLessonDetail();
+      } else if(prefix === 'exams'){
+        examsCurrentPage = pNum;
+        const L = curLesson();
+        if(L) renderExamsTable(L);
+      } else if(prefix === 'arch'){
+        archiveCurrentPage = pNum;
+        if(currentArchiveIdx !== null) renderArchiveDetail(currentArchiveIdx);
+      } else if(prefix === 'archExams'){
+        archExamsCurrentPage = pNum;
+        if(currentArchiveIdx !== null) renderArchiveDetail(currentArchiveIdx);
+      }
+      return;
+    }
+
     const st = e.target.closest('[data-act="status"]');
     if(st){
       const sid = st.dataset.sid, ssid = st.dataset.ssid;

@@ -373,6 +373,11 @@ input[readonly],input:disabled{background:#f1f5f9;color:var(--muted);cursor:not-
 .status-edit-row .del-status{background:var(--danger-bg);color:var(--danger);border:none;border-radius:8px;padding:8px 12px;font-family:inherit;font-weight:700;cursor:pointer}
 .status-edit-row select{height:38px;border:1px solid var(--border);border-radius:8px;background:#fff;padding:4px 8px;font-family:inherit;font-weight:700;cursor:pointer}
 
+/* Pagination Bar */
+.pagination-bar{box-shadow:0 1px 3px rgba(0,0,0,.05);transition:.2s}
+.pagination-bar .btn:disabled{opacity:.4;cursor:not-allowed}
+.page-size-select:focus, .page-jump-select:focus{outline:none;border-color:var(--primary)}
+
 
 /* Archive */
 .archive-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:18px}
