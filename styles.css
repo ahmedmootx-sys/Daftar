@@ -371,6 +371,8 @@ input[readonly],input:disabled{background:#f1f5f9;color:var(--muted);cursor:not-
 .status-edit-row input[type=text]{flex:1;min-width:120px}
 .status-edit-row input[type=color]{width:44px;height:38px;border:1px solid var(--border);border-radius:8px;background:#fff;padding:2px;cursor:pointer}
 .status-edit-row .del-status{background:var(--danger-bg);color:var(--danger);border:none;border-radius:8px;padding:8px 12px;font-family:inherit;font-weight:700;cursor:pointer}
+.status-edit-row select{height:38px;border:1px solid var(--border);border-radius:8px;background:#fff;padding:4px 8px;font-family:inherit;font-weight:700;cursor:pointer}
+
 
 /* Archive */
 .archive-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:18px}

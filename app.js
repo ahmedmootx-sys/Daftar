@@ -20,6 +20,35 @@ let autoSaveTimer = null;
 const AUTOSAVE_FLAG = 'attendance_autosave_prompted';
 
 /* ---------- أدوات مساعدة ---------- */
+
+/* ---------- دوال فحص وتحديد نوع الحالة (حاضر / اعتذار / غائب) ---------- */
+function isPresentStatus(statusId, statuses){
+  if(!statusId) return false;
+  const list = statuses || (typeof state !== 'undefined' && state.settings && state.settings.statuses) || [];
+  const s = list.find(x => x.id === statusId);
+  if(s){
+    if(s.type === 'present') return true;
+    if(s.type === 'apology' || s.type === 'absent') return false;
+  }
+  return statusId === 'st_done';
+}
+
+function isApologyStatus(statusId, statuses){
+  if(!statusId) return false;
+  const list = statuses || (typeof state !== 'undefined' && state.settings && state.settings.statuses) || [];
+  const s = list.find(x => x.id === statusId);
+  if(s){
+    if(s.type === 'apology') return true;
+    if(s.type === 'present' || s.type === 'absent') return false;
+  }
+  return statusId === 'st_apology';
+}
+
+function isAbsentStatus(statusId, statuses){
+  if(!statusId) return false;
+  return !isPresentStatus(statusId, statuses);
+}
+
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
@@ -37,6 +66,7 @@ const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
 const APP_VERSION = 'v40';
 const CHANGELOG = {
   v40: [
+    '🏷️ تخصيص حالات وأزرار الحضور لكل درس: إمكانية إضافة وتعديل حالات حضور مخصصة لكل درس وتحديد نوع ومعنى كل حالة (حاضر / غائب / اعتذار) لاحتسابها تلقائياً وبدقة في نسب الحضور والإحصائيات والتحضير السريع (⚡) وكافة التقارير',
     '📦 أرشفة درجات واختبارات الشهر تلقائياً: عند الضغط على زر «أرشفة وإنهاء الشهر» يتم نقل كافة الاختبارات والدرجات والملاحظات ومجموعات الاختبار وحفظها داخل الشهر المؤرشف وتصفيرها للشهر الجديد',
     '⚡ التحضير السريع الجماعي في الشهور المؤرشفة: إضافة زر (⚡) في عناوين حصص الأرشيف لتحضير أو تغييب أو تسجيل اعتذار لجميع الطلاب بنقرة واحدة',
     '📥 دعم استيراد الشهور المصدرة عبر تيليجرام: إمكانية استيراد ملفات الشهور الفردية المصدرة من بوت تيليجرام وفتحها في الأرشيف مباشرة دون أي أخطاء',
@@ -349,9 +379,9 @@ async function sha256Hex(str){
 /* ---------- القيم الافتراضية ---------- */
 function defaultStatuses(){
   return [
-    { id:'st_done',     label:'تم',          color:'#15803d' },
-    { id:'st_apology',  label:'اعتذار',       color:'#b45309' },
-    { id:'st_noanswer', label:'لم يتم الرد',   color:'#dc2626' }
+    { id:'st_done',     label:'تم',          color:'#15803d', type:'present' },
+    { id:'st_apology',  label:'اعتذار',       color:'#b45309', type:'apology' },
+    { id:'st_noanswer', label:'لم يتم الرد',   color:'#dc2626', type:'absent' }
   ];
 }
 function nowMonth(){ return { monthNumber: new Date().getMonth()+1, year: new Date().getFullYear() }; }
@@ -528,6 +558,12 @@ function normalizeState(raw){
         reminderMinutes: (typeof L.reminderMinutes === 'number') ? L.reminderMinutes : 60,
         remindHeadOnly: !!L.remindHeadOnly,
         statusLabels: (L.statusLabels && typeof L.statusLabels === 'object') ? L.statusLabels : {},
+        statuses: Array.isArray(L.statuses) ? L.statuses.map(s => ({
+          id: s.id || uid('st'),
+          label: s.label || 'حالة',
+          color: s.color || '#2563eb',
+          type: s.type || (s.id === 'st_done' ? 'present' : s.id === 'st_apology' ? 'apology' : 'absent')
+        })) : undefined,
         groups: Array.isArray(L.groups) ? L.groups.map(normalizeGroup) : [],
         examGroups: Array.isArray(L.examGroups) ? L.examGroups.map(normalizeGroup) : [],
         students: Array.isArray(L.students) ? L.students.map(normalizeStudent) : [],
@@ -599,6 +635,13 @@ function normalizeState(raw){
       examExclusions: (a.examExclusions && typeof a.examExclusions === 'object') ? a.examExclusions : {},
       hiddenExamStudents: Array.isArray(a.hiddenExamStudents) ? a.hiddenExamStudents : [],
       examGroups: Array.isArray(a.examGroups) ? a.examGroups.map(normalizeGroup) : [],
+      statuses: Array.isArray(a.statuses) ? a.statuses.map(s => ({
+        id: s.id || uid('st'),
+        label: s.label || 'حالة',
+        color: s.color || '#2563eb',
+        type: s.type || (s.id === 'st_done' ? 'present' : s.id === 'st_apology' ? 'apology' : 'absent')
+      })) : undefined,
+      statusLabels: (a.statusLabels && typeof a.statusLabels === 'object') ? a.statusLabels : {},
       archivedAt: a.archivedAt || new Date().toISOString()
     }));
   }
@@ -1026,7 +1069,7 @@ function renderDashboardOverview(){
         ps.forEach(s => {
           totalPossible++;
           const rec = (L.records[st.id] && L.records[st.id][s.id]) || {};
-          if(rec.status === 'st_done') totalPastAttended++;
+          if(isPresentStatus(rec.status, effectiveStatuses(L))) totalPastAttended++;
         });
       });
     }
@@ -1095,7 +1138,7 @@ function openAnalyticsModal(){
     if(ps.length && L.students.length){
       L.students.forEach(st => {
         ps.forEach(s => {
-          if((L.records[st.id] && L.records[st.id][s.id] && L.records[st.id][s.id].status === 'st_done')) done++;
+          if((L.records[st.id] && L.records[st.id][s.id] && isPresentStatus(L.records[st.id][s.id].status, effectiveStatuses(L)))) done++;
         });
       });
     }
@@ -1198,12 +1241,18 @@ let selectedStudentIds = new Set();
 function openBulkAttendanceModal(container, session, isArch = false, archIdx = null){
   if(!container || !session) return;
   const isArchive = isArch || (archIdx !== null && archIdx !== undefined) || (state.archive && state.archive.includes(container)) || currentArchiveIdx !== null;
+  const eff = effectiveStatuses(container);
+
+  const statusBtns = eff.map(s => {
+    const icon = s.type === 'present' ? '🟢' : s.type === 'apology' ? '🟡' : '🔴';
+    const bg = s.type === 'present' ? '#15803d' : s.type === 'apology' ? '#b45309' : '#b91c1c';
+    return '<button class="btn" data-bulk-st="' + esc(s.id) + '" style="background:' + (s.color || bg) + ';color:#fff;justify-content:center">' + icon + ' تعيين الكل: ' + esc(s.label) + '</button>';
+  }).join('');
+
   const html = '<div style="text-align:center;padding:8px">'
     + '<p style="font-size:14px;font-weight:700;margin-bottom:14px">تعيين حالة لجميع طلاب الحصة:<br><b style="color:var(--primary);font-size:15px">' + esc(session.label) + (session.dateLabel ? ' (' + esc(session.dateLabel) + ')' : '') + '</b></p>'
-    + '<div style="display:flex;flex-direction:column;gap:10px;max-width:300px;margin:0 auto">'
-    +   '<button class="btn" id="bulk_set_done" style="background:#15803d;color:#fff;justify-content:center">✅ تحضير الكل حاضر</button>'
-    +   '<button class="btn" id="bulk_set_apology" style="background:#b45309;color:#fff;justify-content:center">⚠️ تسجيل الكل اعتذار</button>'
-    +   '<button class="btn" id="bulk_set_absent" style="background:#b91c1c;color:#fff;justify-content:center">❌ تغييب الكل غائب</button>'
+    + '<div style="display:flex;flex-direction:column;gap:10px;max-width:300px;margin:0 auto" id="bulk_btns_wrap">'
+    +   statusBtns
     +   '<button class="btn btn-outline" id="bulk_set_clear" style="justify-content:center">🔄 تفريغ سجلات الحصة للجميع</button>'
     + '</div>'
     + '</div>';
@@ -1241,10 +1290,10 @@ function openBulkAttendanceModal(container, session, isArch = false, archIdx = n
     showToastMessage('✅ تم تطبيق الحالة على ' + targetStudents.length + ' طالب.');
   }
 
-  $('#bulk_set_done').onclick = () => applyStatus('st_done');
-  $('#bulk_set_apology').onclick = () => applyStatus('st_apology');
-  $('#bulk_set_absent').onclick = () => applyStatus('st_noanswer');
-  $('#bulk_set_clear').onclick = () => applyStatus(null);
+  $$('#bulk_btns_wrap button[data-bulk-st]').forEach(btn => {
+    btn.onclick = () => applyStatus(btn.dataset.bulkSt);
+  });
+  if($('#bulk_set_clear')) $('#bulk_set_clear').onclick = () => applyStatus(null);
 }
 
 /* ---------- 2. المراسلة التسلسلية الذكية (Sequential WhatsApp) ---------- */
@@ -3606,7 +3655,7 @@ function renderLessonDetail(){
     const realIdx = L.students.findIndex(x => x.id === st.id);
     const g = (L.groups||[]).find(x => x.id === st.groupId);
     const ps = pastSessions(L.sessions);
-    const stPct = ps.length ? Math.round(ps.filter(s => (L.records[st.id]||{})[s.id] && L.records[st.id][s.id].status === 'st_done').length / ps.length * 100) : 0;
+    const stPct = ps.length ? Math.round(ps.filter(s => (L.records[st.id]||{})[s.id] && isPresentStatus(L.records[st.id][s.id].status, eff)).length / ps.length * 100) : 0;
     const ind = ps.length > 0 ? attendanceIndicator(stPct) : null;
 
     let payPillHTML = '';
@@ -3706,9 +3755,9 @@ function statusSelectHTML(studentId, sessionId, current, archIdx, statuses){
   const sd = statuses || state.settings.statuses;
   let cls = 'status-select s-empty';
   if(current){
-    if(current === 'st_done') cls = 'status-select s-done';
-    else if(current === 'st_apology') cls = 'status-select s-apology';
-    else if(current === 'st_noanswer') cls = 'status-select s-noanswer';
+    if(isPresentStatus(current, sd)) cls = 'status-select s-done';
+    else if(isApologyStatus(current, sd)) cls = 'status-select s-apology';
+    else if(isAbsentStatus(current, sd)) cls = 'status-select s-noanswer';
     else cls = 'status-select s-custom';
   }
   let opts = '<option value="">-</option>';
@@ -4395,6 +4444,10 @@ function renderArchiveDetail(idx){
   };
   $('#archAddExamBtn').onclick = () => addExamModal(a, null, true, idx);
   $('#archExamGroupsBtn').onclick = () => openExamGroupsModal(a);
+  if($('#archStatusesBtn')) $('#archStatusesBtn').onclick = () => {
+    $('.dropdown-menu').forEach(m => { m.hidden = true; });
+    lessonStatusesEditor(a, true, idx);
+  };
   if($('#archSortAttendanceBtn')) $('#archSortAttendanceBtn').onclick = () => {
     $$('.dropdown-menu').forEach(m => { m.hidden = true; });
     sortArchiveMonthByAttendance(idx);
@@ -4514,7 +4567,7 @@ function archiveTableHTML(a, idx, statuses, displayStudents){
   h += '</tr></thead><tbody>';
 
   students.forEach((st, i) => {
-    const stPct = ps.length ? Math.round(ps.filter(s => (a.records[st.id] || {})[s.id] && a.records[st.id][s.id].status === 'st_done').length / ps.length * 100) : 0;
+    const stPct = ps.length ? Math.round(ps.filter(s => (a.records[st.id] || {})[s.id] && isPresentStatus(a.records[st.id][s.id].status, eff)).length / ps.length * 100) : 0;
     const ind = ps.length > 0 ? attendanceIndicator(stPct) : null;
     const grp = ((L && L.groups) || a.groups || []).find(g => g.id === st.groupId);
 
@@ -4567,7 +4620,7 @@ function archiveTableHTML(a, idx, statuses, displayStudents){
   sd.customFields.forEach(() => h += '<td></td>');
   a.sessions.forEach(s => {
     let c = 0;
-    students.forEach(st => { const rec = (a.records[st.id] && a.records[st.id][s.id]) || {}; if(rec.status === 'st_done') c++; });
+    students.forEach(st => { const rec = (a.records[st.id] && a.records[st.id][s.id]) || {}; if(isPresentStatus(rec.status, eff)) c++; });
     h += '<td><b>' + c + ' / ' + students.length + '</b></td>';
   });
   h += '<td></td>';
@@ -4686,13 +4739,19 @@ function renderSettings(){
     + '</div>'
   ).join('') || '<p class="muted">لا توجد أعمدة إضافية.</p>';
 
-  $('#statusList').innerHTML = sd.statuses.map(s =>
-    '<div class="status-edit-row">'
-    + '<input type="color" value="'+esc(s.color)+'" data-act="status-color" data-id="'+s.id+'">'
-    + '<input type="text" value="'+esc(s.label)+'" data-act="status-label" data-id="'+s.id+'">'
-    + '<button class="del-status" data-act="del-status" data-id="'+s.id+'">حذف</button>'
-    + '</div>'
-  ).join('');
+  $('#statusList').innerHTML = sd.statuses.map(s => {
+    const type = s.type || (s.id === 'st_done' ? 'present' : s.id === 'st_apology' ? 'apology' : 'absent');
+    return '<div class="status-edit-row">'
+      + '<input type="color" value="'+esc(s.color)+'" data-act="status-color" data-id="'+s.id+'">'
+      + '<input type="text" value="'+esc(s.label)+'" data-act="status-label" data-id="'+s.id+'">'
+      + '<select data-act="status-type" data-id="'+s.id+'" style="font-size:12px;font-weight:700;padding:4px 6px;border-radius:6px;border:1px solid var(--border)">'
+      +   '<option value="present"' + (type === 'present' ? ' selected' : '') + '>🟢 حاضر</option>'
+      +   '<option value="apology"' + (type === 'apology' ? ' selected' : '') + '>🟡 اعتذار</option>'
+      +   '<option value="absent"' + (type === 'absent' ? ' selected' : '') + '>🔴 غائب</option>'
+      + '</select>'
+      + '<button class="del-status" data-act="del-status" data-id="'+s.id+'">حذف</button>'
+      + '</div>';
+  }).join('');
 
   /* مؤشرات خطر الغياب */
   const indicators = sd.attendanceIndicators || [];
@@ -4967,84 +5026,136 @@ function scheduleReminders(){
 }
 
 /* ---------- التحليل ---------- */
-/* ---------- حالات الدرس (تسمية خاصة لكل درس) ---------- */
+/* ---------- حالات الدرس (تخصيص كامل لكل درس) ---------- */
 function effectiveStatuses(lesson){
   const base = state.settings.statuses;
-  if(!lesson || !lesson.statusLabels) return base;
-  return base.map(s => (lesson.statusLabels[s.id] ? { id: s.id, label: lesson.statusLabels[s.id], color: s.color } : s));
+  if(!lesson) return base;
+  if(Array.isArray(lesson.statuses) && lesson.statuses.length > 0){
+    return lesson.statuses.map(s => ({
+      id: s.id || uid('st'),
+      label: s.label || 'حالة',
+      color: s.color || '#2563eb',
+      type: s.type || (s.id === 'st_done' ? 'present' : s.id === 'st_apology' ? 'apology' : 'absent')
+    }));
+  }
+  if(lesson.statusLabels && typeof lesson.statusLabels === 'object' && Object.keys(lesson.statusLabels).length > 0){
+    return base.map(s => ({
+      id: s.id,
+      label: lesson.statusLabels[s.id] || s.label,
+      color: s.color,
+      type: s.type || (s.id === 'st_done' ? 'present' : s.id === 'st_apology' ? 'apology' : 'absent')
+    }));
+  }
+  return base;
 }
 
-function lessonStatusesEditor(lesson){
+function lessonStatusesEditor(lesson, isArchive = false, archIdx = null){
   const eff = effectiveStatuses(lesson);
-  const inputs = eff.map(s =>
-    '<div class="status-edit-row"><span class="dot" style="background:'+esc(s.color)+'"></span>'
-    + '<input type="text" data-sid="'+esc(s.id)+'" value="'+esc(s.label)+'"></div>'
-  ).join('');
-  openModal('🏷️ حالات درس «' + esc(lesson.name) + '»',
-    '<p class="muted" style="margin-top:0">غيّر التسمية لهذا الدرس فقط (مثال: «تم» ← «حضر»). باقي الدروس تستخدم الاسم العام من الإعدادات.</p>'
-    + inputs
-    + '<div class="modal-actions"><button class="btn" id="ls_save">حفظ</button><button class="btn btn-outline" id="ls_reset">استخدام العام</button><button class="btn btn-outline" id="ls_cancel">إلغاء</button></div>');
-  $('#ls_save').onclick = () => {
-    const map = {};
-    $$('#modalBody input[data-sid]').forEach(inp => {
-      const id = inp.dataset.sid;
-      const g = state.settings.statuses.find(x => x.id === id);
-      const v = inp.value.trim();
-      if(g && v && v !== g.label) map[id] = v;
-    });
-    if(Object.keys(map).length) lesson.statusLabels = map; else delete lesson.statusLabels;
-    // مزامنة البيانات الشخصية مع الشهر الحالي وباقي الشهور عند طلب المستخدم (v36)
-    if(isArchive && $('#f_syncCurrentMonth') && $('#f_syncCurrentMonth').checked){
-      const lid = lesson.lessonId || lesson.id;
-      const curL = state.lessons.find(x => x.id === lid);
-      if(curL && Array.isArray(curL.students)){
-        const match = curL.students.find(x => x.id === (student ? student.id : null) || normalizeForSearch(x.name) === normalizeForSearch(nm));
-        if(match){
-          match.name = nm;
-          if(ph) match.phone = ph;
-          match.guardianPhone = gp;
-          match.guardianExtraPhones = gExtras;
-          match.extraPhones = extras;
-          match.job = job;
-          match.address = addr;
-          match.age = age;
-          match.email = eml;
-          match.profileNotes = pNotes;
-          if(photoBase64) match.photo = photoBase64;
-        }
-      }
-      (state.archive || []).forEach(otherA => {
-        if(otherA !== lesson && (otherA.lessonId === lid)){
-          if(Array.isArray(otherA.students)){
-            const matchA = otherA.students.find(x => x.id === (student ? student.id : null) || normalizeForSearch(x.name) === normalizeForSearch(nm));
-            if(matchA){
-              matchA.name = nm;
-              if(ph) matchA.phone = ph;
-              matchA.guardianPhone = gp;
-              matchA.guardianExtraPhones = gExtras;
-              matchA.extraPhones = extras;
-              matchA.job = job;
-              matchA.address = addr;
-              matchA.age = age;
-              matchA.email = eml;
-              matchA.profileNotes = pNotes;
-              if(photoBase64) matchA.photo = photoBase64;
-            }
-          }
-        }
-      });
-    }
+  let localStatuses = JSON.parse(JSON.stringify(eff));
 
+  function renderRows(){
+    const container = $('#ls_rows_container');
+    if(!container) return;
+    container.innerHTML = localStatuses.map((s, idx) => {
+      const type = s.type || (s.id === 'st_done' ? 'present' : s.id === 'st_apology' ? 'apology' : 'absent');
+      return '<div class="status-edit-row" data-idx="' + idx + '" style="background:#f8fafc;padding:8px 10px;border-radius:8px;border:1px solid var(--border);margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        + '<input type="color" class="ls-color" value="' + esc(s.color || '#2563eb') + '" title="لون الحالة" style="width:40px;height:36px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px">'
+        + '<input type="text" class="ls-label" value="' + esc(s.label) + '" placeholder="اسم الحالة (مثال: استماع صوتي)" style="flex:2;min-width:130px;font-weight:700;padding:6px 10px;border-radius:6px;border:1px solid var(--border)">'
+        + '<select class="ls-type" style="flex:1.5;min-width:140px;font-size:12px;font-weight:700;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:#fff">'
+        +   '<option value="present"' + (type === 'present' ? ' selected' : '') + '>🟢 حاضر (يُحسب حضور)</option>'
+        +   '<option value="apology"' + (type === 'apology' ? ' selected' : '') + '>🟡 اعتذار (غياب بعذر)</option>'
+        +   '<option value="absent"' + (type === 'absent' ? ' selected' : '') + '>🔴 غائب (غياب بدون عذر)</option>'
+        + '</select>'
+        + (localStatuses.length > 1 ? '<button class="del-status ls-del" data-idx="' + idx + '" title="حذف الحالة" style="padding:6px 10px;font-size:12px;border:none;border-radius:6px;background:#fee2e2;color:#991b1b;cursor:pointer;font-weight:700">✕</button>' : '')
+        + '</div>';
+    }).join('');
+
+    $$('#ls_rows_container .ls-color').forEach((inp, i) => {
+      inp.oninput = (e) => { if(localStatuses[i]) localStatuses[i].color = e.target.value; };
+    });
+    $$('#ls_rows_container .ls-label').forEach((inp, i) => {
+      inp.oninput = (e) => { if(localStatuses[i]) localStatuses[i].label = e.target.value; };
+    });
+    $$('#ls_rows_container .ls-type').forEach((sel, i) => {
+      sel.onchange = (e) => { if(localStatuses[i]) localStatuses[i].type = e.target.value; };
+    });
+    $$('#ls_rows_container .ls-del').forEach((btn) => {
+      btn.onclick = () => {
+        const i = parseInt(btn.dataset.idx, 10);
+        if(!isNaN(i) && localStatuses.length > 1){
+          localStatuses.splice(i, 1);
+          renderRows();
+        }
+      };
+    });
+  }
+
+  const modalHtml = '<div style="text-align:right;direction:rtl">'
+    + '<p class="muted" style="margin-top:0;font-size:12.5px;line-height:1.6">'
+    +   '💡 يمكنك إضافة أو تعديل حالات الحضور لهذا الدرس وتحديد معنى كل حالة (هل تُحسب كـ <b>حاضر</b> أم <b>غائب</b> أم <b>اعتذار</b>) ليتم احتساب نسب الحضور والإحصائيات والتقارير بدقة.'
+    + '</p>'
+    + '<div id="ls_rows_container" style="max-height:340px;overflow-y:auto;padding:2px"></div>'
+    + '<button class="btn btn-outline btn-sm" id="ls_add_btn" style="margin-top:6px;width:100%;justify-content:center;font-weight:700">➕ إضافة حالة جديدة للدرس</button>'
+    + '<div class="modal-actions" style="margin-top:16px">'
+    +   '<button class="btn btn-primary" id="ls_save_btn">💾 حفظ التخصيص للدرس</button>'
+    +   '<button class="btn btn-outline" id="ls_reset_btn">🔄 استخدام العام (الافتراضي)</button>'
+    +   '<button class="btn btn-outline" id="ls_cancel_btn">إلغاء</button>'
+    + '</div>'
+    + '</div>';
+
+  const lessonDisplayName = lesson.lessonName || lesson.name || 'الدرس';
+  openModal('🏷️ تخصيص حالات الحضور لدرس «' + esc(lessonDisplayName) + '»', modalHtml);
+  renderRows();
+
+  $('#ls_add_btn').onclick = () => {
+    const newId = 'st_custom_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+    localStatuses.push({
+      id: newId,
+      label: 'حالة جديدة',
+      color: STATUS_COLORS[localStatuses.length % STATUS_COLORS.length] || '#2563eb',
+      type: 'present'
+    });
+    renderRows();
+  };
+
+  $('#ls_reset_btn').onclick = () => {
+    if(!window.confirm('هل تريد إلغاء التخصيص والعودة لاستخدام الحالات العامة لجميع الدروس؟')) return;
+    delete lesson.statuses;
+    delete lesson.statusLabels;
     saveState();
-    if(isArchive && archIdx !== undefined && archIdx !== null){
+    if(isArchive && archIdx !== null && archIdx !== undefined){
       renderArchiveDetail(archIdx);
     } else {
-      renderAll();
+      renderLessonDetail();
     }
     closeModal();
-    showToastMessage(isEdit ? '✅ تم حفظ تعديل العضو بنجاح.' : '✅ تم إضافة العضو بنجاح.');
+    showToastMessage('✅ تم استعادة الحالات الافتراضية للدرس.');
   };
-  if($('#f_cancel')) $('#f_cancel').onclick = closeModal;
+
+  $('#ls_save_btn').onclick = () => {
+    const cleaned = localStatuses.map(s => ({
+      id: s.id || uid('st'),
+      label: (s.label || '').trim() || 'حالة',
+      color: s.color || '#2563eb',
+      type: s.type || 'present'
+    }));
+    if(cleaned.length === 0){
+      alert('يجب أن يحتوي الدرس على حالة واحدة على الأقل.');
+      return;
+    }
+    lesson.statuses = cleaned;
+    delete lesson.statusLabels;
+    saveState();
+    if(isArchive && archIdx !== null && archIdx !== undefined){
+      renderArchiveDetail(archIdx);
+    } else {
+      renderLessonDetail();
+    }
+    closeModal();
+    showToastMessage('✅ تم حفظ تخصيص حالات الدرس بنجاح.');
+  };
+
+  $('#ls_cancel_btn').onclick = closeModal;
 }
 
 function computeStats(students, sessions, records, statuses){
@@ -5054,12 +5165,16 @@ function computeStats(students, sessions, records, statuses){
     const counts = {};
     stList.forEach(s => counts[s.id] = 0);
     let marked = 0;
+    let done = 0;
     sessions.forEach(s => {
       const status = recs[s.id] && recs[s.id].status;
-      if(status){ marked++; counts[status] = (counts[status]||0) + 1; }
+      if(status){
+        marked++;
+        counts[status] = (counts[status] || 0) + 1;
+        if(isPresentStatus(status, stList)) done++;
+      }
     });
     const total = sessions.length;
-    const done = counts['st_done'] || 0;
     const pct = total ? Math.round(done / total * 100) : 0;
     return { st, counts, marked, total, done, pct };
   });
@@ -6834,6 +6949,8 @@ function archiveLessonMonth(lesson){
     hiddenExamStudents: JSON.parse(JSON.stringify(lesson.hiddenExamStudents || [])),
     examGroups: JSON.parse(JSON.stringify(lesson.examGroups || [])),
     groups: JSON.parse(JSON.stringify(lesson.groups || [])),
+    statuses: lesson.statuses ? JSON.parse(JSON.stringify(lesson.statuses)) : (lesson.statusLabels ? effectiveStatuses(lesson) : undefined),
+    statusLabels: lesson.statusLabels ? JSON.parse(JSON.stringify(lesson.statusLabels)) : {},
     archivedAt: new Date().toISOString()
   });
 
@@ -7261,8 +7378,15 @@ function editSessionEvent(session, after){
 
 function sessionSummary(lesson, session, statuses){
   const sd = state.settings;
-  const eff = statuses || state.settings.statuses;
+  const eff = statuses || (lesson ? effectiveStatuses(lesson) : state.settings.statuses);
   const labelOf = (id) => { const st = eff.find(x => x.id === id); return st ? st.label : id; };
+  const iconOf = (id) => {
+    const st = eff.find(x => x.id === id);
+    if(!st) return '❓ ' + id;
+    if(st.type === 'present' || id === 'st_done') return '✅ ' + st.label;
+    if(st.type === 'apology' || id === 'st_apology') return '⚠️ ' + st.label;
+    return '❌ ' + st.label;
+  };
   const groups = {};
   lesson.students.forEach(st => {
     const rec = (lesson.records[st.id] && lesson.records[st.id][session.id]) || {};
@@ -7270,20 +7394,19 @@ function sessionSummary(lesson, session, statuses){
     if(!groups[key]) groups[key] = [];
     groups[key].push(st.name);
   });
-  const orderKeys = ['st_done','st_apology','st_noanswer'];
-  const iconMap = { st_done:'✅ ' + labelOf('st_done'), st_apology:'😢 ' + labelOf('st_apology'), st_noanswer:'❌ ' + labelOf('st_noanswer') };
   let text = '📋 ملخص حصة: ' + session.label + (session.dateLabel ? ' (' + session.dateLabel + ')' : '') + '\n';
-  text += '📍 ' + lesson.name + '\n';
+  text += '📍 ' + (lesson.lessonName || lesson.name) + '\n';
   if(session.event) text += '📝 ' + session.event + (session.eventNote ? ' - ' + session.eventNote : '') + '\n';
   const printed = {};
-  orderKeys.forEach(k => {
+  eff.forEach(stObj => {
+    const k = stObj.id;
     const list = groups[k] || [];
     if(!list.length) return;
-    text += '\n' + (iconMap[k] || '❓') + ' (' + list.length + '):\n' + list.map(n => '• ' + n).join('\n');
+    text += '\n' + iconOf(k) + ' (' + list.length + '):\n' + list.map(n => '• ' + n).join('\n');
     printed[k] = true;
   });
   Object.keys(groups).forEach(k => {
-    if(k === '__none__' || printed[k] || orderKeys.indexOf(k) >= 0) return;
+    if(k === '__none__' || printed[k]) return;
     const list = groups[k];
     text += '\n\n' + labelOf(k) + ' (' + list.length + '):\n' + list.map(n => '• ' + n).join('\n');
     printed[k] = true;
@@ -7400,18 +7523,27 @@ function studentSummary(lesson, student){
   $('#st_close').onclick = closeModal;
 }
 
-function updateStatusCellUI(sel){
+function updateStatusCellUI(sel, statuses){
   const cur = sel.value;
-  sel.className = 'status-select ' + (cur === 'st_done' ? 's-done' : cur === 'st_apology' ? 's-apology' : cur === 'st_noanswer' ? 's-noanswer' : cur ? 's-custom' : 's-empty');
+  const list = statuses || (typeof state !== 'undefined' && state.settings && state.settings.statuses);
+  let cls = 'status-select s-empty';
+  if(cur){
+    if(isPresentStatus(cur, list)) cls = 'status-select s-done';
+    else if(isApologyStatus(cur, list)) cls = 'status-select s-apology';
+    else if(isAbsentStatus(cur, list)) cls = 'status-select s-noanswer';
+    else cls = 'status-select s-custom';
+  }
+  sel.className = cls;
 }
 
 function updateSessionCounterUI(ssid){
   const L = curLesson();
   if(!L) return;
+  const eff = effectiveStatuses(L);
   let c = 0;
   L.students.forEach(st => {
     const rec = (L.records[st.id] && L.records[st.id][ssid]) || {};
-    if(rec.status === 'st_done') c++;
+    if(isPresentStatus(rec.status, eff)) c++;
   });
   const sIdx = L.sessions.findIndex(s => s.id === ssid);
   if(sIdx < 0) return;
@@ -7500,9 +7632,10 @@ function openStudentProfile(student, lesson){
   if(!student || !lesson) return;
   const g = (lesson.groups||[]).find(x => x.id === student.groupId);
   const ps = pastSessions(lesson.sessions);
-  const doneCount = ps.filter(s => (lesson.records[student.id]||{})[s.id] && lesson.records[student.id][s.id].status === 'st_done').length;
-  const apolCount = ps.filter(s => (lesson.records[student.id]||{})[s.id] && lesson.records[student.id][s.id].status === 'st_apology').length;
-  const noansCount = ps.filter(s => (lesson.records[student.id]||{})[s.id] && lesson.records[student.id][s.id].status === 'st_noanswer').length;
+  const eff = effectiveStatuses(lesson);
+  const doneCount = ps.filter(s => (lesson.records[student.id]||{})[s.id] && isPresentStatus(lesson.records[student.id][s.id].status, eff)).length;
+  const apolCount = ps.filter(s => (lesson.records[student.id]||{})[s.id] && isApologyStatus(lesson.records[student.id][s.id].status, eff)).length;
+  const noansCount = ps.filter(s => (lesson.records[student.id]||{})[s.id] && isAbsentStatus(lesson.records[student.id][s.id].status, eff)).length;
   const pct = ps.length ? Math.round((doneCount / ps.length) * 100) : 0;
   const ind = ps.length > 0 ? attendanceIndicator(pct) : null;
 
@@ -8889,7 +9022,8 @@ function bindEvents(){
         updateStatusCellUI(st);
         let c = 0;
         const sts = archiveStudents(a);
-        sts.forEach(s2 => { const rec = (a.records[s2.id] && a.records[s2.id][ssid]) || {}; if(rec.status === 'st_done') c++; });
+        const effA = effectiveStatuses(a);
+        sts.forEach(s2 => { const rec = (a.records[s2.id] && a.records[s2.id][ssid]) || {}; if(isPresentStatus(rec.status, effA)) c++; });
         const sIdx = a.sessions.findIndex(s => s.id === ssid);
         const detailEl = $('#archiveDetail');
         if(detailEl && sIdx >= 0){
