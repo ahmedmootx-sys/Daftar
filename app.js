@@ -37,6 +37,7 @@ const REMINDER_PRESETS = [0, 30, 60, 180, 1440];
 const APP_VERSION = 'v40';
 const CHANGELOG = {
   v40: [
+    '📦 أرشفة درجات واختبارات الشهر تلقائياً: عند الضغط على زر «أرشفة وإنهاء الشهر» يتم نقل كافة الاختبارات والدرجات والملاحظات ومجموعات الاختبار وحفظها داخل الشهر المؤرشف وتصفيرها للشهر الجديد',
     '⚡ التحضير السريع الجماعي في الشهور المؤرشفة: إضافة زر (⚡) في عناوين حصص الأرشيف لتحضير أو تغييب أو تسجيل اعتذار لجميع الطلاب بنقرة واحدة',
     '📥 دعم استيراد الشهور المصدرة عبر تيليجرام: إمكانية استيراد ملفات الشهور الفردية المصدرة من بوت تيليجرام وفتحها في الأرشيف مباشرة دون أي أخطاء',
     '📝 سلاسة كتابة الملاحظات: تسريع ومنع أي تعليق أو بطء عند كتابة الملاحظات في عمود ملاحظات الطالب داخل الشهور المؤرشفة',
@@ -6814,7 +6815,7 @@ async function initAutoSave(){
 function archiveLessonMonth(lesson){
   if(!lesson) return;
   const mn = lesson.monthNumber, yr = lesson.year;
-  if(!window.confirm('أرشفة شهر ' + mn + '/' + yr + ' لدرس «' + lesson.name + '»؟ سيبدأ شهر جديد فارغ لهذا الدرس فقط.')) return;
+  if(!window.confirm('أرشفة شهر ' + mn + '/' + yr + ' لدرس «' + lesson.name + '»؟ سيبدأ شهر جديد فارغ لهذا الدرس فقط مع حفظ سجلات الحضور ودرجات الاختبارات في الأرشيف.')) return;
 
   state.archive.push({
     id: uid('a'),
@@ -6826,6 +6827,13 @@ function archiveLessonMonth(lesson){
     students: JSON.parse(JSON.stringify(lesson.students)),
     sessions: JSON.parse(JSON.stringify(lesson.sessions)),
     records: JSON.parse(JSON.stringify(lesson.records || {})),
+    exams: JSON.parse(JSON.stringify(lesson.exams || [])),
+    examScores: JSON.parse(JSON.stringify(lesson.examScores || {})),
+    examNotes: JSON.parse(JSON.stringify(lesson.examNotes || {})),
+    examExclusions: JSON.parse(JSON.stringify(lesson.examExclusions || {})),
+    hiddenExamStudents: JSON.parse(JSON.stringify(lesson.hiddenExamStudents || [])),
+    examGroups: JSON.parse(JSON.stringify(lesson.examGroups || [])),
+    groups: JSON.parse(JSON.stringify(lesson.groups || [])),
     archivedAt: new Date().toISOString()
   });
 
@@ -6834,10 +6842,19 @@ function archiveLessonMonth(lesson){
   lesson.monthNumber = m;
   lesson.year = y;
   lesson.records = {};
-  lesson.students.forEach(st => st.paid = false);
+  lesson.exams = [];
+  lesson.examScores = {};
+  lesson.examNotes = {};
+  lesson.examExclusions = {};
+  lesson.hiddenExamStudents = [];
+  lesson.students.forEach(st => {
+    st.paid = false;
+    st.payments = [];
+  });
   fillSessions(lesson);
   saveState();
   renderAll();
+  showToastMessage('📦 تم أرشفة شهر ' + mn + '/' + yr + ' ونقل درجات واختبارات الشهر للأرشيف بنجاح.');
 }
 
 /* ---------- استعادة شهر مؤرشف للتعديل ---------- */
