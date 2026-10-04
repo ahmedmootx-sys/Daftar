@@ -81,6 +81,7 @@
         <button id="addStudentBtn" class="btn btn-primary">➕ عضو جديد</button>
         <button id="bulkSelectBtn" class="btn btn-outline" title="تحديد متعدد لنقل أو تكرار الطلاب">☑️ تحديد متعدد</button>
         <button id="seqMsgBtn" class="btn btn-outline" title="مراسلة تسلسلية عبر واتساب">📲 مراسلة جماعية</button>
+        <button id="hiddenStudentsBtn" class="btn btn-outline" style="display:none;color:#b91c1c;border-color:#fca5a5;font-weight:700" title="عرض واستعادة الطلاب المحجوبين">🚫 المحجوبون (<span id="hiddenCount">0</span>)</button>
         <div class="toolbar-dropdown">
           <button class="btn btn-outline" id="reportsMenuBtn">📊 التقارير ▾</button>
           <div class="dropdown-menu" id="reportsMenu" hidden>
@@ -102,6 +103,8 @@
             <button id="lessonStatusesBtn" class="dropdown-item">🏷️ حالات هذا الدرس</button>
             <button id="sortAttendanceBtn" class="dropdown-item" title="ترتيب الطلاب حسب نسبة الحضور">📈 ترتيب حسب الحضور</button>
             <button id="addOldMonthLessonBtn" class="dropdown-item">📦 إضافة شهر قديم لهذا الدرس</button>
+            <button id="hiddenStudentsMenuBtn" class="dropdown-item">🚫 إدارة الطلاب المحجوبين</button>
+            <button id="smartDropoutHideBtn" class="dropdown-item">⚡ حجب المنقطعين ذكياً</button>
             <button id="exportLessonBtn" class="dropdown-item">⬇️ تصدير الدرس</button>
             <button id="archiveLessonBtn" class="dropdown-item dropdown-danger">📦 أرشفة وإنهاء الشهر</button>
           </div>
