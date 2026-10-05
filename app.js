@@ -7127,18 +7127,79 @@ function importBackup(file){
   reader.readAsText(file);
 }
 
-/* ---------- تصدير/استيراد درس واحد (دمج) ---------- */
+/* ---------- تصدير/استيراد درس واحد (دمج مع خيارات الأرشيف) ---------- */
 function exportLesson(lesson){
   if(!lesson) return;
-  const payload = { type: 'daftar-lesson', version: 6, lesson: JSON.parse(JSON.stringify(lesson)), archives: state.archive.filter(a => a.lessonId === lesson.id).map(a => JSON.parse(JSON.stringify(a))) };
+  const lessonArchives = state.archive.filter(a => a.lessonId === lesson.id);
+
+  // إذا لم يكن هناك شهور مؤرشفة، يتم تصدير الشهر الحالي مباشرة
+  if(!lessonArchives || lessonArchives.length === 0){
+    doExportLesson(lesson, false);
+    return;
+  }
+
+  // إذا كان هناك شهور مؤرشفة، نتيح للمستخدم الاختيار بحرية تامة
+  openLessonExportModal(lesson, lessonArchives);
+}
+
+function openLessonExportModal(lesson, lessonArchives){
+  const archCount = lessonArchives.length;
+  const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
+    + '<p style="font-size:13.5px;color:var(--text);margin-top:0">'
+    +   'يحتوي درس «<b>' + esc(lesson.name) + '</b>» على شهر حالي و <b>' + archCount + '</b> شهر مؤرشف في الأرشيف. اختر نوع التصدير المطلوب:'
+    + '</p>'
+    + '<div style="display:flex;flex-direction:column;gap:10px;margin:16px 0">'
+    +   '<button type="button" class="btn btn-outline" id="btn_export_current_only" style="padding:12px 14px;text-align:right;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-width:2px;border-color:var(--primary);background:var(--card-bg,#f8fafc);cursor:pointer;border-radius:8px">'
+    +     '<span style="font-size:14px;font-weight:800;color:var(--primary)">📄 تصدير الشهر الحالي فقط (بدون الأرشيف)</span>'
+    +     '<span style="font-size:12px;color:var(--muted)">تصدير بيانات الشهر الجاري والطلاب والحصص فقط في ملف خفيف وسريع وصغير الحجم.</span>'
+    +   '</button>'
+    +   '<button type="button" class="btn btn-outline" id="btn_export_with_archives" style="padding:12px 14px;text-align:right;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-width:2px;border-color:var(--border);background:#fff;cursor:pointer;border-radius:8px">'
+    +     '<span style="font-size:14px;font-weight:800;color:var(--text)">📦 تصدير شامل (الشهر الحالي + كافة الشهور المؤرشفة ' + archCount + ' شهر)</span>'
+    +     '<span style="font-size:12px;color:var(--muted)">تصدير نسخة كاملة تشمل الشهر الجاري وكافة الشهور السابقة المحفوظة في الأرشيف لهذا الدرس.</span>'
+    +   '</button>'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:12px">'
+    +   '<button class="btn" id="btn_cancel_export">إلغاء</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('⬇️ خيارات تصدير الدرس', modalHTML);
+
+  $('#btn_export_current_only').onclick = () => {
+    closeModal();
+    doExportLesson(lesson, false);
+  };
+  $('#btn_export_with_archives').onclick = () => {
+    closeModal();
+    doExportLesson(lesson, true);
+  };
+  $('#btn_cancel_export').onclick = closeModal;
+}
+
+function doExportLesson(lesson, includeArchives){
+  const lessonArchives = includeArchives
+    ? state.archive.filter(a => a.lessonId === lesson.id).map(a => JSON.parse(JSON.stringify(a)))
+    : [];
+  const payload = {
+    type: 'daftar-lesson',
+    version: 6,
+    includeArchives: !!includeArchives,
+    lesson: JSON.parse(JSON.stringify(lesson)),
+    archives: lessonArchives
+  };
   const safe = (lesson.name || 'درس').replace(/[^\w\u0600-\u06FF ]/g, '').replace(/\s+/g, '_');
   const now = new Date();
   const stamp = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + '_' + String(now.getHours()).padStart(2,'0') + '-' + String(now.getMinutes()).padStart(2,'0');
-  downloadBlob(JSON.stringify(payload, null, 2), 'درس_' + safe + '_شهر' + lesson.monthNumber + '_' + lesson.year + '_' + stamp + '.json', 'application/json');
+  const filePrefix = includeArchives ? ('درس_' + safe + '_شامل_مع_الأرشيف_') : ('درس_' + safe + '_شهر' + lesson.monthNumber + '_' + lesson.year + '_');
+  downloadBlob(JSON.stringify(payload, null, 2), filePrefix + stamp + '.json', 'application/json');
   lesson.lastExportAt = Date.now();
   saveState();
   updateExportReminder();
+  showToastMessage(includeArchives
+    ? ('📦 تم تصدير الدرس «' + esc(lesson.name) + '» شاملاً ' + lessonArchives.length + ' شهر مؤرشف.')
+    : ('📄 تم تصدير الشهر الحالي لـ «' + esc(lesson.name) + '» بنجاح (بدون أرشيف).'));
 }
+
 function importLesson(file){
   const reader = new FileReader();
   reader.onload = () => {
@@ -7183,24 +7244,113 @@ function executeImportSingleLesson(L, archives){
     return;
   }
   const norm = normalizeState({ settings: state.settings, lessons: [L], archive: [] }).lessons[0];
-  const normArchives = normalizeState({ settings: state.settings, lessons: [L], archive: Array.isArray(archives) ? archives : [] }).archive;
-  const existing = state.lessons.findIndex(x => x.id === L.id);
-  if(existing >= 0){
-    if(!window.confirm('يوجد درس بنفس المعرّف («' + L.name + '»). هل ترغب في استبداله وتحديث بياناته بمحتوى هذا الملف؟')) return;
-    state.lessons[existing] = norm;
+  const incomingArchives = (Array.isArray(archives) && archives.length > 0)
+    ? normalizeState({ settings: state.settings, lessons: [L], archive: archives }).archive
+    : [];
+
+  const existingIdx = state.lessons.findIndex(x => x.id === L.id);
+  const existingArchives = state.archive.filter(x => x.lessonId === L.id);
+
+  // سيناريو 1: الملف المستورد لا يحتوي على شهور مؤرشفة (شهر حالي فقط)
+  if(incomingArchives.length === 0){
+    if(existingIdx >= 0){
+      const confirmMsg = existingArchives.length > 0
+        ? 'يوجد درس بنفس المعرّف («' + L.name + '») وله ' + existingArchives.length + ' شهر مؤرشف.\n\nهل ترغب في تحديث بيانات الشهر الحالي بمحتوى هذا الملف؟\n(سيتم الحفاظ على كافة الشهور المؤرشفة السابقة دون أي مساس بها).'
+        : 'يوجد درس بنفس المعرّف («' + L.name + '»). هل ترغب في تحديث بياناته بمحتوى هذا الملف؟';
+      if(!window.confirm(confirmMsg)) return;
+      state.lessons[existingIdx] = norm;
+    } else {
+      state.lessons.push(norm);
+    }
+    // ملاحظة حاسمة: لا نلمس state.archive على الإطلاق حتى تظل الشهور المؤرشفة محفوظة 100%
+    saveState();
+    renderAll();
+    showToastMessage('✅ تم استيراد الشهر الحالي للدرس «' + esc(L.name) + '» بنجاح' + (existingArchives.length > 0 ? ' (مع الحفاظ على ' + existingArchives.length + ' شهر مؤرشف)' : '') + '.');
+    return;
+  }
+
+  // سيناريو 2: الملف المستورد يحتوي على شهور مؤرشفة + المستخدم لديه بالفعل شهور مؤرشفة لهذا الدرس
+  if(existingArchives.length > 0 && incomingArchives.length > 0){
+    openImportArchiveChoiceModal(norm, incomingArchives, existingArchives, existingIdx);
+    return;
+  }
+
+  // سيناريو 3: المستخدم ليس لديه شهور مؤرشفة لهذا الدرس والملف يحتوي على أرشيف
+  if(existingIdx >= 0){
+    if(!window.confirm('يوجد درس بنفس المعرّف («' + L.name + '»). هل ترغب في تحديث بياناته واستيراد ' + incomingArchives.length + ' شهر مؤرشف معه؟')) return;
+    state.lessons[existingIdx] = norm;
   } else {
     state.lessons.push(norm);
   }
-  state.archive = state.archive.filter(x => x.lessonId !== norm.id).concat(normArchives);
+  state.archive = state.archive.filter(x => x.lessonId !== norm.id).concat(incomingArchives);
   saveState();
   renderAll();
-  showToastMessage('✅ تم استيراد ودمج الدرس «' + esc(L.name) + '» بنجاح مع ' + normArchives.length + ' شهر مؤرشف.');
+  showToastMessage('✅ تم استيراد الدرس «' + esc(L.name) + '» مع ' + incomingArchives.length + ' شهر مؤرشف.');
+}
+
+function openImportArchiveChoiceModal(norm, incomingArchives, existingArchives, existingIdx){
+  const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
+    + '<p style="font-size:13px;color:var(--text);margin-top:0">'
+    +   'يحتوي الملف المستورد لـ «<b>' + esc(norm.name) + '</b>» على <b>' + incomingArchives.length + '</b> شهر مؤرشف، ويوجد لديك حالياً <b>' + existingArchives.length + '</b> شهر مؤرشف لنفس الدرس.'
+    + '</p>'
+    + '<p style="font-size:12.5px;font-weight:700;color:var(--primary);margin-bottom:12px">'
+    +   'كيف ترغب في التعامل مع الشهور المؤرشفة؟'
+    + '</p>'
+    + '<div style="display:flex;flex-direction:column;gap:10px;margin:12px 0">'
+    +   '<button type="button" class="btn btn-outline" id="btn_import_merge_archives" style="padding:12px 14px;text-align:right;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-width:2px;border-color:var(--primary);background:var(--card-bg,#f8fafc);cursor:pointer;border-radius:8px">'
+    +     '<span style="font-size:13.5px;font-weight:800;color:var(--primary)">📥 استيراد الشهر الحالي + دمج الشهور المؤرشفة (موصى به)</span>'
+    +     '<span style="font-size:11.5px;color:var(--muted)">إضافة الشهور المؤرشفة الجديدة وتحديث المتطابق مع الحفاظ الكامل على كافة الشهور القديمة في جهازك.</span>'
+    +   '</button>'
+    +   '<button type="button" class="btn btn-outline" id="btn_import_current_only" style="padding:12px 14px;text-align:right;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-width:2px;border-color:var(--border);background:#fff;cursor:pointer;border-radius:8px">'
+    +     '<span style="font-size:13.5px;font-weight:800;color:var(--text)">📄 استيراد الشهر الحالي فقط (وتجاهل أرشيف الملف)</span>'
+    +     '<span style="font-size:11.5px;color:var(--muted)">تحديث الشهر الحالي فقط والإبقاء على الـ ' + existingArchives.length + ' شهر مؤرشف المحفوظة في هذا الجهاز دون أي تعديل.</span>'
+    +   '</button>'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:12px">'
+    +   '<button class="btn" id="btn_cancel_import_choice">إلغاء</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('📥 خيارات استيراد الدرس والأرشيف', modalHTML);
+
+  $('#btn_import_merge_archives').onclick = () => {
+    closeModal();
+    if(existingIdx >= 0) state.lessons[existingIdx] = norm;
+    else state.lessons.push(norm);
+
+    // دمج ذكي للشهور المؤرشفة
+    const mergedArchives = [...existingArchives];
+    incomingArchives.forEach(inA => {
+      const matchIdx = mergedArchives.findIndex(exA => exA.id === inA.id || (exA.monthNumber === inA.monthNumber && exA.year === inA.year));
+      if(matchIdx >= 0){
+        mergedArchives[matchIdx] = inA;
+      } else {
+        mergedArchives.push(inA);
+      }
+    });
+    state.archive = state.archive.filter(x => x.lessonId !== norm.id).concat(mergedArchives);
+    saveState();
+    renderAll();
+    showToastMessage('✅ تم استيراد الدرس «' + esc(norm.name) + '» ودمج أرشيفه بنجاح (إجمالي ' + mergedArchives.length + ' شهر مؤرشف).');
+  };
+
+  $('#btn_import_current_only').onclick = () => {
+    closeModal();
+    if(existingIdx >= 0) state.lessons[existingIdx] = norm;
+    else state.lessons.push(norm);
+    // الإبقاء على الأرشيف الحالي دون أي تعديل
+    saveState();
+    renderAll();
+    showToastMessage('✅ تم استيراد الشهر الحالي لـ «' + esc(norm.name) + '» مع الحفاظ التام على ' + existingArchives.length + ' شهر مؤرشف بأرشيفك.');
+  };
+
+  $('#btn_cancel_import_choice').onclick = closeModal;
 }
 
 function openMultiLessonImportModal(lessons, allArchives){
   const modalHTML = '<div class="reset-box" style="text-align:right;line-height:1.6">'
     + '<p style="font-size:13px;color:var(--text);margin-bottom:10px">'
-    +   'يحتوي هذا الملف على <b>' + lessons.length + '</b> دروس. حدد الدروس التي ترغب في استيرادها ودمجها مع دروسك الحالية دون حذف أي بيانات:'
+    +   'يحتوي هذا الملف على <b>' + lessons.length + '</b> دروس. حدد الدروس التي ترغب في استيرادها ودمجها مع دروسك الحالية دون حذف أي بيانات أرشيف:'
     + '</p>'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
     +   '<span style="font-size:12px;font-weight:800">قائمة الدروس المتاحة بالملف:</span>'
@@ -7220,6 +7370,12 @@ function openMultiLessonImportModal(lessons, allArchives){
             + '</label>';
         }).join('')
     + '</div>'
+    + '<div style="margin-top:10px;padding:8px 10px;background:var(--card-bg,#f8fafc);border:1px solid var(--border);border-radius:6px">'
+    +   '<label class="switch-row" style="font-size:12px;font-weight:700;display:flex;align-items:center;cursor:pointer">'
+    +     '<input type="checkbox" id="chk_multi_import_include_archives" checked style="margin-left:6px">'
+    +     '<span>📦 استيراد ودمج الشهور المؤرشفة المرفقة مع كل درس (مع الحفاظ على أرشيفك الحالي)</span>'
+    +   '</label>'
+    + '</div>'
     + '<div class="modal-actions" style="margin-top:14px">'
     +   '<button class="btn btn-primary" id="import_btn_proceed">📥 استيراد ودمج الدروس المحددة</button>'
     +   '<button class="btn btn-outline" id="import_btn_cancel">إلغاء</button>'
@@ -7238,28 +7394,41 @@ function openMultiLessonImportModal(lessons, allArchives){
       alert('يرجى تحديد درس واحد على الأقل للاستيراد.');
       return;
     }
+    const importWithArchives = $('#chk_multi_import_include_archives') ? $('#chk_multi_import_include_archives').checked : true;
     const chosen = lessons.filter(l => checkedIds.includes(l.id));
     let importedCount = 0;
     chosen.forEach(L => {
-      const lArchs = (allArchives || []).filter(a => a.lessonId === L.id);
+      const incomingLArchs = (allArchives || []).filter(a => a.lessonId === L.id);
+      const existingArchives = state.archive.filter(a => a.lessonId === L.id);
       const norm = normalizeState({ settings: state.settings, lessons: [L], archive: [] }).lessons[0];
-      const normArchives = normalizeState({ settings: state.settings, lessons: [L], archive: lArchs }).archive;
+      const normArchives = normalizeState({ settings: state.settings, lessons: [L], archive: incomingLArchs }).archive;
+      
       const existing = state.lessons.findIndex(x => x.id === L.id);
       if(existing >= 0){
         state.lessons[existing] = norm;
       } else {
         state.lessons.push(norm);
       }
-      state.archive = state.archive.filter(x => x.lessonId !== norm.id).concat(normArchives);
+
+      if(importWithArchives && normArchives.length > 0){
+        // دمج ذكي دون مساس بالشهور القديمة
+        const mergedArchives = [...existingArchives];
+        normArchives.forEach(inA => {
+          const matchIdx = mergedArchives.findIndex(exA => exA.id === inA.id || (exA.monthNumber === inA.monthNumber && exA.year === inA.year));
+          if(matchIdx >= 0) mergedArchives[matchIdx] = inA;
+          else mergedArchives.push(inA);
+        });
+        state.archive = state.archive.filter(x => x.lessonId !== norm.id).concat(mergedArchives);
+      }
+      // في حال عدم الرغبة في استيراد الأرشيف أو normArchives فارغة: لا نعدل state.archive الخاصة بهذا الدرس أبداً
       importedCount++;
     });
     saveState();
     renderAll();
     closeModal();
-    showToastMessage('✅ تم استيراد ودمج ' + importedCount + ' درس بنجاح دون التأثير على بقية الدروس.');
+    showToastMessage('✅ تم استيراد ودمج ' + importedCount + ' درس بنجاح مع الحفاظ الكامل على كافة الشهور المؤرشفة.');
   };
 }
-
 /* ---------- التشفير ---------- */
 function cryptoAvailable(){
   return !!(window.crypto && window.crypto.subtle);
