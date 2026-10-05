@@ -3389,7 +3389,7 @@ async function telegramBackup(){
     +     '<input type="radio" name="tg_scope" value="selected" id="tg_scope_selected" style="margin-top:3px">'
     +     '<div>'
     +       '<div style="font-weight:800;font-size:13px;color:var(--text)">📚 تحديد درس أو دروس حالية معينة</div>'
-    +       '<div class="muted" style="font-size:11px;margin-top:2px">اختر درساً محدداً أو عدة دروس لتصديرها كملف مستقل دون باقي البيانات.</div>'
+    +       '<div class="muted" style="font-size:11px;margin-top:2px">اختر درساً محدداً أو عدة دروس مع خيار تصدير الشهر الحالي فقط أو مع الأرشيف.</div>'
     +     '</div>'
     +   '</label>'
     +   '<label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px">'
@@ -3410,11 +3410,27 @@ async function telegramBackup(){
             +   '<button type="button" class="btn btn-sm btn-outline" id="tg_btn_deselect_all" style="font-size:11px;padding:2px 8px">إلغاء</button>'
             + '</div>'
             + '</div>'
-            + '<div style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;padding-right:4px">'
-            +   lessons.map(l => '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;cursor:pointer;background:#fff;padding:6px 8px;border-radius:6px;border:1px solid var(--border)">'
-                  + '<input type="checkbox" class="tg-lesson-cb" value="' + l.id + '" checked style="accent-color:var(--primary)">'
-                  + '<span>' + esc(l.name) + ' (' + (l.students ? l.students.length : 0) + ' طالب)</span>'
-                  + '</label>').join('')
+            + '<div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;padding-right:4px">'
+            +   lessons.map(l => {
+                  const lArchCount = archives.filter(a => a.lessonId === l.id).length;
+                  return '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;cursor:pointer;background:#fff;padding:6px 8px;border-radius:6px;border:1px solid var(--border)">'
+                    + '<input type="checkbox" class="tg-lesson-cb" value="' + l.id + '" checked style="accent-color:var(--primary)">'
+                    + '<span>' + esc(l.name) + ' <small class="muted">(' + (l.students ? l.students.length : 0) + ' طالب' + (lArchCount > 0 ? ' · ' + lArchCount + ' أرشيف' : '') + ')</small></span>'
+                    + '</label>';
+                }).join('')
+            + '</div>'
+            + '<div style="margin-top:10px;padding:8px 10px;background:#fff;border:1px solid var(--border);border-radius:8px">'
+            +   '<div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px">📦 خيارات الشهور المؤرشفة للدروس المحددة:</div>'
+            +   '<div style="display:flex;flex-direction:column;gap:6px">'
+            +     '<label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;cursor:pointer">'
+            +       '<input type="radio" name="tg_lesson_archive_choice" value="current_only" checked style="accent-color:var(--primary)">'
+            +       '<span>📄 تصدير الشهر الحالي فقط (ملف خفيف بدون الشهور المؤرشفة)</span>'
+            +     '</label>'
+            +     '<label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;cursor:pointer">'
+            +       '<input type="radio" name="tg_lesson_archive_choice" value="with_archives" style="accent-color:var(--primary)">'
+            +       '<span>📦 تصدير شامل (الشهر الحالي + كافة الشهور المؤرشفة المتاحة)</span>'
+            +     '</label>'
+            +   '</div>'
             + '</div>'
         )
     + '</div>'
@@ -3545,42 +3561,48 @@ async function telegramBackup(){
         alert('يرجى تحديد درس واحد على الأقل لتصديره إلى تيليجرام.');
         return;
       }
+      const archiveChoice = $('input[name="tg_lesson_archive_choice"]:checked') ? $('input[name="tg_lesson_archive_choice"]:checked').value : 'current_only';
+      const includeArchives = (archiveChoice === 'with_archives');
       const selectedLessons = lessons.filter(l => checkedIds.includes(l.id));
+
       if(selectedLessons.length === 1){
         const singleL = selectedLessons[0];
-        const singleArchives = (state.archive || []).filter(a => a.lessonId === singleL.id);
+        const singleArchives = includeArchives ? (state.archive || []).filter(a => a.lessonId === singleL.id) : [];
         exportData = {
           type: 'daftar-lesson',
           version: state.version || 6,
           exportedAt: new Date().toISOString(),
+          includeArchives: includeArchives,
           lesson: singleL,
           archives: singleArchives,
           settings: sanitizeExportState(state.settings)
         };
         const safeName = (singleL.name || 'lesson').replace(/[\s\/\\:?*"<>|]+/g, '_');
-        fn = 'daftar-lesson-' + safeName + '-' + todayStr() + '.json';
+        fn = (includeArchives ? 'daftar-lesson-' + safeName + '-full-archive-' : 'daftar-lesson-' + safeName + '-month' + singleL.monthNumber + '_') + todayStr() + '.json';
         caption = '📦 نسخة درس من تطبيق دفتر: ' + singleL.name
           + '\n📅 التاريخ: ' + todayStr()
           + '\n👥 عدد الطلاب: ' + (singleL.students ? singleL.students.length : 0)
           + '\n🗓️ عدد الحصص: ' + (singleL.sessions ? singleL.sessions.length : 0)
-          + (singleArchives.length > 0 ? ('\n📁 الشهور المؤرشفة: ' + singleArchives.length + ' شهر') : '')
+          + (includeArchives ? ('\n📁 الشهور المؤرشفة: ' + singleArchives.length + ' شهر') : '\n📄 نوع التصدير: الشهر الحالي فقط (بدون أرشيف)')
           + exporterLine;
       } else {
         const checkedLessonIds = selectedLessons.map(l => l.id);
-        const selectedArchives = (state.archive || []).filter(a => checkedLessonIds.includes(a.lessonId));
+        const selectedArchives = includeArchives ? (state.archive || []).filter(a => checkedLessonIds.includes(a.lessonId)) : [];
         exportData = {
           type: 'daftar_lessons_export',
           version: state.version || 6,
           exportedAt: new Date().toISOString(),
+          includeArchives: includeArchives,
           lessons: selectedLessons,
           archives: selectedArchives,
           archive: selectedArchives,
           settings: sanitizeExportState(state.settings)
         };
-        fn = 'daftar-' + selectedLessons.length + '-lessons-' + todayStr() + '.json';
+        fn = 'daftar-' + selectedLessons.length + '-lessons-' + (includeArchives ? 'with-archive-' : 'current-only-') + todayStr() + '.json';
         caption = '📦 نسخة دروس مختارة من تطبيق دفتر (' + selectedLessons.length + ' دروس)'
           + '\n📅 التاريخ: ' + todayStr()
           + '\n📚 الدروس: ' + selectedLessons.map(l => l.name).join('، ')
+          + (includeArchives ? ('\n📁 تم تضمين ' + selectedArchives.length + ' شهر مؤرشف') : '\n📄 نوع التصدير: الشهور الحالية فقط (بدون أرشيف)')
           + exporterLine;
       }
     } else {
@@ -3597,8 +3619,6 @@ async function telegramBackup(){
     executeTelegramUpload(chosenToken, chosenChatId, JSON.stringify(exportData, null, 2), fn, caption);
   };
 }
-
-
 async function executeTelegramUpload(token, chatId, content, filename, caption){
   const cleanToken = (token || '').trim();
   const cleanChatId = (chatId || '').trim();
