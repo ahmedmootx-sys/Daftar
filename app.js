@@ -4712,6 +4712,7 @@ function renderArchiveDetail(idx){
     +     '<button id="archSortAttendanceBtn" class="dropdown-item">📈 ترتيب حسب الحضور</button>'
     +     '<button id="archHiddenStudentsMenuBtn" class="dropdown-item">🚫 إدارة الطلاب المحجوبين' + (hiddenArchList.length > 0 ? ' (' + hiddenArchList.length + ')' : '') + '</button>'
     +     '<button id="archSmartDropoutHideBtn" class="dropdown-item">⚡ حجب المنقطعين ذكياً</button>'
+    +     '<button id="archMergeAttendanceMenuBtn" class="dropdown-item">🔄 دمج ومشاركة الحضور</button>'
     +     '<button id="archEditMonthBtn" class="dropdown-item">🗓️ تعديل بيانات الشهر</button>'
     +     '<button id="archExportSingleMonthBtn" class="dropdown-item">⬇️ تصدير الشهر</button>'
     +     '<button id="archRestoreBtn" class="dropdown-item">♻️ استعادة الشهر للرئيسية</button>'
@@ -4846,6 +4847,10 @@ function renderArchiveDetail(idx){
   if($('#archSmartDropoutHideBtn')) $('#archSmartDropoutHideBtn').onclick = () => {
     $$('.dropdown-menu').forEach(m => { m.hidden = true; });
     openSmartDropoutHidingModal(a, true, idx);
+  };
+  if($('#archMergeAttendanceMenuBtn')) $('#archMergeAttendanceMenuBtn').onclick = () => {
+    $$('.dropdown-menu').forEach(m => { m.hidden = true; });
+    openAttendanceMergeModal(a, null, true, idx);
   };
   $('#archEditMonthBtn').onclick = () => {
     openModal('🗓️ تعديل بيانات الشهر المؤرشف',
@@ -8341,6 +8346,881 @@ function updateSessionCounterUI(ssid){
   if(cells[col]) cells[col].innerHTML = '<b>' + c + ' / ' + L.students.length + '</b>';
 }
 
+
+/* =====================================================================
+   🔄 محرك توليد أكواد QR ومحرك دمج الحضور بين الأجهزة (v42)
+   ===================================================================== */
+var qrcodegen = (function() {
+  function QrCode(version, errorCorrectionLevel, dataCodewords, msk) {
+    this.version = version;
+    this.errorCorrectionLevel = errorCorrectionLevel;
+    this.size = version * 4 + 17;
+    var size = this.size;
+    var modules = [];
+    var isFunction = [];
+    for (var y = 0; y < size; y++) {
+      modules.push([]);
+      isFunction.push([]);
+      for (var x = 0; x < size; x++) {
+        modules[y].push(false);
+        isFunction[y].push(false);
+      }
+    }
+    this.modules = modules;
+    this.isFunction = isFunction;
+
+    this.drawFunctionPatterns();
+    var allCodewords = this.addEccAndInterleave(dataCodewords);
+    this.drawCodewords(allCodewords);
+
+    if (msk == -1) {
+      var minPenalty = 1e9;
+      var bestMask = 0;
+      for (var mask = 0; mask < 8; mask++) {
+        this.applyMask(mask);
+        this.drawFormatBits(mask);
+        var penalty = this.getPenaltyScore();
+        if (penalty < minPenalty) {
+          minPenalty = penalty;
+          bestMask = mask;
+        }
+        this.applyMask(mask);
+      }
+      msk = bestMask;
+    }
+    this.mask = msk;
+    this.applyMask(msk);
+    this.drawFormatBits(msk);
+    this.isFunction = [];
+  }
+
+  QrCode.prototype.getModule = function(x, y) {
+    if (x < 0 || x >= this.size || y < 0 || y >= this.size) return false;
+    return this.modules[y][x];
+  };
+
+  QrCode.prototype.setFunctionModule = function(x, y, isDark) {
+    this.modules[y][x] = isDark;
+    this.isFunction[y][x] = true;
+  };
+
+  QrCode.prototype.drawFunctionPatterns = function() {
+    var size = this.size;
+    this.drawFinderPattern(3, 3);
+    this.drawFinderPattern(size - 4, 3);
+    this.drawFinderPattern(3, size - 4);
+
+    for (var i = 0; i < size; i++) {
+      this.setFunctionModule(6, i, i % 2 == 0);
+      this.setFunctionModule(i, 6, i % 2 == 0);
+    }
+
+    var alignPos = QrCode.getAlignmentPatternPositions(this.version);
+    var numAlign = alignPos.length;
+    for (var i = 0; i < numAlign; i++) {
+      for (var j = 0; j < numAlign; j++) {
+        if ((i == 0 && j == 0) || (i == 0 && j == numAlign - 1) || (i == numAlign - 1 && j == 0)) continue;
+        this.drawAlignmentPattern(alignPos[i], alignPos[j]);
+      }
+    }
+
+    this.drawFormatBits(0);
+    this.drawVersion();
+  };
+
+  QrCode.prototype.drawFinderPattern = function(x, y) {
+    for (var dy = -4; dy <= 4; dy++) {
+      for (var dx = -4; dx <= 4; dx++) {
+        var dist = Math.max(Math.abs(dx), Math.abs(dy));
+        var xx = x + dx, yy = y + dy;
+        if (xx >= 0 && xx < this.size && yy >= 0 && yy < this.size) {
+          this.setFunctionModule(xx, yy, dist != 2 && dist != 4);
+        }
+      }
+    }
+  };
+
+  QrCode.prototype.drawAlignmentPattern = function(x, y) {
+    for (var dy = -2; dy <= 2; dy++) {
+      for (var dx = -2; dx <= 2; dx++) {
+        var dist = Math.max(Math.abs(dx), Math.abs(dy));
+        this.setFunctionModule(x + dx, y + dy, dist != 1);
+      }
+    }
+  };
+
+  QrCode.prototype.drawFormatBits = function(mask) {
+    var data = (this.errorCorrectionLevel.formatBits << 3) | mask;
+    var rem = data;
+    for (var i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+    var bits = ((data << 10) | rem) ^ 0x5412;
+
+    for (var i = 0; i <= 5; i++) this.setFunctionModule(8, i, ((bits >>> i) & 1) != 0);
+    this.setFunctionModule(8, 7, ((bits >>> 6) & 1) != 0);
+    this.setFunctionModule(8, 8, ((bits >>> 7) & 1) != 0);
+    this.setFunctionModule(7, 8, ((bits >>> 8) & 1) != 0);
+    for (var i = 9; i < 15; i++) this.setFunctionModule(14 - i, 8, ((bits >>> i) & 1) != 0);
+
+    for (var i = 0; i < 8; i++) this.setFunctionModule(this.size - 1 - i, 8, ((bits >>> i) & 1) != 0);
+    for (var i = 8; i < 15; i++) this.setFunctionModule(8, this.size - 15 + i, ((bits >>> i) & 1) != 0);
+    this.setFunctionModule(8, this.size - 8, true);
+  };
+
+  QrCode.prototype.drawVersion = function() {
+    if (this.version < 7) return;
+    var rem = this.version;
+    for (var i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1F25);
+    var bits = (this.version << 12) | rem;
+    for (var i = 0; i < 18; i++) {
+      var bit = ((bits >>> i) & 1) != 0;
+      var a = this.size - 11 + (i % 3);
+      var b = Math.floor(i / 3);
+      this.setFunctionModule(a, b, bit);
+      this.setFunctionModule(b, a, bit);
+    }
+  };
+
+  QrCode.prototype.drawCodewords = function(data) {
+    var bitLen = data.length * 8;
+    var bitIndex = 0;
+    var size = this.size;
+    for (var right = size - 1; right >= 1; right -= 2) {
+      if (right == 6) right = 5;
+      for (var vert = 0; vert < size; vert++) {
+        for (var j = 0; j < 2; j++) {
+          var x = right - j;
+          var upwards = ((right + 1) & 2) == 0;
+          var y = upwards ? size - 1 - vert : vert;
+          if (!this.isFunction[y][x] && bitIndex < bitLen) {
+            this.modules[y][x] = ((data[bitIndex >>> 3] >>> (7 - (bitIndex & 7))) & 1) != 0;
+            bitIndex++;
+          }
+        }
+      }
+    }
+  };
+
+  QrCode.prototype.applyMask = function(mask) {
+    var size = this.size;
+    for (var y = 0; y < size; y++) {
+      for (var x = 0; x < size; x++) {
+        if (this.isFunction[y][x]) continue;
+        var invert = false;
+        switch (mask) {
+          case 0: invert = (x + y) % 2 == 0; break;
+          case 1: invert = y % 2 == 0; break;
+          case 2: invert = x % 3 == 0; break;
+          case 3: invert = (x + y) % 3 == 0; break;
+          case 4: invert = (Math.floor(x / 3) + Math.floor(y / 2)) % 2 == 0; break;
+          case 5: invert = ((x * y) % 2) + ((x * y) % 3) == 0; break;
+          case 6: invert = (((x * y) % 2) + ((x * y) % 3)) % 2 == 0; break;
+          case 7: invert = (((x + y) % 2) + ((x * y) % 3)) % 2 == 0; break;
+        }
+        if (invert) this.modules[y][x] = !this.modules[y][x];
+      }
+    }
+  };
+
+  QrCode.prototype.getPenaltyScore = function() {
+    var size = this.size;
+    var penalty = 0;
+    for (var y = 0; y < size; y++) {
+      var runColor = false, runLen = 0;
+      for (var x = 0; x < size; x++) {
+        if (this.modules[y][x] == runColor) {
+          runLen++;
+          if (runLen == 5) penalty += 3;
+          else if (runLen > 5) penalty++;
+        } else {
+          runColor = this.modules[y][x];
+          runLen = 1;
+        }
+      }
+    }
+    for (var x = 0; x < size; x++) {
+      var runColor = false, runLen = 0;
+      for (var y = 0; y < size; y++) {
+        if (this.modules[y][x] == runColor) {
+          runLen++;
+          if (runLen == 5) penalty += 3;
+          else if (runLen > 5) penalty++;
+        } else {
+          runColor = this.modules[y][x];
+          runLen = 1;
+        }
+      }
+    }
+    return penalty;
+  };
+
+  QrCode.prototype.addEccAndInterleave = function(data) {
+    var ver = this.version;
+    var ecl = this.errorCorrectionLevel;
+    var numBlocks = QrCode.NUM_ERROR_CORRECTION_BLOCKS[ecl.ordinal][ver];
+    var blockEccLen = QrCode.ECC_CODEWORDS_PER_BLOCK[ecl.ordinal][ver];
+    var rawCodewords = Math.floor(QrCode.getNumRawDataModules(ver) / 8);
+    var numShortBlocks = numBlocks - (rawCodewords % numBlocks);
+    var shortBlockLen = Math.floor(rawCodewords / numBlocks);
+
+    var blocks = [];
+    var rsDiv = QrCode.reedSolomonComputeDivisor(blockEccLen);
+    for (var i = 0, k = 0; i < numBlocks; i++) {
+      var dat = data.slice(k, k + shortBlockLen - blockEccLen + (i >= numShortBlocks ? 1 : 0));
+      k += dat.length;
+      var ecc = QrCode.reedSolomonComputeRemainder(dat, rsDiv);
+      blocks.push({ data: dat, ecc: ecc });
+    }
+
+    var result = [];
+    for (var i = 0; i < blocks[0].data.length; i++) {
+      for (var j = 0; j < blocks.length; j++) {
+        if (i < blocks[j].data.length) result.push(blocks[j].data[i]);
+      }
+    }
+    for (var i = 0; i < blockEccLen; i++) {
+      for (var j = 0; j < blocks.length; j++) {
+        result.push(blocks[j].ecc[i]);
+      }
+    }
+    return result;
+  };
+
+  QrCode.prototype.toSvgString = function(border) {
+    if (border === undefined) border = 2;
+    var parts = [];
+    var size = this.size;
+    for (var y = 0; y < size; y++) {
+      for (var x = 0; x < size; x++) {
+        if (this.modules[y][x]) {
+          parts.push('M' + (x + border) + ',' + (y + border) + 'h1v1h-1z');
+        }
+      }
+    }
+    var fullSize = size + border * 2;
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + fullSize + ' ' + fullSize + '" width="100%" height="100%" shape-rendering="crispEdges" style="border-radius:8px">'
+      + '<rect width="' + fullSize + '" height="' + fullSize + '" fill="#ffffff"/>'
+      + '<path d="' + parts.join('') + '" fill="#1e293b"/>'
+      + '</svg>';
+  };
+
+  QrCode.Ecc = {
+    LOW: { ordinal: 0, formatBits: 1 },
+    MEDIUM: { ordinal: 1, formatBits: 0 },
+    QUARTILE: { ordinal: 2, formatBits: 3 },
+    HIGH: { ordinal: 3, formatBits: 2 }
+  };
+
+  QrCode.getAlignmentPatternPositions = function(ver) {
+    if (ver == 1) return [];
+    var num = Math.floor(ver / 7) + 2;
+    var step = (ver == 32) ? 26 : Math.ceil((ver * 4 + 4) / (num * 2 - 2)) * 2;
+    var result = [6];
+    for (var pos = ver * 4 + 10; result.length < num; pos -= step) result.splice(1, 0, pos);
+    return result;
+  };
+
+  QrCode.getNumRawDataModules = function(ver) {
+    var size = ver * 4 + 17;
+    var count = size * size - 64 * 3 - (size - 16) * 2 - 225;
+    if (ver >= 2) {
+      var numAlign = Math.floor(ver / 7) + 2;
+      count -= (numAlign * numAlign - 3) * 25 - (numAlign - 2) * 2 * 10;
+    }
+    if (ver >= 7) count -= 36;
+    return count;
+  };
+
+  QrCode.reedSolomonComputeDivisor = function(degree) {
+    var result = [];
+    for (var i = 0; i < degree - 1; i++) result.push(0);
+    result.push(1);
+    var root = 1;
+    for (var i = 0; i < degree; i++) {
+      for (var j = 0; j < result.length; j++) {
+        result[j] = QrCode.reedSolomonMultiply(result[j], root);
+        if (j + 1 < result.length) result[j] ^= result[j + 1];
+      }
+      root = QrCode.reedSolomonMultiply(root, 0x02);
+    }
+    return result;
+  };
+
+  QrCode.reedSolomonComputeRemainder = function(data, divisor) {
+    var result = divisor.map(function() { return 0; });
+    for (var i = 0; i < data.length; i++) {
+      var factor = data[i] ^ result.shift();
+      result.push(0);
+      for (var j = 0; j < divisor.length; j++) result[j] ^= QrCode.reedSolomonMultiply(divisor[j], factor);
+    }
+    return result;
+  };
+
+  QrCode.reedSolomonMultiply = function(x, y) {
+    if (x >>> 8 != 0 || y >>> 8 != 0) throw "Byte out of range";
+    var z = 0;
+    for (var i = 7; i >= 0; i--) {
+      z = (z << 1) ^ ((z >>> 7) * 0x11D);
+      z ^= ((y >>> i) & 1) * x;
+    }
+    return z;
+  };
+
+  QrCode.ECC_CODEWORDS_PER_BLOCK = [
+    [-1, 7, 10, 15, 20, 26, 18, 20, 24, 30, 18, 20, 24, 26, 30, 22, 24, 28, 30, 28, 28, 28, 28, 30, 30, 26, 28, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30],
+    [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26, 26, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28]
+  ];
+
+  QrCode.NUM_ERROR_CORRECTION_BLOCKS = [
+    [-1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 4, 6, 6, 6, 6, 7, 8, 8, 9, 9, 10, 12, 12, 12, 13, 14, 15, 16, 17, 18, 19, 19, 20, 21, 22, 24, 25],
+    [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16, 17, 17, 18, 20, 21, 23, 25, 26, 28, 29, 31, 33, 35, 37, 38, 40, 43, 45, 47, 49]
+  ];
+
+  function encodeText(text, ecl) {
+    if (!ecl) ecl = QrCode.Ecc.LOW;
+    var unescaped = unescape(encodeURIComponent(text));
+    var bytes = [];
+    for (var i = 0; i < unescaped.length; i++) bytes.push(unescaped.charCodeAt(i));
+
+    for (var version = 1; version <= 40; version++) {
+      var numBlocks = QrCode.NUM_ERROR_CORRECTION_BLOCKS[ecl.ordinal][version];
+      var blockEccLen = QrCode.ECC_CODEWORDS_PER_BLOCK[ecl.ordinal][version];
+      var rawCodewords = Math.floor(QrCode.getNumRawDataModules(version) / 8);
+      var capacity = rawCodewords - numBlocks * blockEccLen;
+      var headerBits = 4 + (version <= 9 ? 8 : 16);
+      if (bytes.length * 8 + headerBits <= capacity * 8) {
+        var bitStream = [];
+        pushBits(bitStream, 0x4, 4);
+        pushBits(bitStream, bytes.length, version <= 9 ? 8 : 16);
+        for (var b = 0; b < bytes.length; b++) pushBits(bitStream, bytes[b], 8);
+        var termLen = Math.min(4, capacity * 8 - bitStream.length);
+        pushBits(bitStream, 0, termLen);
+        while (bitStream.length % 8 != 0) bitStream.push(0);
+        var padByte = 0xEC;
+        while (bitStream.length < capacity * 8) {
+          pushBits(bitStream, padByte, 8);
+          padByte ^= 0xEC ^ 0x11;
+        }
+
+        var codewords = [];
+        for (var c = 0; c < bitStream.length; c += 8) {
+          var val = 0;
+          for (var b = 0; b < 8; b++) val = (val << 1) | bitStream[c + b];
+          codewords.push(val);
+        }
+
+        return new QrCode(version, ecl, codewords, -1);
+      }
+    }
+    throw "Data too long for QR Code";
+  }
+
+  function pushBits(stream, val, len) {
+    for (var i = len - 1; i >= 0; i--) stream.push((val >>> i) & 1);
+  }
+
+  return { QrCode: QrCode, encodeText: encodeText };
+})();
+
+/* ---------- وظائف تصدير واستيراد ودمج الحضور ---------- */
+function createAttendanceTransferPayload(lesson, sessionId, scope = 'single_session') {
+  if (!lesson) return null;
+  const isSingle = (scope === 'single_session' && sessionId);
+  const targetSessions = isSingle
+    ? (lesson.sessions || []).filter(s => s.id === sessionId)
+    : (lesson.sessions || []);
+
+  const sessIds = targetSessions.map(s => s.id);
+  const filteredRecords = {};
+
+  (lesson.students || []).forEach(st => {
+    const stRec = lesson.records && lesson.records[st.id];
+    if (stRec) {
+      sessIds.forEach(sid => {
+        if (stRec[sid] && stRec[sid].status) {
+          if (!filteredRecords[st.id]) filteredRecords[st.id] = {};
+          filteredRecords[st.id][sid] = JSON.parse(JSON.stringify(stRec[sid]));
+        }
+      });
+    }
+  });
+
+  return {
+    type: 'daftar-attendance-transfer',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    lessonId: lesson.lessonId || lesson.id,
+    lessonName: lesson.lessonName || lesson.name,
+    monthNumber: lesson.monthNumber || null,
+    year: lesson.year || null,
+    scope: isSingle ? 'single_session' : 'all_sessions',
+    session: isSingle ? targetSessions[0] : null,
+    sessions: targetSessions,
+    students: (lesson.students || []).map(st => ({ id: st.id, name: st.name, phone: st.phone || '' })),
+    records: filteredRecords
+  };
+}
+
+function mergeAttendanceData(targetLesson, payload) {
+  if (!targetLesson || !payload || !payload.records) {
+    throw new Error('بيانات الحضور غير صالحة أو فارغة.');
+  }
+
+  const eff = effectiveStatuses(targetLesson);
+  const incStudents = payload.students || [];
+  const incSessions = payload.sessions || (payload.session ? [payload.session] : []);
+  const incRecords = payload.records || {};
+
+  if (!targetLesson.records) targetLesson.records = {};
+
+  let updatedCount = 0;
+  let newPresentCount = 0;
+  let matchedStudentsCount = 0;
+  let unmatchedStudents = [];
+
+  // 1. مطابقة الحصص
+  const sessionMap = {};
+  incSessions.forEach(inSess => {
+    let match = (targetLesson.sessions || []).find(s => s.id === inSess.id);
+    if (!match && inSess.date) {
+      match = (targetLesson.sessions || []).find(s => s.date === inSess.date);
+    }
+    if (!match && inSess.label) {
+      match = (targetLesson.sessions || []).find(s => s.label === inSess.label);
+    }
+    if (match) {
+      sessionMap[inSess.id] = match;
+    }
+  });
+
+  // 2. مطابقة الطلاب
+  const studentMap = {};
+  incStudents.forEach(inSt => {
+    let match = (targetLesson.students || []).find(st => st.id === inSt.id);
+    if (!match && inSt.name) {
+      const normName = normalizeForSearch(inSt.name);
+      match = (targetLesson.students || []).find(st => normalizeForSearch(st.name) === normName);
+    }
+    if (!match && inSt.phone) {
+      const normP = normalizePhone(inSt.phone);
+      if (normP) {
+        match = (targetLesson.students || []).find(st => normalizePhone(st.phone) === normP);
+      }
+    }
+    if (match) {
+      studentMap[inSt.id] = match;
+      matchedStudentsCount++;
+    } else {
+      unmatchedStudents.push(inSt.name || inSt.id);
+    }
+  });
+
+  // 3. تطبيق خوارزمية الدمج الذكي (الحاضر يغلب)
+  Object.keys(incRecords).forEach(inStId => {
+    const targetStudent = studentMap[inStId];
+    if (!targetStudent) return;
+
+    if (!targetLesson.records[targetStudent.id]) {
+      targetLesson.records[targetStudent.id] = {};
+    }
+
+    const inStRecords = incRecords[inStId];
+    Object.keys(inStRecords).forEach(inSessId => {
+      const targetSess = sessionMap[inSessId];
+      if (!targetSess) return;
+
+      const curRec = targetLesson.records[targetStudent.id][targetSess.id] || {};
+      const incRec = inStRecords[inSessId] || {};
+
+      if (!incRec.status) return;
+
+      const incIsPresent = isPresentStatus(incRec.status, eff);
+      const curIsPresent = isPresentStatus(curRec.status, eff);
+
+      let shouldUpdate = false;
+
+      // أ) الوارد حاضر والحالي ليس حاضراً -> يُعتمد حاضراً
+      if (incIsPresent && !curIsPresent) {
+        shouldUpdate = true;
+        newPresentCount++;
+      }
+      // ب) الحالي فارغ والوارد به حالة -> يُملأ بالحالة الواردة
+      else if (!curRec.status && incRec.status) {
+        shouldUpdate = true;
+      }
+      // ج) الحفاظ على الملاحظات إن كانت فارغة
+      if (!curRec.note && incRec.note) {
+        curRec.note = incRec.note;
+      }
+
+      if (shouldUpdate) {
+        targetLesson.records[targetStudent.id][targetSess.id] = {
+          ...curRec,
+          status: incRec.status,
+          note: curRec.note || incRec.note || ''
+        };
+        updatedCount++;
+      }
+    });
+  });
+
+  return {
+    updatedCount,
+    newPresentCount,
+    matchedStudentsCount,
+    unmatchedStudents,
+    sessionsCount: Object.keys(sessionMap).length,
+    sessionLabel: payload.session ? payload.session.label : (incSessions.length + ' حصة')
+  };
+}
+
+function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = false, archIdx = null) {
+  if (!lesson) {
+    alert('يرجى فتح درس أولاً لمشاركة ودمج الحضور.');
+    return;
+  }
+
+  const sessions = lesson.sessions || [];
+  const selectedSessionId = defaultSessionId || (sessions[0] ? sessions[0].id : null);
+
+  const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
+    + '<div class="lesson-subtabs" style="margin-bottom:14px">'
+    +   '<button type="button" class="subtab-btn active" id="tab_att_share">📤 مشاركة حضور (تصدير / QR)</button>'
+    +   '<button type="button" class="subtab-btn" id="tab_att_merge">📥 استيراد ودمج من جهاز آخر</button>'
+    + '</div>'
+    + '<div id="panel_att_share">'
+    +   '<div class="form-row" style="margin-bottom:10px">'
+    +     '<label style="font-size:12.5px;font-weight:700">اختر الحصة المراد مشاركتها مع الهاتف الآخر:</label>'
+    +     '<select id="sel_att_share_session" style="width:100%;padding:8px 10px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid var(--border);background:#fff">'
+    +       (sessions.length > 0
+              ? sessions.map(s => '<option value="' + s.id + '"' + (s.id === selectedSessionId ? ' selected' : '') + '>' + esc(s.label) + (s.date ? ' (' + s.date + ')' : '') + '</option>').join('')
+                + '<option value="__all__">📊 كل حصص الشهر دفعة واحدة (' + sessions.length + ' حصة)</option>'
+              : '<option value="">لا توجد حصص</option>')
+    +     '</select>'
+    +   '</div>'
+    +   '<div id="att_qr_wrap" style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:16px;margin:12px 0">'
+    +     '<div id="att_qr_box" style="width:200px;height:200px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center"></div>'
+    +     '<div id="att_qr_summary" style="font-size:12px;font-weight:700;color:var(--text);margin-top:10px;text-align:center"></div>'
+    +     '<p class="muted" style="font-size:11.5px;margin:4px 0 0;text-align:center">💡 افتح تطبيق دفتر على الهاتف الآخر، واضغط "دمج الحضور" ثم امسح هذا الكود بالكاميرا للدمج فوراً.</p>'
+    +   '</div>'
+    +   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
+    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_download_att_file" style="flex:1;min-width:140px">⬇️ تنزيل ملف الحضور (.daftar-att)</button>'
+    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_copy_att_payload" style="flex:1;min-width:130px">📋 نسخ كود الحضور</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div id="panel_att_merge" style="display:none">'
+    +   '<p style="font-size:13px;color:var(--text);margin-top:0">'
+    +     'اختر الطريقة المناسبة لاستيراد ودمج حضور الطلاب المسجلين على الهاتف الآخر:'
+    +   '</p>'
+    +   '<div style="display:flex;flex-direction:column;gap:10px;margin:14px 0">'
+    +     '<button type="button" class="btn btn-primary" id="btn_open_qr_camera" style="padding:12px 14px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:800">'
+    +       '📷 مسح كود QR من شاشة الهاتف الآخر (كاميرا)'
+    +     '</button>'
+    +     '<button type="button" class="btn btn-outline" id="btn_pick_att_file" style="padding:12px 14px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:700">'
+    +       '📂 اختيار ملف حضور (.daftar-att / .json)'
+    +     '</button>'
+    +     '<input type="file" id="inp_att_merge_file" accept=".daftar-att,application/json,.json" style="display:none">'
+    +   '</div>'
+    +   '<div style="border-top:1px dashed var(--border);padding-top:12px;margin-top:12px">'
+    +     '<label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">أو الصق كود الحضور المنسوخ هنا:</label>'
+    +     '<textarea id="txt_paste_att_payload" rows="3" placeholder="الصق كود الحضور المنسوخ هنا..." style="width:100%;font-size:11.5px;padding:6px;border-radius:6px;border:1px solid var(--border);font-family:monospace" dir="ltr"></textarea>'
+    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_apply_pasted_att" style="margin-top:6px;width:100%">⚡ دمج الكود المنسوخ الآن</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:14px">'
+    +   '<button class="btn" id="btn_close_att_modal">إغلاق</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('🔄 دمج ومشاركة الحضور — ' + esc(lesson.lessonName || lesson.name), modalHTML);
+
+  let currentPayload = null;
+
+  function updateQRCodeDisplay() {
+    const selVal = $('#sel_att_share_session') ? $('#sel_att_share_session').value : '';
+    const scope = (selVal === '__all__') ? 'all_sessions' : 'single_session';
+    const sessId = (selVal === '__all__') ? null : selVal;
+
+    currentPayload = createAttendanceTransferPayload(lesson, sessId, scope);
+    if (!currentPayload) return;
+
+    const jsonStr = JSON.stringify(currentPayload);
+    const summaryBox = $('#att_qr_summary');
+    const qrBox = $('#att_qr_box');
+
+    let recCount = 0;
+    let presentCount = 0;
+    const eff = effectiveStatuses(lesson);
+    Object.values(currentPayload.records || {}).forEach(rMap => {
+      Object.values(rMap || {}).forEach(r => {
+        if (r && r.status) {
+          recCount++;
+          if (isPresentStatus(r.status, eff)) presentCount++;
+        }
+      });
+    });
+
+    if (summaryBox) {
+      summaryBox.innerHTML = '📊 إجمالي المسجلين في هذا الكود: <b>' + recCount + '</b> طالب (منهم <b style="color:#15803d">' + presentCount + ' حاضر</b>)';
+    }
+
+    if (qrBox) {
+      try {
+        const qr = qrcodegen.encodeText(jsonStr, qrcodegen.QrCode.Ecc.LOW);
+        qrBox.innerHTML = qr.toSvgString();
+      } catch (err) {
+        // إذا كان حجم البيانات كبيراً جداً على رمز QR واحد (للشهور الضخمة)
+        qrBox.innerHTML = '<div style="text-align:center;padding:10px;font-size:12px;color:var(--muted)">'
+          + '📦 حجم بيانات الشهر كاملة كبير على رمز QR.<br>يرجى استخدام زر <b>تنزيل ملف الحضور</b> بالأسفل لمشاركته.'
+          + '</div>';
+      }
+    }
+  }
+
+  updateQRCodeDisplay();
+
+  if ($('#sel_att_share_session')) {
+    $('#sel_att_share_session').onchange = updateQRCodeDisplay;
+  }
+
+  // التبديل بين التابات
+  const tabShare = $('#tab_att_share');
+  const tabMerge = $('#tab_att_merge');
+  const panelShare = $('#panel_att_share');
+  const panelMerge = $('#panel_att_merge');
+
+  if (tabShare && tabMerge) {
+    tabShare.onclick = () => {
+      tabShare.classList.add('active');
+      tabMerge.classList.remove('active');
+      panelShare.style.display = 'block';
+      panelMerge.style.display = 'none';
+    };
+    tabMerge.onclick = () => {
+      tabMerge.classList.add('active');
+      tabShare.classList.remove('active');
+      panelMerge.style.display = 'block';
+      panelShare.style.display = 'none';
+    };
+  }
+
+  // أزرار المشاركة
+  if ($('#btn_download_att_file')) {
+    $('#btn_download_att_file').onclick = () => {
+      if (!currentPayload) return;
+      const safe = (lesson.name || lesson.lessonName || 'درس').replace(/[^\w\u0600-\u06FF ]/g, '').replace(/\s+/g, '_');
+      const sName = currentPayload.session ? (currentPayload.session.label || 'حصة') : 'كل_الحصص';
+      const fn = 'حضور_' + safe + '_' + sName + '_' + todayStr() + '.daftar-att';
+      downloadBlob(JSON.stringify(currentPayload, null, 2), fn, 'application/json');
+      showToastMessage('⬇️ تم تنزيل ملف الحضور بنجاح.');
+    };
+  }
+
+  if ($('#btn_copy_att_payload')) {
+    $('#btn_copy_att_payload').onclick = () => {
+      if (!currentPayload) return;
+      const str = JSON.stringify(currentPayload);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(str).then(() => showToastMessage('📋 تم نسخ كود الحضور إلى الحافظة.'));
+      } else {
+        fallbackCopy(str);
+      }
+    };
+  }
+
+  // أزرار الدمج والاستيراد
+  if ($('#btn_pick_att_file')) {
+    $('#btn_pick_att_file').onclick = () => {
+      const inp = $('#inp_att_merge_file');
+      if (inp) inp.click();
+    };
+  }
+
+  if ($('#inp_att_merge_file')) {
+    $('#inp_att_merge_file').onchange = (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          processIncomingAttendancePayload(lesson, parsed, isArchive, archIdx);
+        } catch (err) {
+          alert('تعذّر قراءة ملف الحضور. يرجى التأكد من اختيار ملف صحيح.');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    };
+  }
+
+  if ($('#btn_apply_pasted_att')) {
+    $('#btn_apply_pasted_att').onclick = () => {
+      const txt = $('#txt_paste_att_payload') ? $('#txt_paste_att_payload').value.trim() : '';
+      if (!txt) {
+        alert('يرجى لصق كود الحضور أولاً.');
+        return;
+      }
+      try {
+        const parsed = JSON.parse(txt);
+        processIncomingAttendancePayload(lesson, parsed, isArchive, archIdx);
+      } catch (err) {
+        alert('كود الحضور المنسوخ غير صالح أو غير مكتمل.');
+      }
+    };
+  }
+
+  if ($('#btn_open_qr_camera')) {
+    $('#btn_open_qr_camera').onclick = () => {
+      openCameraQRScannerModal((scannedText) => {
+        try {
+          const parsed = JSON.parse(scannedText);
+          processIncomingAttendancePayload(lesson, parsed, isArchive, archIdx);
+        } catch (err) {
+          alert('الكود الممسوح ليس كود حضور صالح لتطبيق دفتر.');
+        }
+      });
+    };
+  }
+
+  if ($('#btn_close_att_modal')) {
+    $('#btn_close_att_modal').onclick = closeModal;
+  }
+}
+
+function processIncomingAttendancePayload(lesson, payload, isArchive = false, archIdx = null) {
+  try {
+    const result = mergeAttendanceData(lesson, payload);
+    saveState();
+    if (isArchive && archIdx !== null) renderArchiveDetail(archIdx);
+    else renderLessonDetail();
+    closeModal();
+    showMergeSuccessModal(lesson, result);
+  } catch (err) {
+    alert('حدث خطأ أثناء دمج الحضور: ' + (err.message || err));
+  }
+}
+
+function showMergeSuccessModal(lesson, result) {
+  const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
+    + '<div style="text-align:center;margin-bottom:14px">'
+    +   '<div style="font-size:38px;margin-bottom:4px">✅</div>'
+    +   '<h3 style="margin:0;color:var(--primary);font-size:17px">تم دمج الحضور بنجاح!</h3>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
+    +   '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;text-align:center">'
+    +     '<div style="font-size:11.5px;color:#166534;font-weight:700">🟢 حاضرون جدد تم اعتمادهم</div>'
+    +     '<div style="font-size:20px;font-weight:800;color:#15803d;margin-top:2px">' + result.newPresentCount + '</div>'
+    +   '</div>'
+    +   '<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">'
+    +     '<div style="font-size:11.5px;color:var(--text);font-weight:700">🔄 إجمالي السجلات المحدثة</div>'
+    +     '<div style="font-size:20px;font-weight:800;color:var(--primary);margin-top:2px">' + result.updatedCount + '</div>'
+    +   '</div>'
+    + '</div>'
+    + '<p style="font-size:12.5px;color:var(--text);margin:0 0 10px">'
+    +   'تمت مطابقة <b>' + result.matchedStudentsCount + '</b> طالب بنجاح، وتحديث الحصص بنظام «<b>الحاضر يغلب</b>» دون المساس بالحضور المسجل مسبقاً.'
+    + '</p>'
+    + (result.unmatchedStudents.length > 0
+        ? '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px;font-size:11px;color:#92400e;margin-bottom:10px">'
+          + '⚠️ يوجد ' + result.unmatchedStudents.length + ' طالب في الملف لم يُعثر على أسمائهم في هذا الدرس: ' + esc(result.unmatchedStudents.slice(0, 5).join('، '))
+          + '</div>'
+        : '')
+    + '<div class="modal-actions" style="margin-top:14px">'
+    +   '<button class="btn btn-primary" id="btn_ack_merge_done">ممتاز، حسناً 👍</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('🎉 نتيجة دمج الحضور', modalHTML);
+  if ($('#btn_ack_merge_done')) $('#btn_ack_merge_done').onclick = closeModal;
+}
+
+function openCameraQRScannerModal(onScanSuccess) {
+  const modalHTML = '<div style="text-align:center;direction:rtl;line-height:1.6">'
+    + '<p style="font-size:12.5px;color:var(--text);margin-top:0">'
+    +   'وجّه الكاميرا نحو كود QR المعروض على شاشة الهاتف الآخر:'
+    + '</p>'
+    + '<div style="position:relative;width:100%;max-width:320px;height:240px;margin:0 auto;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.15)">'
+    +   '<video id="qr_camera_video" autoplay playsinline style="width:100%;height:100%;object-fit:cover"></video>'
+    +   '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:160px;height:160px;border:2px solid #22c55e;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.45);pointer-events:none"></div>'
+    + '</div>'
+    + '<div id="qr_scan_status" style="font-size:12px;color:var(--muted);margin-top:8px">جاري تشغيل الكاميرا والبحث عن كود QR...</div>'
+    + '<div class="modal-actions" style="margin-top:12px">'
+    +   '<button class="btn" id="btn_cancel_qr_camera">إلغاء</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('📷 مسح كود QR الحضور', modalHTML);
+
+  let stream = null;
+  let animId = null;
+  let isScanning = true;
+
+  function stopCamera() {
+    isScanning = false;
+    if (animId) cancelAnimationFrame(animId);
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+  }
+
+  $('#btn_cancel_qr_camera').onclick = () => {
+    stopCamera();
+    closeModal();
+  };
+
+  const video = $('#qr_camera_video');
+  const statusEl = $('#qr_scan_status');
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (statusEl) statusEl.textContent = '❌ الكاميرا غير مدعومة في هذا المتصفح. يمكنك استخدام اختيار ملف الحضور أو لصق الكود.';
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(mediaStream => {
+      stream = mediaStream;
+      if (video) {
+        video.srcObject = stream;
+        video.play();
+      }
+
+      if ('BarcodeDetector' in window) {
+        const barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+        function scanFrame() {
+          if (!isScanning) return;
+          if (video && video.readyState === video.HAVE_ENOUGH_DATA) {
+            barcodeDetector.detect(video)
+              .then(barcodes => {
+                if (barcodes && barcodes.length > 0 && isScanning) {
+                  stopCamera();
+                  closeModal();
+                  if (onScanSuccess) onScanSuccess(barcodes[0].rawValue);
+                  return;
+                }
+                if (isScanning) animId = requestAnimationFrame(scanFrame);
+              })
+              .catch(() => {
+                if (isScanning) animId = requestAnimationFrame(scanFrame);
+              });
+          } else {
+            if (isScanning) animId = requestAnimationFrame(scanFrame);
+          }
+        }
+        animId = requestAnimationFrame(scanFrame);
+      } else {
+        if (statusEl) {
+          statusEl.innerHTML = '💡 يرجى مسح الكود أو استخدام <b>اختيار ملف الحضور (.daftar-att)</b> أو <b>لصق الكود</b> مباشرة.';
+        }
+      }
+    })
+    .catch(err => {
+      if (statusEl) {
+        statusEl.textContent = '⚠️ تعذّر فتح الكاميرا (يرجى السماح بصلاحية الكاميرا أو استخدام رفع ملف الحضور).';
+      }
+    });
+}
+
+
 /* ---------- المودال ---------- */
 function openModal(title, bodyHTML){
   $$('.dropdown-menu').forEach(m => { m.hidden = true; });
@@ -9044,6 +9924,7 @@ function bindEvents(){
   if($('#hiddenStudentsBtn')) $('#hiddenStudentsBtn').onclick = () => { const L = curLesson(); if(L) openHiddenStudentsModal(L); };
   if($('#hiddenStudentsMenuBtn')) $('#hiddenStudentsMenuBtn').onclick = () => { const L = curLesson(); if(L) openHiddenStudentsModal(L); };
   if($('#smartDropoutHideBtn')) $('#smartDropoutHideBtn').onclick = () => { const L = curLesson(); if(L) openSmartDropoutHidingModal(L); };
+  if($('#mergeAttendanceMenuBtn')) $('#mergeAttendanceMenuBtn').onclick = () => { const L = curLesson(); if(L) openAttendanceMergeModal(L); };
   if($('#examGroupsBtn')) $('#examGroupsBtn').onclick = () => { const L = curLesson(); if(L) openExamGroupsModal(L); };
   if($('#examGroupFilter')) $('#examGroupFilter').addEventListener('change', (e) => {
     examGroupFilterQuery = e.target.value;
@@ -9172,6 +10053,12 @@ function bindEvents(){
   if($('#importBackupBtn')) $('#importBackupBtn').onclick = () => { const inp = $('#importFile'); if(inp) inp.click(); };
   if($('#importLessonBtn')) $('#importLessonBtn').onclick = () => { const inp = $('#importLessonFile'); if(inp) inp.click(); };
   if($('#importArchiveBtn')) $('#importArchiveBtn').onclick = () => { const inp = $('#importArchiveFile'); if(inp) inp.click(); };
+  if($('#mergeAttendanceGlobalBtn')) $('#mergeAttendanceGlobalBtn').onclick = () => {
+    const L = curLesson();
+    if(L) openAttendanceMergeModal(L);
+    else if(state.lessons && state.lessons.length > 0) openAttendanceMergeModal(state.lessons[0]);
+    else alert('يرجى إنشاء درس أولاً لدمج الحضور إليه.');
+  };
   if($('#importSingleMonthArchiveBtn')) {
     $('#importSingleMonthArchiveBtn').onclick = () => {
       const inp = $('#importSingleMonthInput') || $('#importArchiveFile');
