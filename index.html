@@ -58,7 +58,10 @@
       </div>
       <div id="dashboardOverview" class="dashboard-card"></div>
       <div class="search-box">
-        <input id="globalSearch" type="text" placeholder="🔍 بحث عن طالب في كل الدروس…">
+        <div class="search-input-wrap" style="position:relative;display:flex;align-items:center">
+          <input id="globalSearch" type="text" placeholder="🔍 بحث عن طالب في كل الدروس…" style="padding-left:32px;width:100%">
+          <button id="clearGlobalSearch" type="button" class="search-clear-btn" style="position:absolute;left:8px;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;display:none" title="مسح البحث">✕</button>
+        </div>
         <div id="globalSearchResults" class="search-results"></div>
       </div>
       <div id="lessonsList" class="lessons-list"></div>

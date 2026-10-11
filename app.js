@@ -1289,11 +1289,14 @@ function renderGlobalSearch(){
   const q = globalSearchQuery.trim();
   const qN = normalizeForSearch(q);
   const box = $('#globalSearchResults');
+  const clearBtn = $('#clearGlobalSearch');
+  if(clearBtn) clearBtn.style.display = q ? 'block' : 'none';
   if(!q){ box.innerHTML = ''; box.style.display = 'none'; return; }
   const matches = [];
   state.lessons.forEach(L => {
     L.students.forEach((st, sidx) => {
-      if(normalizeForSearch(st.name).includes(qN) || (st.phone||'').includes(q) || (st.guardianPhone||'').includes(q) || (st.extraPhones||[]).some(p => p.includes(q)) || (st.guardianExtraPhones||[]).some(p => p.includes(q)) || (qN && String(sidx+1) === qN)){
+      const nameMatch = qN ? normalizeForSearch(st.name).includes(qN) : false;
+      if(nameMatch || (st.phone||'').includes(q) || (st.guardianPhone||'').includes(q) || (st.extraPhones||[]).some(p => p.includes(q)) || (st.guardianExtraPhones||[]).some(p => p.includes(q)) || (q && String(sidx+1) === q)){
         matches.push({ lesson: L, student: st });
       }
     });
@@ -1301,13 +1304,14 @@ function renderGlobalSearch(){
   if(matches.length === 0){
     box.innerHTML = '<div class="empty-state">لا توجد نتائج مطابقة.</div>';
   } else {
-    box.innerHTML = matches.map(m =>
+    const sliceMatches = matches.length > 50 ? matches.slice(0, 50) : matches;
+    box.innerHTML = sliceMatches.map(m =>
       '<div class="search-item">'
       + '<span class="s-name">'+esc(m.student.name)+'</span>'
       + '<span class="s-meta">في درس «'+esc(m.lesson.name)+'»</span>'
       + '<button class="btn btn-sm btn-outline" data-act="open-student" data-lesson="'+m.lesson.id+'" data-id="'+m.student.id+'">فتح</button>'
       + '</div>'
-    ).join('');
+    ).join('') + (matches.length > 50 ? '<div style="text-align:center;padding:6px;font-size:11px;color:var(--muted)">تم عرض أول 50 نتيجة من إجمالي ' + matches.length + ' نتيجة لتسريع الأداء.</div>' : '');
   }
   box.style.display = 'block';
 }
@@ -3789,48 +3793,15 @@ function openResetModal(){
   };
 }
 
-/* تصفية فورية وسريعة بالـ DOM لجدول الدرس بدون إعادة البناء */
+/* تصفية فورية وسريعة لجدول الدرس مع دعم إعادة البناء وتحديث التصفح */
 function fastFilterLessonSearch(){
   const rawVal = (lessonFilterQuery || '').trim();
-  const fq = rawVal.toLowerCase();
-  const fqN = normalizeForSearch(rawVal);
-  const L = curLesson();
   const clearBtn = $('#clearLessonSearch');
   if(clearBtn){
     clearBtn.style.display = rawVal ? 'block' : 'none';
   }
-  if(!L) return;
-
-  const isNumSearch = /^\d+$/.test(rawVal);
-  const searchNum = isNumSearch ? parseInt(rawVal, 10) : null;
-
-  if(currentLessonSubtab === 'exams'){
-    const rows = $$('#examsTable tbody tr[data-sid]');
-    rows.forEach((tr, i) => {
-      const sid = tr.dataset.sid;
-      const st = L.students.find(x => x.id === sid);
-      if(!st || !rawVal){ tr.style.display = ''; return; }
-      const numMatch = (searchNum !== null && (i + 1) === searchNum);
-      const textMatch = normalizeForSearch(st.name).includes(fqN) ||
-        (st.phone||'').includes(fq) ||
-        (st.guardianPhone||'').includes(fq);
-      tr.style.display = (numMatch || textMatch) ? '' : 'none';
-    });
-  } else {
-    const rows = $$('#tableBody tr.student-row');
-    rows.forEach((tr, i) => {
-      const sid = tr.dataset.dragId;
-      const st = L.students.find(x => x.id === sid);
-      if(!st || !rawVal){ tr.style.display = ''; return; }
-      const numMatch = (searchNum !== null && (i + 1) === searchNum);
-      const textMatch = normalizeForSearch(st.name).includes(fqN) ||
-        (st.phone||'').includes(fq) ||
-        (st.guardianPhone||'').includes(fq) ||
-        (st.extraPhones||[]).some(p => p.includes(fq)) ||
-        (st.guardianExtraPhones||[]).some(p => p.includes(fq));
-      tr.style.display = (numMatch || textMatch) ? '' : 'none';
-    });
-  }
+  lessonCurrentPage = 1;
+  renderLessonDetail();
 }
 
 function fastFilterArchiveSearch(){
@@ -3926,9 +3897,12 @@ function renderLessonDetail(){
     const isNum = !isNaN(numQ) && String(numQ) === fq;
     students = students.filter(st => {
       if(isNum && (L.students.findIndex(x => x.id === st.id) + 1) === numQ) return true;
-      return normalizeForSearch(st.name).includes(fqN) || (st.phone||'').includes(fq) || (st.guardianPhone||'').includes(fq) || (st.extraPhones||[]).some(p => p.includes(fq)) || (st.guardianExtraPhones||[]).some(p => p.includes(fq));
+      const nameMatch = fqN ? normalizeForSearch(st.name).includes(fqN) : false;
+      return nameMatch || (st.phone||'').includes(fq) || (st.guardianPhone||'').includes(fq) || (st.extraPhones||[]).some(p => p.includes(fq)) || (st.guardianExtraPhones||[]).some(p => p.includes(fq));
     });
   }
+  const clearLessonBtn = $('#clearLessonSearch');
+  if(clearLessonBtn) clearLessonBtn.style.display = fq ? 'block' : 'none';
 
   // التحكم بالتبويب الفرعي (حضور وغياب أم درجات اختبارات)
   const subtabAtt = $('#subtabAttendance');
@@ -9838,7 +9812,22 @@ function bindEvents(){
       const inp = $('#lessonSearch');
       if(inp) inp.value = '';
       lessonFilterQuery = '';
-      fastFilterLessonSearch();
+      const clearBtn = $('#clearLessonSearch');
+      if(clearBtn) clearBtn.style.display = 'none';
+      lessonCurrentPage = 1;
+      renderLessonDetail();
+      if(inp) inp.focus();
+    };
+  }
+
+  if($('#clearGlobalSearch')){
+    $('#clearGlobalSearch').onclick = () => {
+      const inp = $('#globalSearch');
+      if(inp) inp.value = '';
+      globalSearchQuery = '';
+      const clearBtn = $('#clearGlobalSearch');
+      if(clearBtn) clearBtn.style.display = 'none';
+      renderGlobalSearch();
       if(inp) inp.focus();
     };
   }
@@ -9861,7 +9850,9 @@ function bindEvents(){
     groupFilterQuery = '';
     globalSearchQuery = '';
     if($('#lessonSearch')) $('#lessonSearch').value = '';
+    if($('#clearLessonSearch')) $('#clearLessonSearch').style.display = 'none';
     if($('#globalSearch')) $('#globalSearch').value = '';
+    if($('#clearGlobalSearch')) $('#clearGlobalSearch').style.display = 'none';
     renderLessonsHome();
     renderLessonDetail();
   };
@@ -9871,16 +9862,81 @@ function bindEvents(){
     lessonFilterQuery = '';
     groupFilterQuery = '';
     if($('#lessonSearch')) $('#lessonSearch').value = '';
+    if($('#clearLessonSearch')) $('#clearLessonSearch').style.display = 'none';
     renderLessonsHome();
     renderLessonDetail();
   };
 
-  if($('#globalSearch')) $('#globalSearch').addEventListener('input', (e) => { globalSearchQuery = e.target.value; renderGlobalSearch(); });
+  let lessonSearchDebounceTimer = null;
+  let lessonSearchRaf = null;
+  function handleLessonSearchInput(val){
+    lessonFilterQuery = val;
+    const isLite = !!(state && state.settings && state.settings.liteMode);
+    const clearBtn = $('#clearLessonSearch');
+    if(clearBtn) clearBtn.style.display = val.trim() ? 'block' : 'none';
 
-  if($('#lessonSearch')) $('#lessonSearch').addEventListener('input', (e) => {
-    lessonFilterQuery = e.target.value;
-    fastFilterLessonSearch();
-  });
+    if(!val.trim()){
+      if(lessonSearchDebounceTimer) { clearTimeout(lessonSearchDebounceTimer); lessonSearchDebounceTimer = null; }
+      if(lessonSearchRaf) { cancelAnimationFrame(lessonSearchRaf); lessonSearchRaf = null; }
+      lessonCurrentPage = 1;
+      renderLessonDetail();
+      return;
+    }
+
+    if(isLite){
+      if(lessonSearchDebounceTimer) clearTimeout(lessonSearchDebounceTimer);
+      lessonSearchDebounceTimer = setTimeout(() => {
+        lessonCurrentPage = 1;
+        renderLessonDetail();
+      }, 120);
+    } else {
+      if(lessonSearchRaf) cancelAnimationFrame(lessonSearchRaf);
+      lessonSearchRaf = requestAnimationFrame(() => {
+        lessonCurrentPage = 1;
+        renderLessonDetail();
+      });
+    }
+  }
+
+  const lInp = $('#lessonSearch');
+  if(lInp){
+    lInp.addEventListener('input', (e) => handleLessonSearchInput(e.target.value));
+    lInp.addEventListener('compositionend', (e) => handleLessonSearchInput(e.target.value));
+  }
+
+  let globalSearchDebounceTimer = null;
+  let globalSearchRaf = null;
+  function handleGlobalSearchInput(val){
+    globalSearchQuery = val;
+    const isLite = !!(state && state.settings && state.settings.liteMode);
+    const clearBtn = $('#clearGlobalSearch');
+    if(clearBtn) clearBtn.style.display = val.trim() ? 'block' : 'none';
+
+    if(!val.trim()){
+      if(globalSearchDebounceTimer) { clearTimeout(globalSearchDebounceTimer); globalSearchDebounceTimer = null; }
+      if(globalSearchRaf) { cancelAnimationFrame(globalSearchRaf); globalSearchRaf = null; }
+      renderGlobalSearch();
+      return;
+    }
+
+    if(isLite){
+      if(globalSearchDebounceTimer) clearTimeout(globalSearchDebounceTimer);
+      globalSearchDebounceTimer = setTimeout(() => {
+        renderGlobalSearch();
+      }, 120);
+    } else {
+      if(globalSearchRaf) cancelAnimationFrame(globalSearchRaf);
+      globalSearchRaf = requestAnimationFrame(() => {
+        renderGlobalSearch();
+      });
+    }
+  }
+
+  const gInp = $('#globalSearch');
+  if(gInp){
+    gInp.addEventListener('input', (e) => handleGlobalSearchInput(e.target.value));
+    gInp.addEventListener('compositionend', (e) => handleGlobalSearchInput(e.target.value));
+  }
   if($('#groupFilter')) $('#groupFilter').addEventListener('change', (e) => { groupFilterQuery = e.target.value; renderLessonDetail(); });
 
   if($('#addStudentBtn')) $('#addStudentBtn').onclick = () => { const L = curLesson(); if(L) studentForm(L, null); };
@@ -10130,7 +10186,9 @@ function bindEvents(){
       lessonFilterQuery = '';
       groupFilterQuery = '';
       examGroupFilterQuery = '';
+      lessonCurrentPage = 1;
       if($('#lessonSearch')) $('#lessonSearch').value = '';
+      if($('#clearLessonSearch')) $('#clearLessonSearch').style.display = 'none';
       renderLessonDetail();
     }
     else if(act === 'view-student'){
@@ -10148,11 +10206,14 @@ function bindEvents(){
       }
     }
     else if(act === 'open-student'){
+      pushAppHistory('lesson-detail', { lessonId: lessonId });
       currentLessonId = lessonId;
       const st = state.lessons.find(x=>x.id===lessonId)?.students.find(x=>x.id===id);
       lessonFilterQuery = st ? st.name : '';
       groupFilterQuery = '';
-      $('#lessonSearch').value = lessonFilterQuery;
+      lessonCurrentPage = 1;
+      if($('#lessonSearch')) $('#lessonSearch').value = lessonFilterQuery;
+      if($('#clearLessonSearch')) $('#clearLessonSearch').style.display = lessonFilterQuery ? 'block' : 'none';
       renderLessonDetail();
     }
     else if(act === 'edit-session-label'){
