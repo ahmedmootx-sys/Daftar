@@ -8696,7 +8696,36 @@ var qrcodegen = (function() {
 })();
 
 /* ---------- وظائف تصدير واستيراد ودمج الحضور ---------- */
-function createAttendanceTransferPayload(lesson, sessionId, scope = 'single_session') {
+function computeAttendanceChunks(students, size) {
+  if (!Array.isArray(students) || students.length === 0) return [[]];
+  const s = parseInt(size, 10);
+  if (!s || s >= students.length || s <= 0) return [students];
+  const chunks = [];
+  for (let i = 0; i < students.length; i += s) {
+    chunks.push(students.slice(i, i + s));
+  }
+  return chunks;
+}
+
+function playQrBeepSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.18);
+  } catch (e) {}
+}
+
+function createAttendanceTransferPayload(lesson, sessionId, scope = 'single_session', studentSlice = null, chunkMeta = null) {
   if (!lesson) return null;
   const isSingle = (scope === 'single_session' && sessionId);
   const targetSessions = isSingle
@@ -8706,19 +8735,25 @@ function createAttendanceTransferPayload(lesson, sessionId, scope = 'single_sess
   const sessIds = targetSessions.map(s => s.id);
   const filteredRecords = {};
 
-  (lesson.students || []).forEach(st => {
+  const allStudents = lesson.students || [];
+  const targetStudents = studentSlice || allStudents;
+
+  targetStudents.forEach(st => {
     const stRec = lesson.records && lesson.records[st.id];
     if (stRec) {
       sessIds.forEach(sid => {
         if (stRec[sid] && stRec[sid].status) {
           if (!filteredRecords[st.id]) filteredRecords[st.id] = {};
-          filteredRecords[st.id][sid] = JSON.parse(JSON.stringify(stRec[sid]));
+          filteredRecords[st.id][sid] = {
+            status: stRec[sid].status,
+            ...(stRec[sid].note ? { note: stRec[sid].note } : {})
+          };
         }
       });
     }
   });
 
-  return {
+  const payload = {
     type: 'daftar-attendance-transfer',
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -8729,9 +8764,22 @@ function createAttendanceTransferPayload(lesson, sessionId, scope = 'single_sess
     scope: isSingle ? 'single_session' : 'all_sessions',
     session: isSingle ? targetSessions[0] : null,
     sessions: targetSessions,
-    students: (lesson.students || []).map(st => ({ id: st.id, name: st.name, phone: st.phone || '' })),
+    students: targetStudents.map(st => ({ id: st.id, name: st.name, phone: st.phone || '' })),
     records: filteredRecords
   };
+
+  if (chunkMeta) {
+    payload.chunk = {
+      part: chunkMeta.part,
+      totalParts: chunkMeta.totalParts,
+      chunkSize: chunkMeta.chunkSize,
+      fromIndex: chunkMeta.fromIndex,
+      toIndex: chunkMeta.toIndex,
+      totalStudents: allStudents.length
+    };
+  }
+
+  return payload;
 }
 
 function mergeAttendanceData(targetLesson, payload) {
@@ -8843,7 +8891,8 @@ function mergeAttendanceData(targetLesson, payload) {
     matchedStudentsCount,
     unmatchedStudents,
     sessionsCount: Object.keys(sessionMap).length,
-    sessionLabel: payload.session ? payload.session.label : (incSessions.length + ' حصة')
+    sessionLabel: payload.session ? payload.session.label : (incSessions.length + ' حصة'),
+    chunk: payload.chunk || null
   };
 }
 
@@ -8855,6 +8904,16 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
 
   const sessions = lesson.sessions || [];
   const selectedSessionId = defaultSessionId || (sessions[0] ? sessions[0].id : null);
+  const allStudents = lesson.students || [];
+
+  let currentChunkSize = 15;
+  let currentPart = 1;
+  let currentPayload = null;
+
+  const sessionOptions = sessions.length > 0
+    ? sessions.map(s => '<option value="' + s.id + '"' + (s.id === selectedSessionId ? ' selected' : '') + '>' + esc(s.label) + (s.date ? ' (' + s.date + ')' : '') + '</option>').join('')
+        + '<option value="__all__">📊 كل حصص الشهر دفعة واحدة (' + sessions.length + ' حصة)</option>'
+    : '<option value="">لا توجد حصص</option>';
 
   const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
     + '<div class="lesson-subtabs" style="margin-bottom:14px">'
@@ -8865,20 +8924,43 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
     +   '<div class="form-row" style="margin-bottom:10px">'
     +     '<label style="font-size:12.5px;font-weight:700">اختر الحصة المراد مشاركتها مع الهاتف الآخر:</label>'
     +     '<select id="sel_att_share_session" style="width:100%;padding:8px 10px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid var(--border);background:#fff">'
-    +       (sessions.length > 0
-              ? sessions.map(s => '<option value="' + s.id + '"' + (s.id === selectedSessionId ? ' selected' : '') + '>' + esc(s.label) + (s.date ? ' (' + s.date + ')' : '') + '</option>').join('')
-                + '<option value="__all__">📊 كل حصص الشهر دفعة واحدة (' + sessions.length + ' حصة)</option>'
-              : '<option value="">لا توجد حصص</option>')
+    +       sessionOptions
     +     '</select>'
     +   '</div>'
-    +   '<div id="att_qr_wrap" style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:16px;margin:12px 0">'
-    +     '<div id="att_qr_box" style="width:200px;height:200px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center"></div>'
+    +   '<div class="form-row" style="margin-bottom:12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px">'
+    +     '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
+    +       '<label style="font-size:12.5px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px">'
+    +         '🧩 تقسيم الطلاب لكل كود QR:'
+    +       '</label>'
+    +       '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">'
+    +         '<span style="font-size:11.5px;color:var(--muted)">العدد بالكود:</span>'
+    +         '<input type="number" id="inp_att_chunk_size" value="15" min="5" max="250" style="width:52px;padding:3px 6px;text-align:center;font-weight:800;border:1px solid var(--border);border-radius:6px;font-size:12px">'
+    +         '<div style="display:inline-flex;gap:3px">'
+    +           '<button type="button" class="btn btn-outline btn-sm chunk-preset-btn" data-size="10" style="padding:2px 7px;font-size:11px">10</button>'
+    +           '<button type="button" class="btn btn-primary btn-sm chunk-preset-btn" data-size="15" style="padding:2px 7px;font-size:11px">15</button>'
+    +           '<button type="button" class="btn btn-outline btn-sm chunk-preset-btn" data-size="20" style="padding:2px 7px;font-size:11px">20</button>'
+    +           '<button type="button" class="btn btn-outline btn-sm chunk-preset-btn" data-size="all" style="padding:2px 7px;font-size:11px">الكل</button>'
+    +         '</div>'
+    +       '</div>'
+    +     '</div>'
+    +     '<div id="att_chunk_info_bar" style="font-size:11.5px;color:var(--primary);font-weight:700;margin-top:4px"></div>'
+    +   '</div>'
+    +   '<div id="att_qr_wrap" style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px;margin:10px 0">'
+    +     '<div id="att_qr_nav_bar" style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:320px;margin-bottom:8px;gap:6px">'
+    +       '<button type="button" class="btn btn-outline btn-sm" id="btn_qr_prev_part" style="padding:4px 12px;font-weight:700">▶ السابق</button>'
+    +       '<div style="text-align:center;flex:1">'
+    +         '<span id="qr_part_badge" style="font-size:12.5px;font-weight:800;background:var(--primary);color:#fff;padding:3px 12px;border-radius:20px;display:inline-block">الجزء 1 من 1</span>'
+    +       '</div>'
+    +       '<button type="button" class="btn btn-outline btn-sm" id="btn_qr_next_part" style="padding:4px 12px;font-weight:700">التالي ◀</button>'
+    +     '</div>'
+    +     '<div id="att_qr_parts_pills" style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-bottom:8px"></div>'
+    +     '<div id="att_qr_box" style="width:220px;height:220px;max-width:82vw;max-height:82vw;background:#fff;padding:8px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center"></div>'
     +     '<div id="att_qr_summary" style="font-size:12px;font-weight:700;color:var(--text);margin-top:10px;text-align:center"></div>'
-    +     '<p class="muted" style="font-size:11.5px;margin:4px 0 0;text-align:center">💡 افتح تطبيق دفتر على الهاتف الآخر، واضغط "دمج الحضور" ثم امسح هذا الكود بالكاميرا للدمج فوراً.</p>'
+    +     '<p class="muted" style="font-size:11.5px;margin:4px 0 0;text-align:center" id="att_qr_hint">💡 افتح تطبيق دفتر على الهاتف الآخر، واضغط "دمج الحضور" ثم امسح هذا الكود بالكاميرا. ثم اضغط "التالي" لمسح الجزء التالي.</p>'
     +   '</div>'
     +   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
-    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_download_att_file" style="flex:1;min-width:140px">⬇️ تنزيل ملف الحضور (.daftar-att)</button>'
-    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_copy_att_payload" style="flex:1;min-width:130px">📋 نسخ كود الحضور</button>'
+    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_download_att_file" style="flex:1;min-width:140px">⬇️ تنزيل ملف الحضور بالكامل (.daftar-att)</button>'
+    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_copy_att_payload" style="flex:1;min-width:130px">📋 نسخ كود هذا الجزء</button>'
     +   '</div>'
     + '</div>'
     + '<div id="panel_att_merge" style="display:none">'
@@ -8907,15 +8989,88 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
 
   openModal('🔄 دمج ومشاركة الحضور — ' + esc(lesson.lessonName || lesson.name), modalHTML);
 
-  let currentPayload = null;
+  function updatePresetButtonsStyle() {
+    $$('.chunk-preset-btn').forEach(b => {
+      const sz = b.dataset.size;
+      const isAct = (sz === 'all' && currentChunkSize >= allStudents.length) || (parseInt(sz, 10) === currentChunkSize);
+      b.className = 'btn btn-sm chunk-preset-btn ' + (isAct ? 'btn-primary' : 'btn-outline');
+    });
+  }
 
   function updateQRCodeDisplay() {
     const selVal = $('#sel_att_share_session') ? $('#sel_att_share_session').value : '';
     const scope = (selVal === '__all__') ? 'all_sessions' : 'single_session';
     const sessId = (selVal === '__all__') ? null : selVal;
 
-    currentPayload = createAttendanceTransferPayload(lesson, sessId, scope);
+    const chunks = computeAttendanceChunks(allStudents, currentChunkSize);
+    const totalParts = chunks.length;
+    if (currentPart > totalParts) currentPart = totalParts;
+    if (currentPart < 1) currentPart = 1;
+
+    const currentSlice = (totalParts > 1) ? chunks[currentPart - 1] : allStudents;
+    const fromIdx = (currentPart - 1) * currentChunkSize + 1;
+    const toIdx = Math.min(currentPart * currentChunkSize, allStudents.length);
+
+    const chunkMeta = (totalParts > 1) ? {
+      part: currentPart,
+      totalParts: totalParts,
+      chunkSize: currentChunkSize,
+      fromIndex: fromIdx,
+      toIndex: toIdx
+    } : null;
+
+    currentPayload = createAttendanceTransferPayload(lesson, sessId, scope, currentSlice, chunkMeta);
     if (!currentPayload) return;
+
+    const infoBar = $('#att_chunk_info_bar');
+    if (infoBar) {
+      if (totalParts > 1) {
+        infoBar.innerHTML = '📊 مقسّم إلى <b>' + totalParts + ' أجزاء QR</b> (الطلاب من ' + fromIdx + ' إلى ' + toIdx + ' بهذا الكود)';
+      } else {
+        infoBar.innerHTML = '📊 كود QR موحد لكافة طلاب الدرس (' + allStudents.length + ' طالب)';
+      }
+    }
+
+    const navBar = $('#att_qr_nav_bar');
+    const prevBtn = $('#btn_qr_prev_part');
+    const nextBtn = $('#btn_qr_next_part');
+    const badge = $('#qr_part_badge');
+    if (navBar) {
+      navBar.style.display = (totalParts > 1) ? 'flex' : 'none';
+    }
+    if (prevBtn) {
+      prevBtn.disabled = (currentPart <= 1);
+      prevBtn.style.opacity = (currentPart <= 1) ? '0.45' : '1';
+    }
+    if (nextBtn) {
+      nextBtn.disabled = (currentPart >= totalParts);
+      nextBtn.style.opacity = (currentPart >= totalParts) ? '0.45' : '1';
+    }
+    if (badge) {
+      badge.textContent = 'الجزء ' + currentPart + ' من ' + totalParts;
+    }
+
+    const pillsBox = $('#att_qr_parts_pills');
+    if (pillsBox) {
+      if (totalParts > 1 && totalParts <= 15) {
+        pillsBox.innerHTML = chunks.map((_, idx) => {
+          const pNum = idx + 1;
+          const isActive = (pNum === currentPart);
+          return '<button type="button" class="btn btn-sm ' + (isActive ? 'btn-primary' : 'btn-outline') + ' qr-pill-btn" data-part="' + pNum + '" style="padding:2px 8px;font-size:11px;font-weight:700;border-radius:12px">'
+            + pNum
+            + '</button>';
+        }).join('');
+        $$('.qr-pill-btn').forEach(pb => {
+          pb.onclick = () => {
+            currentPart = parseInt(pb.dataset.part, 10) || 1;
+            updateQRCodeDisplay();
+          };
+        });
+        pillsBox.style.display = 'flex';
+      } else {
+        pillsBox.style.display = 'none';
+      }
+    }
 
     const jsonStr = JSON.stringify(currentPayload);
     const summaryBox = $('#att_qr_summary');
@@ -8934,7 +9089,8 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
     });
 
     if (summaryBox) {
-      summaryBox.innerHTML = '📊 إجمالي المسجلين في هذا الكود: <b>' + recCount + '</b> طالب (منهم <b style="color:#15803d">' + presentCount + ' حاضر</b>)';
+      summaryBox.innerHTML = '📊 مسجلين في هذا الكود: <b>' + recCount + '</b> طالب (منهم <b style="color:#15803d">' + presentCount + ' حاضر</b>)'
+        + (totalParts > 1 ? '<br><span style="font-size:11px;color:var(--muted)">[جزء ' + currentPart + ' من ' + totalParts + ']</span>' : '');
     }
 
     if (qrBox) {
@@ -8942,9 +9098,9 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
         const qr = qrcodegen.encodeText(jsonStr, qrcodegen.QrCode.Ecc.LOW);
         qrBox.innerHTML = qr.toSvgString();
       } catch (err) {
-        // إذا كان حجم البيانات كبيراً جداً على رمز QR واحد (للشهور الضخمة)
-        qrBox.innerHTML = '<div style="text-align:center;padding:10px;font-size:12px;color:var(--muted)">'
-          + '📦 حجم بيانات الشهر كاملة كبير على رمز QR.<br>يرجى استخدام زر <b>تنزيل ملف الحضور</b> بالأسفل لمشاركته.'
+        qrBox.innerHTML = '<div style="text-align:center;padding:12px;font-size:12px;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px">'
+          + '⚠️ حجم بيانات الطلاب كبير على رمز QR واحد (' + currentSlice.length + ' طالب).<br>'
+          + 'يرجى اختيار <b>10</b> أو <b>15</b> طالب لكل كود بالخيارات أعلاه لتقسيمهم، أو استخدام زر <b>تنزيل ملف الحضور</b>.'
           + '</div>';
       }
     }
@@ -8953,7 +9109,55 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
   updateQRCodeDisplay();
 
   if ($('#sel_att_share_session')) {
-    $('#sel_att_share_session').onchange = updateQRCodeDisplay;
+    $('#sel_att_share_session').onchange = () => {
+      currentPart = 1;
+      updateQRCodeDisplay();
+    };
+  }
+
+  if ($('#inp_att_chunk_size')) {
+    $('#inp_att_chunk_size').oninput = (e) => {
+      const val = parseInt(e.target.value, 10);
+      if (val && val > 0) {
+        currentChunkSize = val;
+        currentPart = 1;
+        updatePresetButtonsStyle();
+        updateQRCodeDisplay();
+      }
+    };
+  }
+
+  $$('.chunk-preset-btn').forEach(b => {
+    b.onclick = () => {
+      const sz = b.dataset.size;
+      if (sz === 'all') {
+        currentChunkSize = allStudents.length || 15;
+      } else {
+        currentChunkSize = parseInt(sz, 10) || 15;
+      }
+      if ($('#inp_att_chunk_size')) $('#inp_att_chunk_size').value = currentChunkSize;
+      currentPart = 1;
+      updatePresetButtonsStyle();
+      updateQRCodeDisplay();
+    };
+  });
+
+  if ($('#btn_qr_prev_part')) {
+    $('#btn_qr_prev_part').onclick = () => {
+      if (currentPart > 1) {
+        currentPart--;
+        updateQRCodeDisplay();
+      }
+    };
+  }
+  if ($('#btn_qr_next_part')) {
+    $('#btn_qr_next_part').onclick = () => {
+      const chunks = computeAttendanceChunks(allStudents, currentChunkSize);
+      if (currentPart < chunks.length) {
+        currentPart++;
+        updateQRCodeDisplay();
+      }
+    };
   }
 
   // التبديل بين التابات
@@ -8980,12 +9184,16 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
   // أزرار المشاركة
   if ($('#btn_download_att_file')) {
     $('#btn_download_att_file').onclick = () => {
-      if (!currentPayload) return;
+      const selVal = $('#sel_att_share_session') ? $('#sel_att_share_session').value : '';
+      const scope = (selVal === '__all__') ? 'all_sessions' : 'single_session';
+      const sessId = (selVal === '__all__') ? null : selVal;
+      const fullPayload = createAttendanceTransferPayload(lesson, sessId, scope, allStudents, null);
+      if (!fullPayload) return;
       const safe = (lesson.name || lesson.lessonName || 'درس').replace(/[^\w\u0600-\u06FF ]/g, '').replace(/\s+/g, '_');
-      const sName = currentPayload.session ? (currentPayload.session.label || 'حصة') : 'كل_الحصص';
+      const sName = fullPayload.session ? (fullPayload.session.label || 'حصة') : 'كل_الحصص';
       const fn = 'حضور_' + safe + '_' + sName + '_' + todayStr() + '.daftar-att';
-      downloadBlob(JSON.stringify(currentPayload, null, 2), fn, 'application/json');
-      showToastMessage('⬇️ تم تنزيل ملف الحضور بنجاح.');
+      downloadBlob(JSON.stringify(fullPayload, null, 2), fn, 'application/json');
+      showToastMessage('⬇️ تم تنزيل ملف الحضور بالكامل بنجاح.');
     };
   }
 
@@ -8993,8 +9201,10 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
     $('#btn_copy_att_payload').onclick = () => {
       if (!currentPayload) return;
       const str = JSON.stringify(currentPayload);
+      const chunks = computeAttendanceChunks(allStudents, currentChunkSize);
+      const partDesc = (chunks.length > 1) ? ' (الجزء ' + currentPart + ' من ' + chunks.length + ')' : '';
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(str).then(() => showToastMessage('📋 تم نسخ كود الحضور إلى الحافظة.'));
+        navigator.clipboard.writeText(str).then(() => showToastMessage('📋 تم نسخ كود الحضور' + partDesc + ' إلى الحافظة.'));
       } else {
         fallbackCopy(str);
       }
@@ -9045,14 +9255,7 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
 
   if ($('#btn_open_qr_camera')) {
     $('#btn_open_qr_camera').onclick = () => {
-      openCameraQRScannerModal((scannedText) => {
-        try {
-          const parsed = JSON.parse(scannedText);
-          processIncomingAttendancePayload(lesson, parsed, isArchive, archIdx);
-        } catch (err) {
-          alert('الكود الممسوح ليس كود حضور صالح لتطبيق دفتر.');
-        }
-      });
+      openCameraQRScannerModal(lesson, isArchive, archIdx);
     };
   }
 
@@ -9075,11 +9278,22 @@ function processIncomingAttendancePayload(lesson, payload, isArchive = false, ar
 }
 
 function showMergeSuccessModal(lesson, result) {
+  const partsNotice = (result.partsCount && result.partsCount > 1)
+    ? '<div style="background:#e0f2fe;border:1px solid #bae6fd;border-radius:8px;padding:8px;font-size:12px;color:#0369a1;margin-bottom:12px;text-align:center;font-weight:700">'
+      + '🧩 تم دمج ' + result.partsCount + ' أجزاء بنجاح عبر الكاميرا.'
+      + '</div>'
+    : (result.chunk
+        ? '<div style="background:#e0f2fe;border:1px solid #bae6fd;border-radius:8px;padding:8px;font-size:12px;color:#0369a1;margin-bottom:12px;text-align:center;font-weight:700">'
+          + '🧩 تم دمج الجزء (' + result.chunk.part + ' من ' + result.chunk.totalParts + ') بنجاح.'
+          + '</div>'
+        : '');
+
   const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
     + '<div style="text-align:center;margin-bottom:14px">'
     +   '<div style="font-size:38px;margin-bottom:4px">✅</div>'
     +   '<h3 style="margin:0;color:var(--primary);font-size:17px">تم دمج الحضور بنجاح!</h3>'
     + '</div>'
+    + partsNotice
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
     +   '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;text-align:center">'
     +     '<div style="font-size:11.5px;color:#166534;font-weight:700">🟢 حاضرون جدد تم اعتمادهم</div>'
@@ -9093,7 +9307,7 @@ function showMergeSuccessModal(lesson, result) {
     + '<p style="font-size:12.5px;color:var(--text);margin:0 0 10px">'
     +   'تمت مطابقة <b>' + result.matchedStudentsCount + '</b> طالب بنجاح، وتحديث الحصص بنظام «<b>الحاضر يغلب</b>» دون المساس بالحضور المسجل مسبقاً.'
     + '</p>'
-    + (result.unmatchedStudents.length > 0
+    + (result.unmatchedStudents && result.unmatchedStudents.length > 0
         ? '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px;font-size:11px;color:#92400e;margin-bottom:10px">'
           + '⚠️ يوجد ' + result.unmatchedStudents.length + ' طالب في الملف لم يُعثر على أسمائهم في هذا الدرس: ' + esc(result.unmatchedStudents.slice(0, 5).join('، '))
           + '</div>'
@@ -9107,18 +9321,22 @@ function showMergeSuccessModal(lesson, result) {
   if ($('#btn_ack_merge_done')) $('#btn_ack_merge_done').onclick = closeModal;
 }
 
-function openCameraQRScannerModal(onScanSuccess) {
+function openCameraQRScannerModal(lesson, isArchive = false, archIdx = null) {
   const modalHTML = '<div style="text-align:center;direction:rtl;line-height:1.6">'
     + '<p style="font-size:12.5px;color:var(--text);margin-top:0">'
     +   'وجّه الكاميرا نحو كود QR المعروض على شاشة الهاتف الآخر:'
     + '</p>'
     + '<div style="position:relative;width:100%;max-width:320px;height:240px;margin:0 auto;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.15)">'
     +   '<video id="qr_camera_video" autoplay playsinline style="width:100%;height:100%;object-fit:cover"></video>'
-    +   '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:160px;height:160px;border:2px solid #22c55e;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.45);pointer-events:none"></div>'
+    +   '<div id="qr_viewfinder_box" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:165px;height:165px;border:3px solid #22c55e;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,0.45);transition:border-color .2s, box-shadow .2s;pointer-events:none"></div>'
     + '</div>'
-    + '<div id="qr_scan_status" style="font-size:12px;color:var(--muted);margin-top:8px">جاري تشغيل الكاميرا والبحث عن كود QR...</div>'
-    + '<div class="modal-actions" style="margin-top:12px">'
-    +   '<button class="btn" id="btn_cancel_qr_camera">إلغاء</button>'
+    + '<div id="qr_scan_progress_wrap" style="margin-top:10px;min-height:48px">'
+    +   '<div id="qr_scan_status" style="font-size:12px;color:var(--muted)">جاري تشغيل الكاميرا والبحث عن كود QR...</div>'
+    +   '<div id="qr_parts_chips" style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-top:6px"></div>'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:12px;display:flex;gap:8px;justify-content:center">'
+    +   '<button class="btn btn-primary" id="btn_finish_qr_camera" style="font-weight:700">✅ إنهاء وعرض التقرير</button>'
+    +   '<button class="btn btn-outline" id="btn_cancel_qr_camera">إلغاء</button>'
     + '</div>'
     + '</div>';
 
@@ -9127,6 +9345,19 @@ function openCameraQRScannerModal(onScanSuccess) {
   let stream = null;
   let animId = null;
   let isScanning = true;
+
+  const scannedParts = new Set();
+  let totalExpectedParts = null;
+  const cumulativeResult = {
+    updatedCount: 0,
+    newPresentCount: 0,
+    matchedStudentsCount: 0,
+    unmatchedStudents: [],
+    partsCount: 0,
+    sessionLabel: ''
+  };
+  let lastScannedRaw = '';
+  let lastScannedTime = 0;
 
   function stopCamera() {
     isScanning = false;
@@ -9137,10 +9368,36 @@ function openCameraQRScannerModal(onScanSuccess) {
     }
   }
 
-  $('#btn_cancel_qr_camera').onclick = () => {
+  function finishAndShowSummary() {
     stopCamera();
     closeModal();
+    if (cumulativeResult.partsCount > 0) {
+      showMergeSuccessModal(lesson, cumulativeResult);
+    }
+  }
+
+  function cancelCameraScan() {
+    stopCamera();
+    closeModal();
+  }
+
+  if ($('#btn_finish_qr_camera')) {
+    $('#btn_finish_qr_camera').onclick = finishAndShowSummary;
+  }
+  if ($('#btn_cancel_qr_camera')) {
+    $('#btn_cancel_qr_camera').onclick = cancelCameraScan;
+  }
+
+  const modalCloseBtn = $('#modalClose');
+  const onModalCloseCleanup = () => {
+    stopCamera();
+    window.removeEventListener('keydown', onEscKey);
   };
+  const onEscKey = (e) => {
+    if (e.key === 'Escape') onModalCloseCleanup();
+  };
+  window.addEventListener('keydown', onEscKey);
+  if (modalCloseBtn) modalCloseBtn.addEventListener('click', onModalCloseCleanup, { once: true });
 
   const video = $('#qr_camera_video');
   const statusEl = $('#qr_scan_status');
@@ -9166,10 +9423,112 @@ function openCameraQRScannerModal(onScanSuccess) {
             barcodeDetector.detect(video)
               .then(barcodes => {
                 if (barcodes && barcodes.length > 0 && isScanning) {
-                  stopCamera();
-                  closeModal();
-                  if (onScanSuccess) onScanSuccess(barcodes[0].rawValue);
-                  return;
+                  const raw = barcodes[0].rawValue;
+                  const now = Date.now();
+
+                  // منع التكرار الفوري لنفس الكود خلال ثانيتين ونصف
+                  if (raw === lastScannedRaw && (now - lastScannedTime) < 2500) {
+                    if (isScanning) animId = requestAnimationFrame(scanFrame);
+                    return;
+                  }
+
+                  let payload = null;
+                  try {
+                    payload = JSON.parse(raw);
+                  } catch (e) {
+                    if (isScanning) animId = requestAnimationFrame(scanFrame);
+                    return;
+                  }
+
+                  if (!payload || !payload.records || (!payload.type && !payload.lessonId && !payload.students)) {
+                    if (isScanning) animId = requestAnimationFrame(scanFrame);
+                    return;
+                  }
+
+                  // كود حضور صالح!
+                  lastScannedRaw = raw;
+                  lastScannedTime = now;
+                  playQrBeepSound();
+
+                  // وميض أخضر لمحدد الكاميرا
+                  const vf = $('#qr_viewfinder_box');
+                  if (vf) {
+                    vf.style.borderColor = '#4ade80';
+                    vf.style.boxShadow = '0 0 24px #22c55e, 0 0 0 9999px rgba(0,0,0,0.55)';
+                    setTimeout(() => {
+                      if (vf) {
+                        vf.style.borderColor = '#22c55e';
+                        vf.style.boxShadow = '0 0 0 9999px rgba(0,0,0,0.45)';
+                      }
+                    }, 500);
+                  }
+
+                  try {
+                    const res = mergeAttendanceData(lesson, payload);
+                    saveState();
+                    if (isArchive && archIdx !== null) renderArchiveDetail(archIdx);
+                    else renderLessonDetail();
+
+                    cumulativeResult.updatedCount += res.updatedCount;
+                    cumulativeResult.newPresentCount += res.newPresentCount;
+                    cumulativeResult.matchedStudentsCount += res.matchedStudentsCount;
+                    (res.unmatchedStudents || []).forEach(u => {
+                      if (!cumulativeResult.unmatchedStudents.includes(u)) cumulativeResult.unmatchedStudents.push(u);
+                    });
+                    cumulativeResult.partsCount++;
+                    cumulativeResult.sessionLabel = res.sessionLabel || cumulativeResult.sessionLabel;
+
+                    if (payload.chunk) {
+                      const p = payload.chunk.part;
+                      const tot = payload.chunk.totalParts || payload.chunk.total || 1;
+                      totalExpectedParts = tot;
+                      scannedParts.add(p);
+
+                      const stEl = $('#qr_scan_status');
+                      if (stEl) {
+                        stEl.innerHTML = '<div style="background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:8px;padding:6px 10px;font-size:12.5px;font-weight:700">'
+                          + '🟢 تم دمج الجزء (' + p + ' من ' + tot + ') بنجاح! (' + res.newPresentCount + ' حاضر جديد)<br>'
+                          + '<span style="font-size:11.5px;color:#15803d;font-weight:600">وجّه الكاميرا للجزء التالي على شاشة الهاتف الآخر...</span>'
+                          + '</div>';
+                      }
+
+                      const chipsEl = $('#qr_parts_chips');
+                      if (chipsEl && tot > 1) {
+                        let chHtml = '';
+                        for (let i = 1; i <= tot; i++) {
+                          const done = scannedParts.has(i);
+                          chHtml += '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;background:' + (done ? '#15803d' : '#e2e8f0') + ';color:' + (done ? '#fff' : '#64748b') + '">'
+                            + (done ? '✓ ' : '') + 'جزء ' + i
+                            + '</span>';
+                        }
+                        chipsEl.innerHTML = chHtml;
+                      }
+
+                      const finishBtn = $('#btn_finish_qr_camera');
+                      if (finishBtn) {
+                        finishBtn.textContent = '✅ إنهاء (تم دمج ' + scannedParts.size + ' من ' + tot + ')';
+                      }
+
+                      if (scannedParts.size >= tot) {
+                        if (stEl) {
+                          stEl.innerHTML = '<div style="background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:8px;padding:8px;font-size:13px;font-weight:800">'
+                            + '🎉 رائع! تم مسح ودمج جميع الأجزاء بالكامل (' + tot + ' من ' + tot + ')!'
+                            + '</div>';
+                        }
+                        setTimeout(() => {
+                          finishAndShowSummary();
+                        }, 1200);
+                        return;
+                      }
+                    } else {
+                      // كود كامل وحيد غير مقسم
+                      scannedParts.add(1);
+                      finishAndShowSummary();
+                      return;
+                    }
+                  } catch (err) {
+                    console.error('Merge error:', err);
+                  }
                 }
                 if (isScanning) animId = requestAnimationFrame(scanFrame);
               })
@@ -9183,7 +9542,7 @@ function openCameraQRScannerModal(onScanSuccess) {
         animId = requestAnimationFrame(scanFrame);
       } else {
         if (statusEl) {
-          statusEl.innerHTML = '💡 يرجى مسح الكود أو استخدام <b>اختيار ملف الحضور (.daftar-att)</b> أو <b>لصق الكود</b> مباشرة.';
+          statusEl.innerHTML = '💡 متصفحك لا يدعم قراءة QR مباشرة عبر الكاميرا.<br>يمكنك استخدام <b>اختيار ملف الحضور (.daftar-att)</b> أو <b>لصق الكود المنسوخ</b> مباشرة.';
         }
       }
     })
@@ -9193,8 +9552,6 @@ function openCameraQRScannerModal(onScanSuccess) {
       }
     });
 }
-
-
 /* ---------- المودال ---------- */
 function openModal(title, bodyHTML){
   $$('.dropdown-menu').forEach(m => { m.hidden = true; });
