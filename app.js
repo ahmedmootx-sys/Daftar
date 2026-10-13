@@ -6984,10 +6984,38 @@ function buildReportHTML(students, sessions, records, rows, title, statuses, gro
   return html;
 }
 
-async function downloadBlob(content, filename, mime){
+/* ---------- وظائف تصدير وتنزيل ومشاركة الملفات مباشرة (v42) ---------- */
+function canShareBlob(blob, filename, mime) {
+  try {
+    if (!navigator.share || !navigator.canShare) return false;
+    const file = new File([blob], filename, { type: mime });
+    return navigator.canShare({ files: [file] });
+  } catch (e) {
+    return false;
+  }
+}
+
+function formatExportFileSize(bytes) {
+  if (!bytes || bytes < 0) return '0 بايت';
+  if (bytes < 1024) return bytes + ' بايت';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' ك.ب';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' م.ب';
+}
+
+function getExportBadgeInfo(filename) {
+  const lower = (filename || '').toLowerCase();
+  if (lower.endsWith('.daftar-att')) return { text: 'حضور', bg: '#7c3aed' };
+  if (lower.endsWith('.daftar-month')) return { text: 'شهر مؤرشف', bg: '#0891b2' };
+  if (lower.endsWith('.json')) return { text: 'JSON', bg: '#2563eb' };
+  if (lower.endsWith('.csv')) return { text: 'CSV', bg: '#059669' };
+  if (lower.endsWith('.html') || lower.endsWith('.htm')) return { text: 'HTML', bg: '#ea580c' };
+  return { text: 'ملف', bg: '#475569' };
+}
+
+async function executeActualDownload(content, filename, mime) {
   /* أولوية: File System Access API (يخلي المستخدم يختار المكان) */
-  if('showSaveFilePicker' in window){
-    try{
+  if ('showSaveFilePicker' in window) {
+    try {
       const ext = filename.includes('.') ? '.' + filename.split('.').pop() : '';
       const types = ext ? [{ description: ext.toUpperCase().slice(1) + ' ملف', accept: { [mime]: [ext] } }] : [];
       const handle = await window.showSaveFilePicker({ suggestedName: filename, types });
@@ -6996,18 +7024,123 @@ async function downloadBlob(content, filename, mime){
       await writable.close();
       showToastMessage('✅ تم حفظ الملف: ' + filename);
       return;
-    }catch(e){
-      if(e.name === 'AbortError') return; /* ألغى المستخدم */
+    } catch (e) {
+      if (e.name === 'AbortError') return; /* ألغى المستخدم */
       /* فشل API → رجوع للطريقة العادية */
     }
   }
   /* طريقة التنزيلات العادية (fallback) */
-  const blob = new Blob([content], {type: mime});
+  const blob = (content instanceof Blob) ? content : new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 50);
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
+  showToastMessage('⬇️ تم تنزيل الملف في الهاتف: ' + filename);
+}
+
+function openExportShareModal(content, filename, mime, opts = {}) {
+  const blob = (content instanceof Blob) ? content : new Blob([content], { type: mime });
+  const badge = getExportBadgeInfo(filename);
+  const sizeStr = formatExportFileSize(blob.size);
+  const captionText = opts.caption || ('ملف تصدير من تطبيق دفتر 📘 (' + filename + ')');
+
+  const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
+    + '<div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">'
+    +   '<div style="width:42px;height:42px;border-radius:10px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">'
+    +     '📄'
+    +   '</div>'
+    +   '<div style="flex:1;min-width:0">'
+    +     '<div style="font-size:13px;font-weight:800;color:var(--text);word-break:break-all;line-height:1.4">'
+    +       esc(filename)
+    +     '</div>'
+    +     '<div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">'
+    +       '<span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:4px;background:' + badge.bg + ';color:#fff">' + badge.text + '</span>'
+    +       '<span style="font-size:11.5px;color:var(--muted)">الحجم: ' + sizeStr + '</span>'
+    +     '</div>'
+    +   '</div>'
+    + '</div>'
+    + '<p style="font-size:13px;color:var(--text);margin:0 0 12px;font-weight:700">'
+    +   'اختر الطريقة المناسبة لإخراج الملف:'
+    + '</p>'
+    + '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">'
+    +   '<button type="button" class="btn btn-primary" id="btn_modal_share_direct" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:10px;text-align:right;cursor:pointer">'
+    +     '<div style="display:flex;align-items:center;gap:10px">'
+    +       '<span style="font-size:22px">📤</span>'
+    +       '<div>'
+    +         '<div style="font-size:14px;font-weight:800">مشاركة مباشرة عبر التطبيقات</div>'
+    +         '<div style="font-size:11.5px;opacity:0.92;font-weight:600">واتساب، تيليجرام، مسنجر، البريد، البلوتوث...</div>'
+    +       '</div>'
+    +     '</div>'
+    +     '<span style="font-size:16px">◀</span>'
+    +   '</button>'
+    +   '<button type="button" class="btn btn-outline" id="btn_modal_save_local" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:10px;text-align:right;border-width:2px;cursor:pointer">'
+    +     '<div style="display:flex;align-items:center;gap:10px">'
+    +       '<span style="font-size:22px">⬇️</span>'
+    +       '<div>'
+    +         '<div style="font-size:14px;font-weight:800;color:var(--text)">حفظ وتنزيل في الهاتف</div>'
+    +         '<div style="font-size:11.5px;color:var(--muted);font-weight:600">تنزيل الملف في مجلد التنزيلات بالجهاز (Downloads)</div>'
+    +       '</div>'
+    +     '</div>'
+    +     '<span style="font-size:16px;color:var(--muted)">◀</span>'
+    +   '</button>'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:10px">'
+    +   '<button class="btn" id="btn_modal_cancel_export" style="width:100%">إلغاء</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('📤 خيارات تصدير ومشاركة الملف', modalHTML);
+
+  if ($('#btn_modal_share_direct')) {
+    $('#btn_modal_share_direct').onclick = async () => {
+      try {
+        const file = new File([blob], filename, { type: mime });
+        await navigator.share({
+          files: [file],
+          title: filename,
+          text: captionText
+        });
+        closeModal();
+        showToastMessage('✅ تمت المشاركة بنجاح.');
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          return;
+        }
+        closeModal();
+        await executeActualDownload(content, filename, mime);
+      }
+    };
+  }
+
+  if ($('#btn_modal_save_local')) {
+    $('#btn_modal_save_local').onclick = async () => {
+      closeModal();
+      await executeActualDownload(content, filename, mime);
+    };
+  }
+
+  if ($('#btn_modal_cancel_export')) {
+    $('#btn_modal_cancel_export').onclick = closeModal;
+  }
+}
+
+async function downloadBlob(content, filename, mime, opts = {}) {
+  const blob = (content instanceof Blob) ? content : new Blob([content], { type: mime });
+
+  /* إذا كان الجهاز يدعم مشاركة الملفات ولم يتم طلب التنزيل الإجباري -> إظهار نافذة الاختيار */
+  if (!opts.forceDownload && canShareBlob(blob, filename, mime)) {
+    openExportShareModal(content, filename, mime, opts);
+    return;
+  }
+
+  /* وإلا حفظ وتنزيل في الجهاز مباشرةً (مثل متصفحات الكمبيوتر) */
+  await executeActualDownload(content, filename, mime);
 }
 
 
@@ -8959,7 +9092,7 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
     +     '<p class="muted" style="font-size:11.5px;margin:4px 0 0;text-align:center" id="att_qr_hint">💡 افتح تطبيق دفتر على الهاتف الآخر، واضغط "دمج الحضور" ثم امسح هذا الكود بالكاميرا. ثم اضغط "التالي" لمسح الجزء التالي.</p>'
     +   '</div>'
     +   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
-    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_download_att_file" style="flex:1;min-width:140px">⬇️ تنزيل ملف الحضور بالكامل (.daftar-att)</button>'
+    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_download_att_file" style="flex:1;min-width:140px">📤 تصدير / مشاركة ملف الحضور (.daftar-att)</button>'
     +     '<button type="button" class="btn btn-outline btn-sm" id="btn_copy_att_payload" style="flex:1;min-width:130px">📋 نسخ كود هذا الجزء</button>'
     +   '</div>'
     + '</div>'
@@ -9192,8 +9325,7 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
       const safe = (lesson.name || lesson.lessonName || 'درس').replace(/[^\w\u0600-\u06FF ]/g, '').replace(/\s+/g, '_');
       const sName = fullPayload.session ? (fullPayload.session.label || 'حصة') : 'كل_الحصص';
       const fn = 'حضور_' + safe + '_' + sName + '_' + todayStr() + '.daftar-att';
-      downloadBlob(JSON.stringify(fullPayload, null, 2), fn, 'application/json');
-      showToastMessage('⬇️ تم تنزيل ملف الحضور بالكامل بنجاح.');
+      downloadBlob(JSON.stringify(fullPayload, null, 2), fn, 'application/json', { caption: 'ملف حضور طلاب من تطبيق دفتر 📘 (' + safe + ' - ' + sName + ')' });
     };
   }
 
