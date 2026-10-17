@@ -19,6 +19,15 @@ let autoSaveReady = false;
 let autoSaveTimer = null;
 const AUTOSAVE_FLAG = 'attendance_autosave_prompted';
 
+/* ---------- حماية الذاكرة من المسح التلقائي على الهواتف (Persistent Storage) ---------- */
+try {
+  if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().then(persistent => {
+      if (persistent) console.log('Daftar persistent storage is granted.');
+    }).catch(() => {});
+  }
+} catch (e) {}
+
 /* ---------- أدوات مساعدة ---------- */
 
 /* ---------- تجزئة الجداول الكبيرة (Pagination for 1000+ Students) ---------- */
@@ -747,29 +756,75 @@ function normalizeState(raw){
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return null;
-    const s = JSON.parse(raw);
-    if(!s || typeof s !== 'object') return null;
-    return normalizeState(s);
+    if(raw){
+      try{
+        const s = JSON.parse(raw);
+        if(s && typeof s === 'object'){
+          const norm = normalizeState(s);
+          if(norm && ((norm.lessons && norm.lessons.length > 0) || (norm.archive && norm.archive.length > 0))){
+            try{ localStorage.setItem('daftar_emergency_backup', raw); }catch(e){}
+            return norm;
+          }
+        }
+      }catch(err){
+        console.error('loadState parse error:', err);
+        try{ localStorage.setItem('daftar_corrupt_rescue', raw); }catch(e){}
+      }
+    }
+
+    // فحص مفتاح الطوارئ في localStorage إن كان المفتاح الأساسي فارغاً أو تالفاً
+    const emRaw = localStorage.getItem('daftar_emergency_backup');
+    if(emRaw){
+      try{
+        const emObj = JSON.parse(emRaw);
+        if(emObj && typeof emObj === 'object'){
+          const emNorm = normalizeState(emObj);
+          if(emNorm && ((emNorm.lessons && emNorm.lessons.length > 0) || (emNorm.archive && emNorm.archive.length > 0))){
+            console.log('Restored from emergency localStorage backup');
+            return emNorm;
+          }
+        }
+      }catch(e){}
+    }
+
+    return null;
   }catch(e){
+    console.error('loadState fatal error:', e);
     return null;
   }
 }
+
 let stateSaveTimer = null;
 function saveState(immediate = false){
+  const doLocalStorageSave = () => {
+    try{
+      const json = JSON.stringify(state);
+      localStorage.setItem(STORAGE_KEY, json);
+      if(state && ((state.lessons && state.lessons.length > 0) || (state.archive && state.archive.length > 0))){
+        try{ localStorage.setItem('daftar_emergency_backup', json); }catch(e){}
+      }
+    }catch(e){
+      console.error('saveState localStorage error:', e);
+    }
+  };
+
+  const doIdbSave = () => {
+    if(typeof idbSaveAppState === 'function'){
+      idbSaveAppState(state);
+    }
+  };
+
   if(immediate){
     clearTimeout(stateSaveTimer);
-    try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }catch(e){ console.error('saveState error', e); }
+    doLocalStorageSave();
+    doIdbSave();
     scheduleAutoSave();
     return;
   }
   clearTimeout(stateSaveTimer);
   stateSaveTimer = setTimeout(() => {
-    try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }catch(e){ console.error('saveState error', e); }
+    doLocalStorageSave();
+    doIdbSave();
     scheduleAutoSave();
   }, 250);
 }
@@ -807,7 +862,9 @@ function confirmDangerModal(options){
 }
 
 let state = loadState() || defaultState();
-saveState(true);
+if(state && ((state.lessons && state.lessons.length > 0) || (state.archive && state.archive.length > 0))){
+  saveState(true);
+}
 
 /* ---------- توليد الحصص ---------- */
 function sessionDates(year, monthNumber, schedule){
@@ -3610,7 +3667,8 @@ async function telegramBackup(){
           + exporterLine;
       }
     } else {
-      exportData = sanitizeExportState(state);
+      // الحفظ الكامل في تيليجرام يحتفظ بكافة البوتات لتمكين استعادتها
+      exportData = state;
       fn = 'daftar-backup-' + todayStr() + '.json';
       caption = '📦 نسخة احتياطية كاملة من تطبيق دفتر'
         + '\n📅 التاريخ: ' + todayStr()
@@ -7221,8 +7279,8 @@ async function openFromFile(){
 }
 
 function exportBackup(){
-  const safeState = sanitizeExportState(state);
-  downloadBlob(JSON.stringify(safeState, null, 2), 'نسخة_احتياطية_Daftar_' + new Date().toISOString().slice(0,10) + '.json', 'application/json');
+  // النسخة الاحتياطية الكاملة تحتفظ بكافة البوتات لتمكين استعادتها
+  downloadBlob(JSON.stringify(state, null, 2), 'نسخة_احتياطية_Daftar_' + new Date().toISOString().slice(0,10) + '.json', 'application/json');
 }
 function importArchiveMonth(file){
   const reader = new FileReader();
@@ -7590,8 +7648,8 @@ async function encryptExport(){
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const km = await crypto.subtle.importKey('raw', enc.encode(pwd), 'PBKDF2', false, ['deriveKey']);
     const key = await crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:150000, hash:'SHA-256'}, km, {name:'AES-GCM', length:256}, false, ['encrypt']);
-    const safeState = sanitizeExportState(state);
-    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(JSON.stringify(safeState)));
+    // النسخة المشفرة تحتفظ بكافة البوتات لتمكين استعادتها
+    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(JSON.stringify(state)));
     const payload = { v:1, salt: b64(salt), iv: b64(iv), data: b64(ct) };
     downloadBlob(JSON.stringify(payload), 'نسخة_مشفرة_' + new Date().toISOString().slice(0,10) + '.json', 'application/json');
     alert('تم إنشاء النسخة المشفّرة. احفظ كلمة المرور جيداً - لا يمكن الاسترجاع بدونها.');
@@ -7622,61 +7680,135 @@ async function decryptImport(file){
   }
 }
 
-/* ---------- الحفظ التلقائي في ملف ---------- */
+/* ---------- درع الحفظ التلقائي وقاعدة البيانات المقاومة للمسح (v42) ---------- */
 function idbOpen(){
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('attendance-app', 1);
-    req.onupgradeneeded = () => {
-      if(!req.result.objectStoreNames.contains('handles')) req.result.createObjectStore('handles');
+    const req = indexedDB.open('attendance-app', 2);
+    req.onupgradeneeded = (e) => {
+      const db = req.result;
+      if(!db.objectStoreNames.contains('handles')) db.createObjectStore('handles');
+      if(!db.objectStoreNames.contains('appState')) db.createObjectStore('appState');
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
-async function idbSet(key, val){
+async function idbSetStore(storeName, key, val){
   const db = await idbOpen();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('handles', 'readwrite');
-    tx.objectStore('handles').put(val, key);
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).put(val, key);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
-async function idbGet(key){
+async function idbGetStore(storeName, key){
   const db = await idbOpen();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('handles', 'readonly');
-    const r = tx.objectStore('handles').get(key);
+    const tx = db.transaction(storeName, 'readonly');
+    const r = tx.objectStore(storeName).get(key);
     r.onsuccess = () => resolve(r.result);
     r.onerror = () => reject(r.error);
   });
 }
-async function idbDel(key){
+async function idbDelStore(storeName, key){
   const db = await idbOpen();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('handles', 'readwrite');
-    tx.objectStore('handles').delete(key);
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).delete(key);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
+async function idbSet(key, val){ return idbSetStore('handles', key, val); }
+async function idbGet(key){ return idbGetStore('handles', key); }
+async function idbDel(key){ return idbDelStore('handles', key); }
+
+/* حفظ واسترجاع الحالة الكاملة في IndexedDB */
+async function idbSaveAppState(stateObj){
+  try{
+    if(!stateObj) return;
+    const db = await idbOpen();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('appState', 'readwrite');
+      const store = tx.objectStore('appState');
+      store.put(stateObj, 'latestState');
+      if((stateObj.lessons && stateObj.lessons.length > 0) || (stateObj.archive && stateObj.archive.length > 0)){
+        store.put({ state: stateObj, savedAt: new Date().toISOString() }, 'snapshot_backup');
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }catch(e){
+    console.warn('idbSaveAppState error:', e);
+  }
+}
+async function idbGetAppState(){
+  try{
+    const res = await idbGetStore('appState', 'latestState');
+    return res || null;
+  }catch(e){
+    return null;
+  }
+}
+async function idbGetSnapshotBackup(){
+  try{
+    const res = await idbGetStore('appState', 'snapshot_backup');
+    return (res && res.state) ? res.state : null;
+  }catch(e){
+    return null;
+  }
+}
+
+/* فحص واستعادة البيانات تلقائياً عند الدخول إن فُقدت من LocalStorage */
+async function checkAndRestoreIndexedDBBackup(){
+  if(!state || ((!state.lessons || state.lessons.length === 0) && (!state.archive || state.archive.length === 0))){
+    try{
+      const idbState = await idbGetAppState();
+      let restored = null;
+      if(idbState && ((idbState.lessons && idbState.lessons.length > 0) || (idbState.archive && idbState.archive.length > 0))){
+        restored = normalizeState(idbState);
+      } else {
+        const snap = await idbGetSnapshotBackup();
+        if(snap && ((snap.lessons && snap.lessons.length > 0) || (snap.archive && snap.archive.length > 0))){
+          restored = normalizeState(snap);
+        }
+      }
+
+      if(restored && ((restored.lessons && restored.lessons.length > 0) || (restored.archive && restored.archive.length > 0))){
+        state = restored;
+        saveState(true);
+        renderAll();
+        showToastMessage('🛡️ تم استعادة بياناتك وبوتاتك تلقائياً وبأمان من النسخة المحمية.');
+        return true;
+      }
+    }catch(err){
+      console.warn('Auto restore from IDB failed:', err);
+    }
+  }
+  return false;
+}
+
 function autoSaveSupported(){
   return ('showSaveFilePicker' in window) && ('indexedDB' in window);
 }
+
+/* كتابة البيانات الحية في الملف المباشر (مع الحفاظ الكامل على البوتات والأرشيف) */
 async function writeToFile(){
   if(!fileHandle) return false;
   try{
     const writable = await fileHandle.createWritable();
-    const safeState = sanitizeExportState(state);
-    await writable.write(JSON.stringify(safeState, null, 2));
+    await writable.write(JSON.stringify(state, null, 2));
     await writable.close();
     autoSaveReady = true;
     return true;
   }catch(e){
+    console.warn('writeToFile failed:', e);
     autoSaveReady = false;
     return false;
   }
 }
+
 function scheduleAutoSave(){
   if(!fileHandle || !autoSaveReady) return;
   clearTimeout(autoSaveTimer);
@@ -7685,44 +7817,93 @@ function scheduleAutoSave(){
     if(!ok) updateAutoSaveStatus();
   }, 800);
 }
-async function enableAutoSave(){
+
+/* تفعيل الحفظ التلقائي مع المعالجة الذكية للمقابض التالفة وإعادة التوجيه لاختيار ملف جديد */
+async function enableAutoSave(forceNewPicker = false){
   if(!autoSaveSupported()){
-    alert('هذه الخاصية تتطلب متصفح Chrome أو Edge (تعمل على أندرويد والكمبيوتر). الحفظ داخل المتصفح يعمل تلقائياً على أي متصفح.');
+    alert('هذه الخاصية تتطلب متصفح Chrome أو Edge. علماً بأن بياناتك وبوتاتك محفوظة بالكامل وتلقائياً وبشكل دائم داخل ذاكرة المتصفح وقاعدة بيانات IndexedDB المقاومة للمسح.');
     updateAutoSaveStatus();
     return;
   }
   try{
-    if(!fileHandle){
-      fileHandle = await window.showSaveFilePicker({
-        suggestedName: 'بيانات_الحضور.json',
-        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
-      });
+    let handle = forceNewPicker ? null : fileHandle;
+    let writeSuccess = false;
+
+    // 1. إذا كان لدينا مقبض سابق، نحاول اختباره أولاً
+    if(handle){
+      try{
+        let perm = 'prompt';
+        if(handle.queryPermission) perm = await handle.queryPermission({ mode: 'readwrite' });
+        if(perm !== 'granted' && handle.requestPermission) {
+          perm = await handle.requestPermission({ mode: 'readwrite' });
+        }
+        if(perm === 'granted'){
+          fileHandle = handle;
+          writeSuccess = await writeToFile();
+        }
+      }catch(e){
+        writeSuccess = false;
+      }
     }
-    let perm;
-    try{ perm = await fileHandle.requestPermission({ mode: 'readwrite' }); }
-    catch(e){ perm = 'granted'; }
-    if(perm !== 'granted'){
-      alert('لم تمنح صلاحية الكتابة للملف. لم يتم التفعيل.');
-      updateAutoSaveStatus();
-      return;
+
+    // 2. إذا لم يكن هناك مقبض سابق أو فشلت الكتابة للمقبض القديم (تلف المقبض): نطلب اختيار ملف جديد فوراً
+    if(!writeSuccess){
+      try{
+        handle = await window.showSaveFilePicker({
+          suggestedName: 'بيانات_تطبيق_دفتر.json',
+          types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }]
+        });
+      }catch(pickErr){
+        if(pickErr && pickErr.name === 'AbortError'){
+          updateAutoSaveStatus();
+          return;
+        }
+        throw pickErr;
+      }
+
+      if(!handle){
+        updateAutoSaveStatus();
+        return;
+      }
+
+      fileHandle = handle;
+      try{
+        if(handle.requestPermission) await handle.requestPermission({ mode: 'readwrite' });
+      }catch(e){}
+
+      writeSuccess = await writeToFile();
+      if(!writeSuccess){
+        // إذا تعذرت الكتابة حتى مع الملف المختار حديثاً (بسبب قيود نظام التشغيل على أندرويد):
+        fileHandle = null;
+        await idbDel('fileHandle');
+        updateAutoSaveStatus();
+        alert('⚠️ تعذّرت الكتابة المباشرة للملف على هذا المتصفح/الجهاز (بسبب قيود نظام التشغيل على حفظ الملفات التلقائي).\n\n💡 لا تقلق: بياناتك وبوتاتك محفوظة بالكامل وبشكل دائم داخل المتصفح وقاعدة بيانات الذاكرة الدائمة (IndexedDB) المقاومة للمسح، ويمكنك تنزيل نسخة احتياطية من زر «💾 حفظ نسخة احتياطية» متى أردت.');
+        return;
+      }
     }
+
+    // نجحت العملية!
     await idbSet('fileHandle', fileHandle);
-    const ok = await writeToFile();
-    if(!ok){ alert('تعذّرت الكتابة للملف المحدد.'); }
+    autoSaveReady = true;
     updateAutoSaveStatus();
+    showToastMessage('✅ تم تفعيل الحفظ التلقائي في الملف بنجاح.');
   }catch(e){
     if(e && e.name === 'AbortError') return;
-    alert('تعذّر تفعيل الحفظ التلقائي: ' + e.message);
+    fileHandle = null;
+    try{ await idbDel('fileHandle'); }catch(err){}
     updateAutoSaveStatus();
+    alert('تعذّر تفعيل الحفظ التلقائي: ' + (e.message || e));
   }
 }
+
 async function disableAutoSave(){
-  if(!window.confirm('إيقاف الحفظ التلقائي في الملف؟ (سيستمر الحفظ داخل المتصفح)')) return;
+  if(!window.confirm('إيقاف الحفظ التلقائي في الملف؟ (سيستمر الحفظ الدائم التلقائي داخل المتصفح وقاعدة IndexedDB)')) return;
   fileHandle = null;
   autoSaveReady = false;
   try{ await idbDel('fileHandle'); }catch(e){}
   updateAutoSaveStatus();
 }
+
 function updateAutoSaveStatus(){
   const badge = $('#autosaveBadge');
   const statusEl = $('#autosaveStatus');
@@ -7733,19 +7914,19 @@ function updateAutoSaveStatus(){
   if(!autoSaveSupported()){
     badgeText = '💾 ملف: غير مدعوم';
     badgeCls = 'as-off';
-    html = '⚠️ الحفظ التلقائي في ملف غير مدعوم في هذا المتصفح (يتطلب Chrome/Edge). لكن الحفظ داخل المتصفح يعمل تلقائياً دائماً.';
+    html = '⚠️ الحفظ التلقائي في ملف غير مدعوم في هذا المتصفح (يتطلب Chrome/Edge). لكن الحفظ التلقائي الآمن داخل المتصفح وقاعدة IndexedDB مفعّل دائماً.';
   } else if(fileHandle && autoSaveReady){
     badgeText = '💾 حفظ تلقائي: مفعّل';
     badgeCls = 'as-on';
-    html = '✅ الحفظ التلقائي مفعّل - كل تغيير يُحفظ تلقائياً في الملف الذي اخترته.';
+    html = '✅ الحفظ التلقائي مفعّل - كل تغيير يُحفظ تلقائياً وفورياً في الملف الذي اخترته على جهازك.';
   } else if(fileHandle && !autoSaveReady){
     badgeText = '🔗 اضغط لتفعيل الحفظ';
     badgeCls = 'as-off';
-    html = 'يوجد ملف محفوظ لكن الصلاحية تحتاج إعادة تفعيل. اضغط «تفعيل الحفظ التلقائي».';
+    html = 'يوجد ملف محفوظ لكن الصلاحية تحتاج إعادة تنشيط. اضغط هنا أو على المفتاح لتنشيطها.';
   } else {
     badgeText = '💾 حفظ تلقائي: غير مفعّل';
     badgeCls = 'as-off';
-    html = 'الحفظ التلقائي في ملف غير مفعّل. اضغط «تفعيل الحفظ التلقائي» واختر ملفاً على هاتفك.';
+    html = 'الحفظ التلقائي في ملف غير مفعّل. اضغط لتفعيل الحفظ واختر ملفاً على هاتفك.';
   }
   if(badge){ badge.textContent = badgeText; badge.className = 'autosave-status ' + badgeCls; }
   if(statusEl){ statusEl.textContent = html; }
@@ -7757,6 +7938,7 @@ function updateAutoSaveStatus(){
     asSw.checked = !!(fileHandle && autoSaveReady);
   }
 }
+
 function maybePromptAutoSave(){
   if(!autoSaveSupported()) return;
   try{ if(localStorage.getItem(AUTOSAVE_FLAG) === '1') return; }catch(e){ return; }
@@ -7766,6 +7948,7 @@ function maybePromptAutoSave(){
   $('#prompt_yes').onclick = () => { closeModal(); enableAutoSave(); };
   $('#prompt_later').onclick = () => { closeModal(); try{ localStorage.setItem(AUTOSAVE_FLAG, '1'); }catch(e){} };
 }
+
 async function initAutoSave(){
   if(!autoSaveSupported()){
     updateAutoSaveStatus();
@@ -7776,9 +7959,15 @@ async function initAutoSave(){
     if(handle){
       fileHandle = handle;
       autoSaveReady = false;
+      // نتحقق من الصلاحية دون استدعاء طلب منبثق لمنع خطأ SecurityError
       try{
-        const perm = await handle.requestPermission({ mode: 'readwrite' });
-        if(perm === 'granted'){ await writeToFile(); }
+        if(handle.queryPermission){
+          const q = await handle.queryPermission({ mode: 'readwrite' });
+          if(q === 'granted'){
+            const ok = await writeToFile();
+            if(ok) autoSaveReady = true;
+          }
+        }
       }catch(e){}
     }
   }catch(e){}
@@ -10776,8 +10965,13 @@ function bindEvents(){
   if($('#saveFileBtn')) $('#saveFileBtn').onclick = saveToFile;
   if($('#encryptExportBtn')) $('#encryptExportBtn').onclick = encryptExport;
   if($('#encryptImportBtn')) $('#encryptImportBtn').onclick = () => { const inp = $('#encryptImportFile'); if(inp) inp.click(); };
-  if($('#enableAutoSaveBtn')) $('#enableAutoSaveBtn').onclick = enableAutoSave;
+  if($('#enableAutoSaveBtn')) $('#enableAutoSaveBtn').onclick = () => enableAutoSave();
   if($('#disableAutoSaveBtn')) $('#disableAutoSaveBtn').onclick = disableAutoSave;
+  const asBadge = $('#autosaveBadge');
+  if(asBadge){
+    asBadge.style.cursor = 'pointer';
+    asBadge.onclick = () => enableAutoSave();
+  }
   const asSw = $('#set_enableAutoSave');
   if(asSw){
     asSw.addEventListener('change', () => {
@@ -12012,6 +12206,9 @@ function handleAppBack(){
 function initApp(){
   try {
     pushAppHistory({ root: true });
+    checkAndRestoreIndexedDBBackup().then(restored => {
+      if(restored) renderAll();
+    });
     renderAll();
     bindEvents();
     initDragReorder();
