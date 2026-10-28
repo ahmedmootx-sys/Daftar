@@ -163,7 +163,9 @@ const CHANGELOG = {
   v41: [
     '🔢 كتابة عدد صفوف الصفحة يدوياً: إمكانية كتابة أي رقم مخصص لعدد الطلاب المعروضين في الصفحة الواحدة في الدروس التي تزيد عن 25 طالباً',
     '📊 تقارير مخصصة لطلاب محددين (شهري وشامل): خيارات فلترة ذكية لإنشاء وتصدير تقرير الشهر والتقرير الشامل للحاضرين فقط أو اختيار وتحديد طلاب معينين بالاسم (PDF / Excel) في الدروس والشهور المؤرشفة',
-    '🚫 حجب الطلاب المنقطعين عن الحضور: إمكانية حجب وإخفاء الطلاب الذين انقطعوا أو لم يحضروا لفترات طويلة عبر الشهور الماضية، لعزلهم عن المراسلة الجماعية والجداول، مع زر إدارة واستعادة مخصص'
+    '🚫 حجب الطلاب المنقطعين عن الحضور: إمكانية حجب وإخفاء الطلاب الذين انقطعوا أو لم يحضروا لفترات طويلة عبر الشهور الماضية، لعزلهم عن المراسلة الجماعية والجداول، مع زر إدارة واستعادة مخصص',
+    '🔄 دمج ومشاركة الحضور بالكاميرا والملفات: إصلاح شامل وتام لمسح كود QR بكاميرا الهاتف الآخر والتقاطه فورياً، مع دعم استيراد ومشاركة ملفات الحضور (.daftar-att) والإضافة التلقائية للطلاب الجدد بنظام الحاضر يغلب',
+    '🔍 بحث شامل وموحد في الدروس والشهور المؤرشفة: شريط البحث الرئيسي في الواجهة أصبح يبحث تلقائياً في كافة الشهور المؤرشفة والدروس الحالية مع تمييز الشهور برابط انتقال مباشر للأرشيف'
   ],
   v40: [
     '📄 عرض الجداول الضخمة عبر التجزئة والتنقل بالصفحات: دعم كامل لأكثر من 1000 طالب مع تجزئة ذكية (25 / 50 / 100 / 200 / عرض الكل) في جداول الحضور والاختبارات الحالية والمؤرشفة وسلاسة تامة بالـ DOM',
@@ -1341,7 +1343,7 @@ function renderLessonsHome(){
   ).join('');
 }
 
-/* ---------- البحث العام ---------- */
+/* ---------- البحث العام (يشمل الدروس الحالية والشهور المؤرشفة) ---------- */
 function renderGlobalSearch(){
   const q = globalSearchQuery.trim();
   const qN = normalizeForSearch(q);
@@ -1350,25 +1352,56 @@ function renderGlobalSearch(){
   if(clearBtn) clearBtn.style.display = q ? 'block' : 'none';
   if(!q){ box.innerHTML = ''; box.style.display = 'none'; return; }
   const matches = [];
+
+  // 1. الدروس الحالية
   state.lessons.forEach(L => {
-    L.students.forEach((st, sidx) => {
+    (L.students || []).forEach((st, sidx) => {
       const nameMatch = qN ? normalizeForSearch(st.name).includes(qN) : false;
       if(nameMatch || (st.phone||'').includes(q) || (st.guardianPhone||'').includes(q) || (st.extraPhones||[]).some(p => p.includes(q)) || (st.guardianExtraPhones||[]).some(p => p.includes(q)) || (q && String(sidx+1) === q)){
-        matches.push({ lesson: L, student: st });
+        matches.push({ isArchive: false, lesson: L, student: st, sidx: sidx });
       }
     });
   });
+
+  // 2. الشهور المؤرشفة
+  (state.archive || []).forEach((A, aIdx) => {
+    const aStudents = A.students || archiveStudents(A) || [];
+    aStudents.forEach((st, sidx) => {
+      const nameMatch = qN ? normalizeForSearch(st.name).includes(qN) : false;
+      if(nameMatch || (st.phone||'').includes(q) || (st.guardianPhone||'').includes(q) || (st.extraPhones||[]).some(p => p.includes(q)) || (st.guardianExtraPhones||[]).some(p => p.includes(q)) || (q && String(sidx+1) === q)){
+        matches.push({ isArchive: true, arch: A, archIdx: aIdx, student: st, sidx: sidx });
+      }
+    });
+  });
+
   if(matches.length === 0){
-    box.innerHTML = '<div class="empty-state">لا توجد نتائج مطابقة.</div>';
+    box.innerHTML = '<div class="empty-state">لا توجد نتائج مطابقة (في الدروس الحالية أو الأرشيف).</div>';
   } else {
     const sliceMatches = matches.length > 50 ? matches.slice(0, 50) : matches;
-    box.innerHTML = sliceMatches.map(m =>
-      '<div class="search-item">'
-      + '<span class="s-name">'+esc(m.student.name)+'</span>'
-      + '<span class="s-meta">في درس «'+esc(m.lesson.name)+'»</span>'
-      + '<button class="btn btn-sm btn-outline" data-act="open-student" data-lesson="'+m.lesson.id+'" data-id="'+m.student.id+'">فتح</button>'
-      + '</div>'
-    ).join('') + (matches.length > 50 ? '<div style="text-align:center;padding:6px;font-size:11px;color:var(--muted)">تم عرض أول 50 نتيجة من إجمالي ' + matches.length + ' نتيجة لتسريع الأداء.</div>' : '');
+    box.innerHTML = sliceMatches.map(m => {
+      if(m.isArchive){
+        const lName = m.arch.lessonName || m.arch.name || 'درس';
+        const mNum = m.arch.monthNumber ? ('شهر ' + m.arch.monthNumber) : (m.arch.name || 'شهر مؤرشف');
+        const yStr = m.arch.year ? ('/' + m.arch.year) : '';
+        return '<div class="search-item" style="border-right: 3px solid #6366f1; background: #faf5ff">'
+          + '<div style="display:flex;flex-direction:column;gap:2px;flex:1">'
+          +   '<span class="s-name" style="font-weight:700">' + esc(m.student.name) + '</span>'
+          +   '<span class="s-meta" style="color:#6366f1;font-weight:700;font-size:11.5px">'
+          +     '📦 شهر مؤرشف: «' + esc(lName) + '» (' + esc(mNum + yStr) + ')'
+          +   '</span>'
+          + '</div>'
+          + '<button class="btn btn-sm btn-outline" data-act="open-archived-student" data-arch-idx="' + m.archIdx + '" data-id="' + m.student.id + '" style="color:#6366f1;border-color:#c7d2fe;font-weight:700">فتح في الأرشيف</button>'
+          + '</div>';
+      } else {
+        return '<div class="search-item">'
+          + '<div style="display:flex;flex-direction:column;gap:2px;flex:1">'
+          +   '<span class="s-name" style="font-weight:700">' + esc(m.student.name) + '</span>'
+          +   '<span class="s-meta">في درس «' + esc(m.lesson.name) + '»</span>'
+          + '</div>'
+          + '<button class="btn btn-sm btn-outline" data-act="open-student" data-lesson="' + m.lesson.id + '" data-id="' + m.student.id + '">فتح</button>'
+          + '</div>';
+      }
+    }).join('') + (matches.length > 50 ? '<div style="text-align:center;padding:6px;font-size:11px;color:var(--muted)">تم عرض أول 50 نتيجة من إجمالي ' + matches.length + ' نتيجة لتسريع الأداء.</div>' : '');
   }
   box.style.display = 'block';
 }
@@ -7419,6 +7452,20 @@ function importLesson(file){
         return;
       }
 
+      // الحالة الثالثة: ملف دمج حضور (.daftar-att)
+      if(data.type === 'daftar-attendance-transfer' || (data.records && data.students && (data.lessonId || data.scope || data.sessions || data.session))){
+        const normPayload = normalizeAttendancePayload(data) || data;
+        handleGlobalImportAttendanceFile(normPayload);
+        return;
+      }
+
+      // الحالة الرابعة: ملف شهر مؤرشف منفرد (.daftar-month)
+      if(data.type === 'daftar-single-archive' || (data.archive && data.archive.monthNumber && data.archive.lessonId)){
+        const archObj = data.archive || data;
+        executeImportSingleArchiveMonth(archObj);
+        return;
+      }
+
       alert('ملف الدرس غير صالح (لم يتم العثور على أي دروس صالحة للاستيراد داخل هذا الملف).');
     }catch(e){
       console.error(e);
@@ -7426,6 +7473,78 @@ function importLesson(file){
     }
   };
   reader.readAsText(file);
+}
+
+function handleGlobalImportAttendanceFile(payload){
+  if(!payload || !payload.records){
+    alert('ملف الحضور غير صالح أو لا يحتوي على سجلات.');
+    return;
+  }
+  const lName = payload.lessonName || 'درس';
+  // إذا لم يكن لدى المستخدم أي دروس
+  if(!state.lessons || state.lessons.length === 0){
+    if(confirm('تم التعرف على ملف حضور طلاب لدرس «' + lName + '»، ولا يوجد لديك أي دروس مسجلة حالياً.\nهل ترغب في إنشاء هذا الدرس تلقائياً واستيراد الطلاب وسجلات الحضور إليه؟')){
+      const newL = {
+        id: payload.lessonId || ('lesson_' + Date.now()),
+        name: lName,
+        monthNumber: payload.monthNumber || (new Date().getMonth() + 1),
+        year: payload.year || new Date().getFullYear(),
+        students: payload.students || [],
+        sessions: payload.sessions || (payload.session ? [payload.session] : []),
+        records: payload.records || {},
+        groups: []
+      };
+      state.lessons.push(newL);
+      saveState();
+      renderAll();
+      showToastMessage('✅ تم إنشاء الدرس «' + esc(lName) + '» واستيراد الطلاب والحضور بنجاح.');
+    }
+    return;
+  }
+
+  // إذا كان هناك درس مطابق بالمعرف أو الاسم
+  const exactMatch = state.lessons.find(l => (payload.lessonId && l.id === payload.lessonId) || (payload.lessonName && l.name === payload.lessonName));
+
+  // إذا كان هناك درس واحد فقط، أو وُجد تطابق دقيق
+  if(state.lessons.length === 1 || exactMatch){
+    const targetL = exactMatch || state.lessons[0];
+    const conf = confirm('تم التعرف على ملف دمج حضور وارد لـ «' + lName + '».\nهل ترغب في دمجه وتحديث حضور الطلاب في درس «' + targetL.name + '»؟');
+    if(conf){
+      processIncomingAttendancePayload(targetL, payload);
+    }
+    return;
+  }
+
+  // إذا كانت هناك عدة دروس متاحة، نعرض نافذة منبثقة لاختيار الدرس
+  const opts = state.lessons.map(l => '<option value="' + l.id + '">' + esc(l.name) + ' (' + (l.students ? l.students.length : 0) + ' طالب)</option>').join('');
+  const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
+    + '<p style="font-size:13px;color:var(--text);margin-top:0">'
+    +   'تم التعرف على ملف حضور وارد لدرس «<b>' + esc(lName) + '</b>».'
+    + '</p>'
+    + '<div class="form-row" style="margin:12px 0">'
+    +   '<label style="font-size:12.5px;font-weight:700">اختر الدرس المراد دمج هذا الحضور إليه:</label>'
+    +   '<select id="sel_global_merge_target" style="width:100%;padding:8px 10px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid var(--border);background:#fff">'
+    +     opts
+    +   '</select>'
+    + '</div>'
+    + '<div class="modal-actions" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">'
+    +   '<button class="btn btn-primary" id="btn_confirm_global_merge" style="font-weight:700">⚡ دمج الحضور الآن</button>'
+    +   '<button class="btn btn-outline" id="btn_cancel_global_merge">إلغاء</button>'
+    + '</div>'
+    + '</div>';
+
+  openModal('📥 استيراد ودمج ملف الحضور', modalHTML);
+  if($('#btn_confirm_global_merge')){
+    $('#btn_confirm_global_merge').onclick = () => {
+      const selId = $('#sel_global_merge_target').value;
+      const targetL = state.lessons.find(l => l.id === selId);
+      closeModal();
+      if(targetL){
+        processIncomingAttendancePayload(targetL, payload);
+      }
+    };
+  }
+  if($('#btn_cancel_global_merge')) $('#btn_cancel_global_merge').onclick = closeModal;
 }
 
 function executeImportSingleLesson(L, archives){
@@ -8879,21 +8998,19 @@ var qrcodegen = (function() {
     var blocks = [];
     var rsDiv = QrCode.reedSolomonComputeDivisor(blockEccLen);
     for (var i = 0, k = 0; i < numBlocks; i++) {
-      var dat = data.slice(k, k + shortBlockLen - blockEccLen + (i >= numShortBlocks ? 1 : 0));
+      var dat = data.slice(k, k + shortBlockLen - blockEccLen + (i < numShortBlocks ? 0 : 1));
       k += dat.length;
       var ecc = QrCode.reedSolomonComputeRemainder(dat, rsDiv);
-      blocks.push({ data: dat, ecc: ecc });
+      if (i < numShortBlocks) dat.push(0);
+      blocks.push(dat.concat(ecc));
     }
 
     var result = [];
-    for (var i = 0; i < blocks[0].data.length; i++) {
+    for (var i = 0; i < blocks[0].length; i++) {
       for (var j = 0; j < blocks.length; j++) {
-        if (i < blocks[j].data.length) result.push(blocks[j].data[i]);
-      }
-    }
-    for (var i = 0; i < blockEccLen; i++) {
-      for (var j = 0; j < blocks.length; j++) {
-        result.push(blocks[j].ecc[i]);
+        if (i !== shortBlockLen - blockEccLen || j >= numShortBlocks) {
+          result.push(blocks[j][i]);
+        }
       }
     }
     return result;
@@ -8926,22 +9043,23 @@ var qrcodegen = (function() {
 
   QrCode.getAlignmentPatternPositions = function(ver) {
     if (ver == 1) return [];
-    var num = Math.floor(ver / 7) + 2;
-    var step = (ver == 32) ? 26 : Math.ceil((ver * 4 + 4) / (num * 2 - 2)) * 2;
+    var numAlign = Math.floor(ver / 7) + 2;
+    var step = Math.floor((ver * 8 + numAlign * 3 + 5) / (numAlign * 4 - 4)) * 2;
+    var size = ver * 4 + 17;
     var result = [6];
-    for (var pos = ver * 4 + 10; result.length < num; pos -= step) result.splice(1, 0, pos);
+    for (var pos = size - 7; result.length < numAlign; pos -= step)
+      result.splice(1, 0, pos);
     return result;
   };
 
   QrCode.getNumRawDataModules = function(ver) {
-    var size = ver * 4 + 17;
-    var count = size * size - 64 * 3 - (size - 16) * 2 - 225;
+    var result = (16 * ver + 128) * ver + 64;
     if (ver >= 2) {
       var numAlign = Math.floor(ver / 7) + 2;
-      count -= (numAlign * numAlign - 3) * 25 - (numAlign - 2) * 2 * 10;
+      result -= (25 * numAlign - 10) * numAlign - 55;
+      if (ver >= 7) result -= 36;
     }
-    if (ver >= 7) count -= 36;
-    return count;
+    return result;
   };
 
   QrCode.reedSolomonComputeDivisor = function(degree) {
@@ -9212,46 +9330,103 @@ function mergeAttendanceData(targetLesson, payload) {
   const incRecords = payload.records || {};
 
   if (!targetLesson.records) targetLesson.records = {};
+  if (!targetLesson.students) targetLesson.students = [];
+  if (!targetLesson.sessions) targetLesson.sessions = [];
 
   let updatedCount = 0;
   let newPresentCount = 0;
   let matchedStudentsCount = 0;
+  let newStudentsAddedCount = 0;
   let unmatchedStudents = [];
 
-  // 1. مطابقة الحصص
+  // 1. مطابقة الحصص (مرونة تامة مع التوليد التلقائي إن لزم)
   const sessionMap = {};
-  incSessions.forEach(inSess => {
-    let match = (targetLesson.sessions || []).find(s => s.id === inSess.id);
+  incSessions.forEach((inSess, inSessIdx) => {
+    // أ) مطابقة بالمعرّف
+    let match = targetLesson.sessions.find(s => s.id === inSess.id);
+
+    // ب) مطابقة بالتاريخ إن وُجد
     if (!match && inSess.date) {
-      match = (targetLesson.sessions || []).find(s => s.date === inSess.date);
+      match = targetLesson.sessions.find(s => s.date && s.date === inSess.date);
     }
+
+    // ج) مطابقة باسم الحصة بعد تنقيحه (Normalize)
     if (!match && inSess.label) {
-      match = (targetLesson.sessions || []).find(s => s.label === inSess.label);
+      const normInLbl = normalizeForSearch(inSess.label);
+      if (normInLbl) {
+        match = targetLesson.sessions.find(s => normalizeForSearch(s.label) === normInLbl);
+      }
     }
+
+    // د) في حال تصدير حصة وحيدة، المطابقة بترتيب الحصة (Index) أو بالحصة الأولى
+    if (!match && incSessions.length === 1) {
+      if (targetLesson.sessions[inSessIdx]) {
+        match = targetLesson.sessions[inSessIdx];
+      } else if (targetLesson.sessions.length > 0) {
+        match = targetLesson.sessions[0];
+      }
+    }
+
+    // هـ) إذا لم توجد أي حصة مطابقة، ننشئ الحصة تلقائياً على الدرس حتى لا تضيع السجلات
+    if (!match) {
+      const newSessId = inSess.id || ('sess_' + Date.now() + '_' + inSessIdx);
+      const newSess = {
+        id: newSessId,
+        label: inSess.label || ('حصة ' + (targetLesson.sessions.length + 1)),
+        date: inSess.date || ''
+      };
+      targetLesson.sessions.push(newSess);
+      match = newSess;
+    }
+
     if (match) {
       sessionMap[inSess.id] = match;
     }
   });
 
-  // 2. مطابقة الطلاب
+  // 2. مطابقة الطلاب (مع إضافة الطلاب غير المسجلين تلقائياً لعدم إهدار الحضور)
   const studentMap = {};
   incStudents.forEach(inSt => {
-    let match = (targetLesson.students || []).find(st => st.id === inSt.id);
+    // أ) مطابقة بالمعرّف
+    let match = targetLesson.students.find(st => st.id === inSt.id);
+
+    // ب) مطابقة بالاسم المنقح
     if (!match && inSt.name) {
       const normName = normalizeForSearch(inSt.name);
-      match = (targetLesson.students || []).find(st => normalizeForSearch(st.name) === normName);
+      if (normName) {
+        match = targetLesson.students.find(st => normalizeForSearch(st.name) === normName);
+      }
     }
+
+    // ج) مطابقة برقم الهاتف
     if (!match && inSt.phone) {
       const normP = normalizePhone(inSt.phone);
       if (normP) {
-        match = (targetLesson.students || []).find(st => normalizePhone(st.phone) === normP);
+        match = targetLesson.students.find(st => normalizePhone(st.phone) === normP);
       }
     }
+
+    // د) إن لم يُعثر على الطالب، نضيفه تلقائياً إلى طلاب الدرس الحالي
+    if (!match) {
+      const newStId = inSt.id || ('st_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6));
+      const newSt = {
+        id: newStId,
+        name: inSt.name || 'طالب جديد',
+        phone: inSt.phone || '',
+        guardianPhone: inSt.guardianPhone || '',
+        extraPhones: inSt.extraPhones || [],
+        guardianExtraPhones: inSt.guardianExtraPhones || [],
+        address: inSt.address || '',
+        notes: inSt.notes || ''
+      };
+      targetLesson.students.push(newSt);
+      match = newSt;
+      newStudentsAddedCount++;
+    }
+
     if (match) {
       studentMap[inSt.id] = match;
       matchedStudentsCount++;
-    } else {
-      unmatchedStudents.push(inSt.name || inSt.id);
     }
   });
 
@@ -9308,6 +9483,7 @@ function mergeAttendanceData(targetLesson, payload) {
     updatedCount,
     newPresentCount,
     matchedStudentsCount,
+    newStudentsAddedCount,
     unmatchedStudents,
     sessionsCount: Object.keys(sessionMap).length,
     sessionLabel: payload.session ? payload.session.label : (incSessions.length + ' حصة'),
@@ -9706,12 +9882,19 @@ function showMergeSuccessModal(lesson, result) {
           + '</div>'
         : '');
 
+  const addedNotice = (result.newStudentsAddedCount && result.newStudentsAddedCount > 0)
+    ? '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:8px 12px;font-size:12px;color:#065f46;margin-bottom:12px;text-align:center;font-weight:700">'
+      + '➕ تم إضافة <b>' + result.newStudentsAddedCount + '</b> طالب جديد إلى قائمة طلاب الدرس تلقائياً ورصد حضورهم.'
+      + '</div>'
+    : '';
+
   const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
     + '<div style="text-align:center;margin-bottom:14px">'
     +   '<div style="font-size:38px;margin-bottom:4px">✅</div>'
     +   '<h3 style="margin:0;color:var(--primary);font-size:17px">تم دمج الحضور بنجاح!</h3>'
     + '</div>'
     + partsNotice
+    + addedNotice
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
     +   '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;text-align:center">'
     +     '<div style="font-size:11.5px;color:#166534;font-weight:700">🟢 حاضرون جدد تم اعتمادهم</div>'
@@ -9723,7 +9906,7 @@ function showMergeSuccessModal(lesson, result) {
     +   '</div>'
     + '</div>'
     + '<p style="font-size:12.5px;color:var(--text);margin:0 0 10px">'
-    +   'تمت مطابقة <b>' + result.matchedStudentsCount + '</b> طالب بنجاح، وتحديث الحصص بنظام «<b>الحاضر يغلب</b>» دون المساس بالحضور المسجل مسبقاً.'
+    +   'تم شمول ومطابقة <b>' + result.matchedStudentsCount + '</b> طالب بنجاح، وتحديث الحصص بنظام «<b>الحاضر يغلب</b>» دون المساس بالحضور المسجل مسبقاً.'
     + '</p>'
     + (result.unmatchedStudents && result.unmatchedStudents.length > 0
         ? '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px;font-size:11px;color:#92400e;margin-bottom:10px">'
@@ -9745,7 +9928,7 @@ function openCameraQRScannerModal(lesson, isArchive = false, archIdx = null) {
     +   'وجّه الكاميرا نحو كود QR المعروض على شاشة الهاتف الآخر:'
     + '</p>'
     + '<div style="position:relative;width:100%;max-width:320px;height:240px;margin:0 auto;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.15)">'
-    +   '<video id="qr_camera_video" autoplay playsinline style="width:100%;height:100%;object-fit:cover"></video>'
+    +   '<video id="qr_camera_video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover"></video>'
     +   '<div id="qr_viewfinder_box" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:170px;height:170px;border:3px solid #22c55e;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,0.45);transition:border-color .2s, box-shadow .2s;pointer-events:none">'
     +     '<div id="qr_laser_line" style="position:absolute;top:0;left:0;right:0;height:2px;background:#22c55e;box-shadow:0 0 10px #22c55e;animation:qrLaserAnim 2s infinite ease-in-out"></div>'
     +   '</div>'
@@ -9969,7 +10152,10 @@ function openCameraQRScannerModal(lesson, isArchive = false, archIdx = null) {
         }
         scanCtx.drawImage(video, 0, 0, dw, dh);
         const imgData = scanCtx.getImageData(0, 0, dw, dh);
-        const code = jsQR(imgData.data, dw, dh, { inversionAttempts: 'dontInvert' });
+        let code = jsQR(imgData.data, dw, dh, { inversionAttempts: 'dontInvert' });
+        if ((!code || !code.data) && isScanning) {
+          code = jsQR(imgData.data, dw, dh, { inversionAttempts: 'attemptBoth' });
+        }
         if (code && code.data && isScanning) {
           handleDetectedRaw(code.data, now);
           return;
@@ -10016,7 +10202,10 @@ function openCameraQRScannerModal(lesson, isArchive = false, archIdx = null) {
       stream = mediaStream;
       if (video) {
         video.srcObject = stream;
-        video.play();
+        video.muted = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('muted', '');
+        video.play().catch(e => console.warn('Video play error:', e));
       }
       if (statusEl) {
         statusEl.innerHTML = '<span style="color:var(--text);font-weight:700">📷 وجّه الكاميرا نحو كود QR...</span>';
@@ -11054,6 +11243,20 @@ function bindEvents(){
       if($('#lessonSearch')) $('#lessonSearch').value = lessonFilterQuery;
       if($('#clearLessonSearch')) $('#clearLessonSearch').style.display = lessonFilterQuery ? 'block' : 'none';
       renderLessonDetail();
+    }
+    else if(act === 'open-archived-student'){
+      const aIdx = parseInt(t.dataset.archIdx, 10);
+      const a = state.archive[aIdx];
+      if(!a) return;
+      pushAppHistory('archive-detail', { archIdx: aIdx });
+      currentArchiveIndex = aIdx;
+      const st = (a.students || archiveStudents(a) || []).find(x => x.id === id);
+      archFilterQuery = st ? st.name : '';
+      archGroupFilterQuery = '';
+      archCurrentPage = 1;
+      renderArchiveDetail(aIdx);
+      if($('#archSearch')) $('#archSearch').value = archFilterQuery;
+      if($('#clearArchSearch')) $('#clearArchSearch').style.display = archFilterQuery ? 'block' : 'none';
     }
     else if(act === 'edit-session-label'){
       const L = curLesson();
