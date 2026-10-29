@@ -30,18 +30,33 @@
   </div>
   <div class="header-actions">
     <div class="notif-wrap">
-      <button id="notifBtn" class="btn btn-ghost" title="جدول اليوم والتذكيرات">🔔<span id="notifDot" class="notif-dot" hidden></span></button>
+      <button id="notifBtn" class="btn btn-ghost" title="جدول اليوم والتذكيرات">
+        <svg class="app-icon" width="18" height="18" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        <span id="notifDot" class="notif-dot" hidden></span>
+      </button>
       <div id="notifPanel" class="notif-panel" hidden></div>
     </div>
-    <button id="weeklyMsgBtn" class="btn btn-whatsapp">📨 الرسالة الأسبوعية</button>
+    <button id="weeklyMsgBtn" class="btn btn-whatsapp">
+      <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+      الرسالة الأسبوعية
+    </button>
     <span id="autosaveBadge" class="autosave-status"></span>
   </div>
 </header>
 
 <nav class="tabs">
-  <button class="tab active" data-tab="lessons">📚 الدروس</button>
-  <button class="tab" data-tab="archive">📦 الأرشيف</button>
-  <button class="tab" data-tab="settings">⚙️ الإعدادات</button>
+  <button class="tab active" data-tab="lessons">
+    <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+    الدروس
+  </button>
+  <button class="tab" data-tab="archive">
+    <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="5" rx="2"></rect><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"></path><path d="M10 13h4"></path></svg>
+    الأرشيف
+  </button>
+  <button class="tab" data-tab="settings">
+    <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+    الإعدادات
+  </button>
 </nav>
 
 <main>
@@ -53,14 +68,22 @@
       <div id="incomeCard" class="income-card" hidden></div>
       <div id="todayBanner" class="today-banner" hidden></div>
       <div class="toolbar">
-        <button id="addLessonBtn" class="btn">➕ درس جديد</button>
-        <button id="openAnalyticsBtn" class="btn btn-outline" title="شاشة التحليلات والرسوم البيانية">📊 الإحصائيات العامة</button>
+        <button id="addLessonBtn" class="btn">
+          <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          درس جديد
+        </button>
+        <button id="openAnalyticsBtn" class="btn btn-outline" title="شاشة التحليلات والرسوم البيانية">
+          <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          الإحصائيات العامة
+        </button>
       </div>
       <div id="dashboardOverview" class="dashboard-card"></div>
       <div class="search-box">
         <div class="search-input-wrap" style="position:relative;display:flex;align-items:center">
-          <input id="globalSearch" type="text" placeholder="🔍 بحث عن طالب في كل الدروس…" style="padding-left:32px;width:100%">
-          <button id="clearGlobalSearch" type="button" class="search-clear-btn" style="position:absolute;left:8px;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;display:none" title="مسح البحث">✕</button>
+          <input id="globalSearch" type="text" placeholder="بحث عن طالب في كل الدروس والأرشيف…" style="padding-left:32px;width:100%">
+          <button id="clearGlobalSearch" type="button" class="search-clear-btn" style="position:absolute;left:8px;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;display:none" title="مسح البحث">
+            <svg class="app-icon" width="14" height="14" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
         <div id="globalSearchResults" class="search-results"></div>
       </div>
@@ -69,7 +92,10 @@
 
     <div id="lessonDetail" style="display:none">
       <div class="detail-top">
-        <button id="backToListBtn" class="btn btn-outline btn-sm">→ رجوع للدروس</button>
+        <button id="backToListBtn" class="btn btn-outline btn-sm">
+          <svg class="app-icon" width="14" height="14" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          رجوع للدروس
+        </button>
         <div class="lesson-head">
           <h2 id="lessonTitle"></h2>
           <div class="lesson-meta" id="lessonMeta"></div>
@@ -77,48 +103,130 @@
         </div>
       </div>
       <div class="lesson-subtabs">
-        <button id="subtabAttendance" class="subtab-btn active">📅 جدول الحضور</button>
-        <button id="subtabExams" class="subtab-btn">📝 درجات الاختبارات</button>
+        <button id="subtabAttendance" class="subtab-btn active">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          جدول الحضور
+        </button>
+        <button id="subtabExams" class="subtab-btn">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          درجات الاختبارات
+        </button>
       </div>
       <div class="toolbar">
-        <button id="addStudentBtn" class="btn btn-primary">➕ عضو جديد</button>
-        <button id="bulkSelectBtn" class="btn btn-outline" title="تحديد متعدد لنقل أو تكرار الطلاب">☑️ تحديد متعدد</button>
-        <button id="seqMsgBtn" class="btn btn-outline" title="مراسلة تسلسلية عبر واتساب">📲 مراسلة جماعية</button>
-        <button id="hiddenStudentsBtn" class="btn btn-outline" style="display:none;color:#b91c1c;border-color:#fca5a5;font-weight:700" title="عرض واستعادة الطلاب المحجوبين">🚫 المحجوبون (<span id="hiddenCount">0</span>)</button>
+        <button id="addStudentBtn" class="btn btn-primary">
+          <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          عضو جديد
+        </button>
+        <button id="bulkSelectBtn" class="btn btn-outline" title="تحديد متعدد لنقل أو تكرار الطلاب">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          تحديد متعدد
+        </button>
+        <button id="seqMsgBtn" class="btn btn-outline" title="مراسلة تسلسلية عبر واتساب">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+          مراسلة جماعية
+        </button>
+        <button id="hiddenStudentsBtn" class="btn btn-outline" style="display:none;color:#b91c1c;border-color:#fca5a5;font-weight:700" title="عرض واستعادة الطلاب المحجوبين">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+          المحجوبون (<span id="hiddenCount">0</span>)
+        </button>
         <div class="toolbar-dropdown">
-          <button class="btn btn-outline" id="reportsMenuBtn">📊 التقارير ▾</button>
+          <button class="btn btn-outline" id="reportsMenuBtn">
+            <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            التقارير
+            <svg class="app-icon" width="12" height="12" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
           <div class="dropdown-menu" id="reportsMenu" hidden>
-            <button id="lessonReportBtn" class="dropdown-item">📊 تقرير الشهر</button>
-            <button id="examReportBtn" class="dropdown-item">📝 تقرير درجات الاختبارات</button>
-            <button id="examMsgReportBtn" class="dropdown-item" title="تقرير درجات الاختبار كرسالة نصية لواتساب للطلاب الحاضرين">📨 تقرير الاختبار كرسالة</button>
-            <button id="monthlyMsgBtn" class="dropdown-item" title="تقرير الشهر كرسالة واتساب للجروب">📨 تقرير كرسالة</button>
-            <button id="compReportBtn" class="dropdown-item" title="تقرير شامل: نسبة حضور كل طالب عبر كل الشهور المؤرشفة">📊 تقرير شامل (كل الشهور)</button>
-            <button id="blankSheetBtn" class="dropdown-item" title="ورقة حضور فارغة جاهزة للطباعة">📄 ورقة حضور</button>
+            <button id="lessonReportBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              تقرير الشهر
+            </button>
+            <button id="examReportBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+              تقرير درجات الاختبارات
+            </button>
+            <button id="examMsgReportBtn" class="dropdown-item" title="تقرير درجات الاختبار كرسالة نصية لواتساب للطلاب الحاضرين">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+              تقرير الاختبار كرسالة
+            </button>
+            <button id="monthlyMsgBtn" class="dropdown-item" title="تقرير الشهر كرسالة واتساب للجروب">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+              تقرير كرسالة
+            </button>
+            <button id="compReportBtn" class="dropdown-item" title="تقرير شامل: نسبة حضور كل طالب عبر كل الشهور المؤرشفة">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              تقرير شامل (كل الشهور)
+            </button>
+            <button id="blankSheetBtn" class="dropdown-item" title="ورقة حضور فارغة جاهزة للطباعة">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              ورقة حضور جاهزة للطباعة
+            </button>
           </div>
         </div>
         <div class="toolbar-dropdown">
-          <button class="btn btn-outline" id="manageMenuBtn">⚙️ إدارة ▾</button>
+          <button class="btn btn-outline" id="manageMenuBtn">
+            <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            إدارة
+            <svg class="app-icon" width="12" height="12" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
           <div class="dropdown-menu" id="manageMenu" hidden>
-            <button id="addSessionBtn" class="dropdown-item">➕ حصة</button>
-            <button id="regenSessionsBtn" class="dropdown-item">🔄 توليد الحصص</button>
-            <button id="changeMonthBtn" class="dropdown-item">🗓️ تغيير الشهر</button>
-            <button id="editLessonBtn" class="dropdown-item">✏️ تعديل الدرس</button>
-            <button id="lessonStatusesBtn" class="dropdown-item">🏷️ حالات هذا الدرس</button>
-            <button id="sortAttendanceBtn" class="dropdown-item" title="ترتيب الطلاب حسب نسبة الحضور">📈 ترتيب حسب الحضور</button>
-            <button id="addOldMonthLessonBtn" class="dropdown-item">📦 إضافة شهر قديم لهذا الدرس</button>
-            <button id="hiddenStudentsMenuBtn" class="dropdown-item">🚫 إدارة الطلاب المحجوبين</button>
-            <button id="smartDropoutHideBtn" class="dropdown-item">⚡ حجب المنقطعين ذكياً</button>
-            <button id="mergeAttendanceMenuBtn" class="dropdown-item">🔄 دمج ومشاركة الحضور (QR / ملف)</button>
-            <button id="exportLessonBtn" class="dropdown-item">⬇️ تصدير الدرس</button>
-            <button id="archiveLessonBtn" class="dropdown-item dropdown-danger">📦 أرشفة وإنهاء الشهر</button>
+            <button id="addSessionBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              حصة جديدة
+            </button>
+            <button id="regenSessionsBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              توليد الحصص
+            </button>
+            <button id="changeMonthBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              تغيير الشهر
+            </button>
+            <button id="editLessonBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+              تعديل الدرس
+            </button>
+            <button id="lessonStatusesBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+              حالات هذا الدرس
+            </button>
+            <button id="sortAttendanceBtn" class="dropdown-item" title="ترتيب الطلاب حسب نسبة الحضور">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              ترتيب حسب الحضور
+            </button>
+            <button id="addOldMonthLessonBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="5" rx="2"></rect><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"></path><path d="M10 13h4"></path></svg>
+              إضافة شهر قديم لهذا الدرس
+            </button>
+            <button id="hiddenStudentsMenuBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+              إدارة الطلاب المحجوبين
+            </button>
+            <button id="smartDropoutHideBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              حجب المنقطعين ذكياً
+            </button>
+            <button id="mergeAttendanceMenuBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              دمج ومشاركة الحضور (QR / ملف)
+            </button>
+            <button id="exportLessonBtn" class="dropdown-item">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              تصدير الدرس
+            </button>
+            <button id="archiveLessonBtn" class="dropdown-item dropdown-danger">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="5" rx="2"></rect><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"></path><path d="M10 13h4"></path></svg>
+              أرشفة وإنهاء الشهر
+            </button>
           </div>
         </div>
       </div>
       <div class="detail-filters">
         <div id="exportReminder" class="export-reminder" hidden></div>
         <div class="search-input-wrap" style="position:relative;flex:1;display:flex;align-items:center">
-          <input id="lessonSearch" type="text" placeholder="🔍 بحث داخل هذا الدرس (الاسم، الهاتف، الترتيب)…" class="lesson-search" style="padding-left:32px;width:100%">
-          <button id="clearLessonSearch" type="button" class="search-clear-btn" style="position:absolute;left:8px;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;display:none" title="مسح البحث">✕</button>
+          <input id="lessonSearch" type="text" placeholder="بحث داخل هذا الدرس (الاسم، الهاتف، الترتيب)…" class="lesson-search" style="padding-left:32px;width:100%">
+          <button id="clearLessonSearch" type="button" class="search-clear-btn" style="position:absolute;left:8px;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;display:none" title="مسح البحث">
+            <svg class="app-icon" width="14" height="14" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
         <select id="groupFilter" class="group-filter" title="تصفية حسب المجموعة"></select>
       </div>
@@ -132,20 +240,35 @@
       </div>
       <div id="lessonPagWrapBottom"></div>
       <div id="attendanceLegend" class="legend"></div>
-      <p id="attendanceHint" class="hint">💡 اضغط على خلية الحالة لاختيارها. زر 📝 يفتح ملاحظة لهذا اليوم تحديداً. اضغط على رأس الحصة للتحضير السريع الجماعي.</p>
+      <p id="attendanceHint" class="hint">اضغط على خلية الحالة لاختيارها. زر ملاحظة يفتح ملاحظة لهذا اليوم تحديداً. اضغط على رأس الحصة للتحضير السريع الجماعي.</p>
 
       <!-- جدول درجات الاختبارات المستقل -->
       <div id="examsView" class="exams-view" style="display:none">
         <div class="exams-toolbar">
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <button id="addExamBtn" class="btn btn-primary btn-sm">➕ إضافة اختبار جديد</button>
-            <button id="printExamsReportBtn" class="btn btn-outline btn-sm" title="طباعة تقرير الاختبارات بصيغة PDF">🖨️ طباعة (PDF)</button>
-            <button id="exportExamsCsvBtn" class="btn btn-outline btn-sm" title="تصدير درجات الاختبارات إلى Excel">⬇️ تصدير (Excel)</button>
+            <button id="addExamBtn" class="btn btn-primary btn-sm">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              إضافة اختبار جديد
+            </button>
+            <button id="printExamsReportBtn" class="btn btn-outline btn-sm" title="طباعة تقرير الاختبارات بصيغة PDF">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+              طباعة (PDF)
+            </button>
+            <button id="exportExamsCsvBtn" class="btn btn-outline btn-sm" title="تصدير درجات الاختبارات إلى Excel">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              تصدير (Excel)
+            </button>
             <select id="examGroupFilter" class="group-filter" style="font-size:12px;padding:4px 8px;min-width:140px;max-width:180px;height:32px" title="تصفية حسب مجموعة الاختبار">
               <option value="">كل مجموعات الاختبار</option>
             </select>
-            <button id="examGroupsBtn" class="btn btn-outline btn-sm" title="إدارة وتقسيم مجموعات الاختبارات">🏷️ مجموعات الاختبار</button>
-            <button id="hiddenExamStudentsBtn" class="btn btn-outline btn-sm" style="display:none;color:#b91c1c;border-color:#fca5a5" title="عرض واستعادة الطلاب المستبعدين من الاختبارات">👥 المستبعدون (<span id="hiddenExamCount">0</span>)</button>
+            <button id="examGroupsBtn" class="btn btn-outline btn-sm" title="إدارة وتقسيم مجموعات الاختبارات">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+              مجموعات الاختبار
+            </button>
+            <button id="hiddenExamStudentsBtn" class="btn btn-outline btn-sm" style="display:none;color:#b91c1c;border-color:#fca5a5" title="عرض واستعادة الطلاب المستبعدين من الاختبارات">
+              <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>
+              المستبعدون (<span id="hiddenExamCount">0</span>)
+            </button>
           </div>
           <div id="examsMeta" class="muted" style="font-size:12px;font-weight:700"></div>
         </div>
@@ -157,15 +280,21 @@
             <tfoot id="examsFoot"></tfoot>
           </table>
         </div>
-        <p class="hint">💡 أدخل الدرجة مباشرة في خانة كل طالب، وتُحسب النسبة المئوية تلقائياً. تُدمج درجات الاختبارات أيضاً في تقرير الشهر ورسائل الواتساب.</p>
+        <p class="hint">أدخل الدرجة مباشرة في خانة كل طالب، وتُحسب النسبة المئوية تلقائياً. تُدمج درجات الاختبارات أيضاً في تقرير الشهر ورسائل الواتساب.</p>
       </div>
 
       <!-- شريط الإجراءات الجماعية للتحديد المتعدد -->
       <div id="bulkActionBar" class="bulk-action-bar" style="display:none">
         <div class="bulk-info"><span id="bulkSelectedCount">0</span> طالب محدد</div>
         <div class="bulk-btns">
-          <button id="bulkMoveBtn" class="btn btn-primary btn-sm">🔄 نقل إلى درس/مجموعة...</button>
-          <button id="bulkCopyBtn" class="btn btn-outline btn-sm">📋 نسخ إلى درس آخر...</button>
+          <button id="bulkMoveBtn" class="btn btn-primary btn-sm">
+            <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            نقل إلى درس/مجموعة...
+          </button>
+          <button id="bulkCopyBtn" class="btn btn-outline btn-sm">
+            <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            نسخ إلى درس آخر...
+          </button>
           <button id="bulkCancelBtn" class="btn btn-outline btn-sm">إلغاء التحديد</button>
         </div>
       </div>
@@ -180,8 +309,14 @@
       <p class="muted">الشهور المؤرشفة لكل الدروس محفوظة هنا (كل شهر مستقل)، ويمكنك فتح أي شهر لمراجعته وتعديل بياناته وتصدير تقاريره.</p>
     </div>
     <div class="toolbar" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
-      <button id="addOldMonthArchiveBtn" class="btn btn-primary">➕ إضافة شهر قديم للأرشيف</button>
-      <button id="importSingleMonthArchiveBtn" class="btn btn-outline" title="استيراد ملف شهر مؤرشف مستقل تم تصديره">📥 استيراد شهر للأرشيف</button>
+      <button id="addOldMonthArchiveBtn" class="btn btn-primary">
+        <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        إضافة شهر قديم للأرشيف
+      </button>
+      <button id="importSingleMonthArchiveBtn" class="btn btn-outline" title="استيراد ملف شهر مؤرشف مستقل تم تصديره">
+        <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        استيراد شهر للأرشيف
+      </button>
       <input type="file" id="importSingleMonthInput" accept=".daftar-month,.json" style="display:none">
     </div>
     <div id="archiveList" class="archive-list"></div>
@@ -208,18 +343,24 @@
       </div>
       <div style="font-weight:700;font-size:14px;margin-bottom:6px">أعمدة مخصصة إضافية</div>
       <div id="customFieldsList" class="status-edit-list"></div>
-      <button id="addFieldBtn" class="btn btn-outline" style="margin-top:8px">➕ عمود جديد</button>
+      <button id="addFieldBtn" class="btn btn-outline" style="margin-top:8px">
+        <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        عمود جديد
+      </button>
     </div>
 
     <div class="card">
       <h3>الحالات</h3>
       <p class="muted">أضف حالات جديدة، أو عدّل الاسم واللون، أو احذف.</p>
       <div id="statusList" class="status-edit-list"></div>
-      <button id="addStatusBtn" class="btn btn-outline">➕ حالة جديدة</button>
+      <button id="addStatusBtn" class="btn btn-outline">
+        <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        حالة جديدة
+      </button>
     </div>
 
     <div class="card">
-      <h3>⚠️ مؤشرات خطر الغياب</h3>
+      <h3>مؤشرات خطر الغياب</h3>
       <p class="muted">مؤشرات تظهر بجانب اسم الطالب حسب نسبة حضوره. عدّل الاسم واللون والحد الأدنى لنسبة الحضور.</p>
       <div id="indicatorList" class="status-edit-list"></div>
     </div>
@@ -230,7 +371,7 @@
 
       <div class="switch-row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:10px 0">
         <div>
-          <div class="switch-label">🔔 الإشعارات والتذكيرات بمواعيد المجموعات</div>
+          <div class="switch-label">الإشعارات والتذكيرات بمواعيد المجموعات</div>
           <div id="notifStatus" class="muted" style="font-size:12px;margin-top:2px"></div>
         </div>
         <label class="switch">
@@ -241,7 +382,7 @@
 
       <div class="switch-row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:10px 0">
         <div>
-          <div class="switch-label">💾 الحفظ التلقائي المباشر في ملف</div>
+          <div class="switch-label">الحفظ التلقائي المباشر في ملف</div>
           <div id="autosaveStatus" class="muted" style="font-size:12px;margin-top:2px"></div>
         </div>
         <label class="switch">
@@ -252,7 +393,7 @@
 
       <div class="switch-row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:10px 0">
         <div>
-          <div class="switch-label">⚠️ تنبيه الأيام التي لم تأتِ بعد</div>
+          <div class="switch-label">تنبيه الأيام التي لم تأتِ بعد</div>
           <div class="muted" style="font-size:12px;margin-top:2px">تنبيه خفيف عند تسجيل حضور في يوم لم يأتِ بعد دون منع التسجيل.</div>
         </div>
         <label class="switch">
@@ -263,7 +404,7 @@
 
       <div class="switch-row" style="justify-content:space-between;padding:10px 0">
         <div>
-          <div class="switch-label">⚡ وضع الأداء القياسي (لتخفيف التعليق والبطء على الهواتف الضعيفة)</div>
+          <div class="switch-label">وضع الأداء القياسي (لتخفيف التعليق والبطء على الهواتف الضعيفة)</div>
           <div class="muted" style="font-size:12px;margin-top:2px">تعطيل الرسوم المتحركة والظلال والشفافيات لتسريع التجاوب والتمرير فورياً على الهواتف محدودة الأداء.</div>
         </div>
         <label class="switch">
@@ -295,15 +436,42 @@
       <h3>ملف البيانات والنسخ الاحتياطي</h3>
       <p class="muted">تُحفظ البيانات تلقائياً في المتصفح. ولضمان عدم ضياعها: احفظ ملف بيانات، أو صدّر نسخة (عادية أو مشفّرة بكلمة مرور).</p>
       <div class="row-actions">
-        <button id="openFileBtn" class="btn">📂 فتح ملف بيانات</button>
-        <button id="saveFileBtn" class="btn">💾 حفظ إلى ملف</button>
-        <button id="exportBackupBtn" class="btn btn-outline">⬇️ تصدير نسخة</button>
-        <button id="importBackupBtn" class="btn btn-outline">⬆️ استيراد نسخة</button>
-        <button id="encryptExportBtn" class="btn btn-outline">🔒 تصدير مشفّر</button>
-        <button id="encryptImportBtn" class="btn btn-outline">🔓 فتح ملف مشفّر</button>
-        <button id="importLessonBtn" class="btn btn-outline">⬆️ استيراد درس (دمج)</button>
-        <button id="importArchiveBtn" class="btn btn-outline">⬆️ استيراد شهر (دمج)</button>
-        <button id="mergeAttendanceGlobalBtn" class="btn btn-outline">🔄 دمج حضور من جهاز آخر</button>
+        <button id="openFileBtn" class="btn">
+          <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          فتح ملف بيانات
+        </button>
+        <button id="saveFileBtn" class="btn">
+          <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+          حفظ إلى ملف
+        </button>
+        <button id="exportBackupBtn" class="btn btn-outline">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          تصدير نسخة
+        </button>
+        <button id="importBackupBtn" class="btn btn-outline">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          استيراد نسخة
+        </button>
+        <button id="encryptExportBtn" class="btn btn-outline">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          تصدير مشفّر
+        </button>
+        <button id="encryptImportBtn" class="btn btn-outline">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
+          فتح ملف مشفّر
+        </button>
+        <button id="importLessonBtn" class="btn btn-outline">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          استيراد درس (دمج)
+        </button>
+        <button id="importArchiveBtn" class="btn btn-outline">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          استيراد شهر (دمج)
+        </button>
+        <button id="mergeAttendanceGlobalBtn" class="btn btn-outline">
+          <svg class="app-icon" width="15" height="15" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          دمج حضور من جهاز آخر
+        </button>
         <input id="importFile" type="file" accept="application/json,.json" hidden>
         <input id="encryptImportFile" type="file" accept="application/json,.json,.enc" hidden>
         <input id="importLessonFile" type="file" accept="application/json,.json,.daftar-att,.daftar-month" hidden>
@@ -315,31 +483,43 @@
       <h3>النسخ الاحتياطي السحابي (Google Drive / Telegram)</h3>
       <p class="muted">احفظ بياناتك في السحاب للرجوع إليها في أي وقت ومن أي جهاز وحمايتها من الضياع.</p>
       <div class="row-actions" style="margin-bottom:12px">
-        <button id="cloudShareBtn" class="btn btn-primary">📲 مشاركة سريعة (Google Drive / تطبيقات)</button>
+        <button id="cloudShareBtn" class="btn btn-primary">
+          <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+          مشاركة سريعة (Google Drive / تطبيقات)
+        </button>
       </div>
       <div style="border-top:1px dashed var(--border);padding-top:12px;margin-top:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
           <div>
-            <div style="font-size:13px;font-weight:800;color:var(--primary)">🤖 إدارة بوتات ومحادثات تيليجرام (Telegram Bots)</div>
+            <div style="font-size:13px;font-weight:800;color:var(--primary)">إدارة بوتات ومحادثات تيليجرام (Telegram Bots)</div>
             <p class="muted" style="font-size:12px;margin:2px 0 0">احفظ عدة بوتات ومحادثات بالأسماء للتبديل السريع بينها عند إرسال النسخ الاحتياطية.</p>
           </div>
-          <button id="addTgBotBtn" class="btn btn-primary btn-sm">➕ إضافة بوت جديد</button>
+          <button id="addTgBotBtn" class="btn btn-primary btn-sm">
+            <svg class="app-icon" width="14" height="14" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            إضافة بوت جديد
+          </button>
         </div>
         <div id="tgBotsList" class="tg-bots-list"></div>
         <input id="set_tgBotToken" type="hidden">
         <input id="set_tgChatId" type="hidden">
         <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
-          <button id="tgBackupBtn" class="btn btn-outline btn-sm">🚀 إرسال نسخة إلى تيليجرام الآن</button>
+          <button id="tgBackupBtn" class="btn btn-outline btn-sm">
+            <svg class="app-icon" width="14" height="14" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            إرسال نسخة إلى تيليجرام الآن
+          </button>
           <span id="tgStatus" class="muted" style="font-size:12px;font-weight:700"></span>
         </div>
       </div>
     </div>
 
     <div class="card danger-card">
-      <h3 style="color:#b91c1c">⚠️ إعادة الضبط والبدء من جديد (Reset)</h3>
+      <h3 style="color:#b91c1c">إعادة الضبط والبدء من جديد (Reset)</h3>
       <p class="muted">إذا نسيت كلمة سر قسم الدخل، أو أردت تصفير درس معين وتفريغ طلابه، أو البدء من الصفر تماماً، يمكنك عمل إعادة ضبط مخصصة ومحددة مع رسائل تأكيد لحماية بياناتك.</p>
       <div class="row-actions">
-        <button id="openResetBtn" class="btn btn-danger">⚙️ خيارات إعادة الضبط والريست...</button>
+        <button id="openResetBtn" class="btn btn-danger">
+          <svg class="app-icon" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          خيارات إعادة الضبط والريست...
+        </button>
       </div>
     </div>
   </section>
@@ -354,7 +534,9 @@
   <div class="modal">
     <div class="modal-head">
       <h3 id="modalTitle"></h3>
-      <button id="modalClose" class="icon-btn" aria-label="إغلاق">✕</button>
+      <button id="modalClose" class="icon-btn" aria-label="إغلاق">
+        <svg class="app-icon" width="18" height="18" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
     </div>
     <div class="modal-body" id="modalBody"></div>
   </div>
@@ -365,7 +547,9 @@
 <div id="toast" class="toast" hidden>
   <div class="toast-body" id="toastBody"></div>
   <div class="toast-actions">
-    <button id="toastDismiss" class="toast-dismiss-btn" title="إغلاق الإشعار">✕</button>
+    <button id="toastDismiss" class="toast-dismiss-btn" title="إغلاق الإشعار">
+      <svg class="app-icon" width="14" height="14" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    </button>
   </div>
 </div>
 

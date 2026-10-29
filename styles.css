@@ -55,6 +55,7 @@ body{
   overflow-x:auto;
 }
 .tab{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
   border:1px solid var(--border);background:#fff;color:var(--muted);
   padding:9px 18px;border-radius:999px;cursor:pointer;font-family:inherit;
   font-size:14px;font-weight:700;white-space:nowrap;transition:.15s;
@@ -87,7 +88,40 @@ main{padding:16px;max-width:1100px;margin:0 auto}
 .btn-ghost{background:rgba(255,255,255,.16);color:#fff;box-shadow:none;border:1px solid rgba(255,255,255,.25);font-size:16px}
 .btn-ghost:hover{background:rgba(255,255,255,.26)}
 .btn-sm{padding:6px 12px;font-size:12px;border-radius:8px}
-.icon-btn{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1}
+.icon-btn{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+
+/* Modern App SVG Icons */
+.app-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  vertical-align:middle;
+  flex-shrink:0;
+  stroke:currentColor;
+  fill:none;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  transition:transform .15s ease;
+}
+.app-icon.rotate-180{transform:rotate(180deg)}
+.btn .app-icon,
+.tab .app-icon,
+.subtab-btn .app-icon,
+.dropdown-item .app-icon{
+  margin-left:6px;
+}
+.icon-btn .app-icon{
+  margin:0;
+}
+.modal-title-icon{
+  margin-left:8px;
+  color:var(--primary);
+}
+.toast-icon{
+  margin-left:6px;
+}
+.dropdown-item{display:flex;align-items:center;gap:8px}
 
 /* Toolbar */
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
@@ -702,6 +736,7 @@ th.col-drop-target-right{border-right:3px solid var(--primary)!important}
 /* ===== v30: تبويبات الدرس الفرعية (حضور / درجات) ===== */
 .lesson-subtabs{display:flex;gap:6px;margin-bottom:12px;border-bottom:2px solid var(--border);padding-bottom:6px}
 .subtab-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
   background:#f1f5f9;border:1px solid var(--border);border-radius:8px;
   padding:6px 14px;font-size:13px;font-weight:800;cursor:pointer;color:var(--muted);transition:.15s;
 }
@@ -1013,7 +1048,17 @@ th.col-drop-target-right{border-right:3px solid var(--primary)!important}
 
 /* ===== v33: نوافذ تأكيد الحذف المخصصة والآمنة ===== */
 .danger-modal-box{text-align:center;padding:10px 4px}
-.danger-modal-icon{font-size:42px;margin-bottom:8px;line-height:1}
+.danger-modal-icon{
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  background:#fee2e2;
+  color:#dc2626;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:12px;
+}
 .danger-modal-title{font-size:16px;font-weight:800;color:#dc2626;margin-bottom:6px}
 .danger-modal-desc{font-size:13px;color:var(--text);line-height:1.6;margin-bottom:12px}
 .danger-modal-item{

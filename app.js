@@ -28,6 +28,139 @@ try {
   }
 } catch (e) {}
 
+/* ==================== محرك الأيقونات السادة (Modern Clean SVG Icons) ==================== */
+const ICONS = {
+  bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>',
+  book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>',
+  archive: '<rect x="2" y="4" width="20" height="5" rx="2"></rect><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"></path><path d="M10 13h4"></path>',
+  settings: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>',
+  plus: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
+  minus: '<line x1="5" y1="12" x2="19" y2="12"></line>',
+  search: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
+  x: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
+  check: '<polyline points="20 6 9 17 4 12"></polyline>',
+  'check-circle': '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>',
+  chart: '<line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line>',
+  calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+  edit: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>',
+  trash: '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>',
+  share: '<circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>',
+  printer: '<polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect>',
+  users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+  user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>',
+  'user-x': '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line>',
+  'file-text': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline>',
+  message: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>',
+  whatsapp: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>',
+  send: '<line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>',
+  qr: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="3" height="3"></rect><rect x="18" y="18" width="3" height="3"></rect><rect x="14" y="18" width="3" height="3"></rect><rect x="18" y="14" width="3" height="3"></rect>',
+  camera: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle>',
+  lock: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>',
+  unlock: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path>',
+  wallet: '<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path><path d="M4 6v14a2 2 0 0 0 2 2h14v-4"></path><rect x="16" y="12" width="6" height="6" rx="1"></rect>',
+  alert: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>',
+  zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>',
+  refresh: '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>',
+  eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>',
+  'eye-off': '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>',
+  'arrow-right': '<line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline>',
+  'arrow-left': '<line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>',
+  'chevron-down': '<polyline points="6 9 12 15 18 9"></polyline>',
+  'chevron-right': '<polyline points="9 18 15 12 9 6"></polyline>',
+  'chevron-left': '<polyline points="15 18 9 12 15 6"></polyline>',
+  copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>',
+  tag: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line>',
+  clock: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
+  'check-square': '<polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>',
+  save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline>',
+  folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>',
+  phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>',
+  info: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>',
+  bot: '<rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8.01" y2="16"></line><line x1="16" y1="16" x2="16.01" y2="16"></line>',
+  key: '<path d="M21 2l-2 2m-1.5 1.5L16 7l-1.5-1.5-3.5 3.5a5 5 0 1 0 2 2l3.5-3.5L15 6l1.5-1.5 2 2 2.5-2.5z"></path>',
+  shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>',
+  smartphone: '<rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line>',
+  'bar-chart-2': '<line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line>',
+  'trending-up': '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline>',
+  'dollar-sign': '<line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>',
+  clipboard: '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>',
+  mail: '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline>',
+  'map-pin': '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>',
+  briefcase: '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>',
+  'alert-triangle': '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>',
+  'share-2': '<circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>',
+  'message-circle': '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>',
+  'edit-2': '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>',
+  'x-circle': '<circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>'
+};
+
+function formatTitleWithIcon(title){
+  if(!title) return '';
+  let t = String(title).trim();
+  const iconMap = [
+    { prefix: '➕', icon: 'plus' },
+    { prefix: '🔒', icon: 'lock' },
+    { prefix: '🔓', icon: 'unlock' },
+    { prefix: '🔑', icon: 'key' },
+    { prefix: '📱', icon: 'smartphone' },
+    { prefix: '📊', icon: 'bar-chart-2' },
+    { prefix: '📈', icon: 'trending-up' },
+    { prefix: '🚫', icon: 'user-x' },
+    { prefix: '⚡', icon: 'zap' },
+    { prefix: '✨', icon: 'zap' },
+    { prefix: '👥', icon: 'users' },
+    { prefix: '📝', icon: 'edit' },
+    { prefix: '✏️', icon: 'edit-2' },
+    { prefix: '⚙️', icon: 'settings' },
+    { prefix: '🏷️', icon: 'tag' },
+    { prefix: '📦', icon: 'archive' },
+    { prefix: '📥', icon: 'download' },
+    { prefix: '📤', icon: 'share-2' },
+    { prefix: '⬇️', icon: 'download' },
+    { prefix: '🤖', icon: 'bot' },
+    { prefix: '🛡️', icon: 'shield' },
+    { prefix: '💬', icon: 'message-circle' },
+    { prefix: 'ℹ️', icon: 'info' },
+    { prefix: '⚠️', icon: 'alert' },
+    { prefix: '🗑️', icon: 'trash' },
+    { prefix: '📷', icon: 'camera' },
+    { prefix: '🔄', icon: 'refresh' },
+    { prefix: '📋', icon: 'clipboard' },
+    { prefix: '🔍', icon: 'search' },
+    { prefix: '💰', icon: 'dollar-sign' },
+    { prefix: '📅', icon: 'calendar' },
+    { prefix: '🕒', icon: 'clock' },
+    { prefix: '📞', icon: 'phone' },
+    { prefix: '👤', icon: 'user' },
+    { prefix: '🗓️', icon: 'calendar' },
+    { prefix: '🔑', icon: 'key' },
+    { prefix: '🚀', icon: 'send' },
+    { prefix: '📊', icon: 'bar-chart-2' },
+    { prefix: '🔔', icon: 'bell' },
+    { prefix: '💡', icon: 'info' },
+    { prefix: '✅', icon: 'check-circle' },
+    { prefix: '🎉', icon: 'check-circle' },
+    { prefix: '🖨️', icon: 'printer' }
+  ];
+  for(const item of iconMap){
+    if(t.startsWith(item.prefix)){
+      return appIcon(item.icon, 18, 'modal-title-icon') + ' <span>' + t.slice(item.prefix.length).trim() + '</span>';
+    }
+  }
+  return '<span>' + t + '</span>';
+}
+
+function appIcon(name, size = 15, extraClass = '') {
+  const content = ICONS[name] || ICONS['info'];
+  const cls = 'app-icon' + (extraClass ? ' ' + extraClass : '');
+  return '<svg class="' + cls + '" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + content + '</svg>';
+}
+if (typeof window !== 'undefined') {
+  window.appIcon = appIcon;
+}
+
 /* ---------- أدوات مساعدة ---------- */
 
 /* ---------- تجزئة الجداول الكبيرة (Pagination for 1000+ Students) ---------- */
@@ -53,7 +186,7 @@ function renderPaginationBarHTML(currentPage, totalPages, totalCount, pageSize, 
 
   return '<div class="pagination-bar" style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--card-bg,#f8fafc);border:1px solid var(--border);border-radius:8px;margin:8px 0;flex-wrap:wrap;gap:8px;direction:rtl">'
     + '<div style="font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">'
-    +   '📄 عرض <b>' + (totalCount ? startIdx + ' - ' + endIdx : 0) + '</b> من إجمالي <span class="badge-count" style="background:#e0e7ff;color:#3730a3;padding:2px 7px;border-radius:999px;font-weight:800">' + totalCount + ' طالب</span>'
+    +   appIcon('file-text', 13) + ' عرض <b>' + (totalCount ? startIdx + ' - ' + endIdx : 0) + '</b> من إجمالي <span class="badge-count" style="background:#e0e7ff;color:#3730a3;padding:2px 7px;border-radius:999px;font-weight:800">' + totalCount + ' طالب</span>'
     + '</div>'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
     +   '<div style="display:flex;align-items:center;gap:5px">'
@@ -70,9 +203,9 @@ function renderPaginationBarHTML(currentPage, totalPages, totalCount, pageSize, 
     +     '<span style="font-size:11px;font-weight:700">طالب</span>'
     +   '</div>'
     +   (totalPages > 1 ? '<div style="display:flex;align-items:center;gap:4px">'
-    +     '<button class="btn btn-outline btn-sm page-nav-btn" data-prefix="' + prefixId + '" data-dir="prev" ' + (currentPage <= 1 ? 'disabled' : '') + ' style="padding:3px 10px;font-size:12px;font-weight:700" title="الصفحة السابقة">◀ السابق</button>'
+    +     '<button class="btn btn-outline btn-sm page-nav-btn" data-prefix="' + prefixId + '" data-dir="prev" ' + (currentPage <= 1 ? 'disabled' : '') + ' style="padding:3px 10px;font-size:12px;font-weight:700" title="الصفحة السابقة">' + appIcon('chevron-right', 12) + ' السابق</button>'
     +     '<select class="page-jump-select" data-prefix="' + prefixId + '" style="padding:3px 8px;font-size:11.5px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer">' + pageOptions + '</select>'
-    +     '<button class="btn btn-outline btn-sm page-nav-btn" data-prefix="' + prefixId + '" data-dir="next" ' + (currentPage >= totalPages ? 'disabled' : '') + ' style="padding:3px 10px;font-size:12px;font-weight:700" title="الصفحة التالية">التالي ▶</button>'
+    +     '<button class="btn btn-outline btn-sm page-nav-btn" data-prefix="' + prefixId + '" data-dir="next" ' + (currentPage >= totalPages ? 'disabled' : '') + ' style="padding:3px 10px;font-size:12px;font-weight:700" title="الصفحة التالية">التالي ' + appIcon('chevron-left', 12) + '</button>'
     +   '</div>' : '')
     + '</div>'
     + '</div>';
@@ -835,19 +968,19 @@ window.addEventListener('pagehide', () => saveState(true));
 
 /* ---------- نافذة تأكيد الحذف المخصصة والآمنة ---------- */
 function confirmDangerModal(options){
-  const title = options.title || '⚠️ تأكيد الحذف';
+  const title = options.title || 'تأكيد الحذف';
   const msg = options.message || 'هل أنت متأكد من رغبتك في حذف هذا العنصر نهائياً؟';
   const item = options.itemName || '';
   const note = options.dangerNote || 'لا يمكن التراجع عن هذا الإجراء بعد إتمامه.';
-  const confirmText = options.confirmText || 'نعم، تأكيد الحذف 🗑️';
+  const confirmText = options.confirmText || 'نعم، تأكيد الحذف';
   const cancelText = options.cancelText || 'إلغاء وتراجع';
 
   const html = '<div class="danger-modal-box">'
-    + '<div class="danger-modal-icon">⚠️</div>'
+    + '<div class="danger-modal-icon">' + appIcon('alert-triangle', 32) + '</div>'
     + '<div class="danger-modal-title">' + esc(title) + '</div>'
     + '<div class="danger-modal-desc">' + esc(msg) + '</div>'
     + (item ? '<div class="danger-modal-item">' + esc(item) + '</div>' : '')
-    + '<p class="muted" style="font-size:11.5px;margin-bottom:16px;color:#dc2626;font-weight:700">❗ ' + esc(note) + '</p>'
+    + '<p class="muted" style="font-size:11.5px;margin-bottom:16px;color:#dc2626;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">' + appIcon('info', 13) + ' ' + esc(note) + '</p>'
     + '<div class="danger-modal-actions">'
     +   '<button class="btn btn-danger" id="cfm_danger_ok">' + esc(confirmText) + '</button>'
     +   '<button class="btn btn-outline" id="cfm_danger_cancel">' + esc(cancelText) + '</button>'
@@ -1158,8 +1291,8 @@ function renderIncomeCard(){
   const d = moneyData();
   if(d.total <= 0){ el.hidden = true; el.innerHTML = ''; return; }
   el.hidden = false;
-  el.innerHTML = '<span>💰 إجمالي الدخل: <b>' + moneyDisplay(d.collected) + ' / ' + moneyDisplay(d.total) + ' ج.م</b></span>'
-    + '<button class="mini-btn ' + (moneyMasked() ? 'mini-lock' : 'mini-add') + '" data-act="' + (moneyMasked() ? 'reveal-money' : 'lock-money') + '">' + (moneyMasked() ? '🔒 عرض' : '🔓 إخفاء') + '</button>';
+  el.innerHTML = '<span>' + appIcon('wallet', 14) + ' إجمالي الدخل: <b>' + moneyDisplay(d.collected) + ' / ' + moneyDisplay(d.total) + ' ج.م</b></span>'
+    + '<button class="mini-btn ' + (moneyMasked() ? 'mini-lock' : 'mini-add') + '" data-act="' + (moneyMasked() ? 'reveal-money' : 'lock-money') + '">' + (moneyMasked() ? appIcon('eye', 13) + ' عرض' : appIcon('lock', 13) + ' إخفاء') + '</button>';
 }
 
 /* ---------- عرض عام ---------- */
@@ -1250,18 +1383,18 @@ function renderDashboardOverview(){
 
   let todayListHTML = '';
   if(todayItems.length > 0){
-    todayListHTML = '<div class="dash-today-list"><b>📅 حصص اليوم:</b> '
-      + todayItems.map(item => '<span class="dash-today-item">🕒 ' + esc(item.label) + ' (' + formatTime12(item.time) + ')</span>').join('')
+    todayListHTML = '<div class="dash-today-list"><b>' + appIcon('calendar', 14) + ' حصص اليوم:</b> '
+      + todayItems.map(item => '<span class="dash-today-item">' + appIcon('clock', 12) + ' ' + esc(item.label) + ' (' + formatTime12(item.time) + ')</span>').join('')
       + '</div>';
   } else {
     todayListHTML = '<div class="dash-today-list muted">لا توجد حصص مجدولة لليوم.</div>';
   }
 
   wrap.innerHTML = '<div class="dash-head">'
-    + '<div class="dash-title">📊 لوحة المؤشرات السريعة</div>'
+    + '<div class="dash-title">' + appIcon('bar-chart-2', 16) + ' لوحة المؤشرات السريعة</div>'
     + '<div style="display:flex;gap:6px">'
-    +   (hasSub ? '<button class="btn btn-outline btn-sm" id="btnToggleDashMoney" title="إخفاء/إظهار المبالغ" style="padding:2px 8px;font-size:12px">' + (hideMoney ? '👁️ إظهار' : '🔒 إخفاء') + '</button>' : '')
-    +   '<button class="btn btn-outline btn-sm" id="btnDashAnalytics" style="padding:2px 8px;font-size:12px">📈 التحليلات</button>'
+    +   (hasSub ? '<button class="btn btn-outline btn-sm" id="btnToggleDashMoney" title="إخفاء/إظهار المبالغ" style="padding:2px 8px;font-size:12px">' + (hideMoney ? appIcon('eye', 13) + ' إظهار' : appIcon('eye-off', 13) + ' إخفاء') + '</button>' : '')
+    +   '<button class="btn btn-outline btn-sm" id="btnDashAnalytics" style="padding:2px 8px;font-size:12px">' + appIcon('trending-up', 13) + ' التحليلات</button>'
     + '</div>'
     + '</div>'
     + '<div class="dash-grid">'
@@ -1335,9 +1468,9 @@ function renderLessonsHome(){
     +   '<div class="lesson-meta">شهر ' + L.monthNumber + '/' + L.year + ((L.groups && L.groups.length) ? ' · ' + L.groups.length + ' مجموعة' : '') + '</div>'
     + '</div>'
     + '<div class="lesson-actions">'
-    +   '<button class="btn btn-sm" data-act="open-lesson" data-id="'+L.id+'">فتح</button>'
-    +   '<button class="btn btn-sm btn-outline" data-act="edit-lesson" data-id="'+L.id+'">تعديل</button>'
-    +   '<button class="btn btn-sm btn-danger" data-act="del-lesson" data-id="'+L.id+'">حذف</button>'
+    +   '<button class="btn btn-sm" data-act="open-lesson" data-id="'+L.id+'">' + appIcon('book', 13) + ' فتح</button>'
+    +   '<button class="btn btn-sm btn-outline" data-act="edit-lesson" data-id="'+L.id+'">' + appIcon('edit', 13) + ' تعديل</button>'
+    +   '<button class="btn btn-sm btn-danger" data-act="del-lesson" data-id="'+L.id+'">' + appIcon('trash', 13) + ' حذف</button>'
     + '</div>'
     + '</div>'
   ).join('');
@@ -1387,10 +1520,10 @@ function renderGlobalSearch(){
           + '<div style="display:flex;flex-direction:column;gap:2px;flex:1">'
           +   '<span class="s-name" style="font-weight:700">' + esc(m.student.name) + '</span>'
           +   '<span class="s-meta" style="color:#6366f1;font-weight:700;font-size:11.5px">'
-          +     '📦 شهر مؤرشف: «' + esc(lName) + '» (' + esc(mNum + yStr) + ')'
+          +     appIcon('archive', 13) + ' شهر مؤرشف: «' + esc(lName) + '» (' + esc(mNum + yStr) + ')'
           +   '</span>'
           + '</div>'
-          + '<button class="btn btn-sm btn-outline" data-act="open-archived-student" data-arch-idx="' + m.archIdx + '" data-id="' + m.student.id + '" style="color:#6366f1;border-color:#c7d2fe;font-weight:700">فتح في الأرشيف</button>'
+          + '<button class="btn btn-sm btn-outline" data-act="open-archived-student" data-arch-idx="' + m.archIdx + '" data-id="' + m.student.id + '" style="color:#6366f1;border-color:#c7d2fe;font-weight:700">' + appIcon('archive', 12) + ' فتح في الأرشيف</button>'
           + '</div>';
       } else {
         return '<div class="search-item">'
@@ -1398,7 +1531,7 @@ function renderGlobalSearch(){
           +   '<span class="s-name" style="font-weight:700">' + esc(m.student.name) + '</span>'
           +   '<span class="s-meta">في درس «' + esc(m.lesson.name) + '»</span>'
           + '</div>'
-          + '<button class="btn btn-sm btn-outline" data-act="open-student" data-lesson="' + m.lesson.id + '" data-id="' + m.student.id + '">فتح</button>'
+          + '<button class="btn btn-sm btn-outline" data-act="open-student" data-lesson="' + m.lesson.id + '" data-id="' + m.student.id + '">' + appIcon('book', 12) + ' فتح</button>'
           + '</div>';
       }
     }).join('') + (matches.length > 50 ? '<div style="text-align:center;padding:6px;font-size:11px;color:var(--muted)">تم عرض أول 50 نتيجة من إجمالي ' + matches.length + ' نتيجة لتسريع الأداء.</div>' : '');
@@ -1467,9 +1600,9 @@ function openHiddenStudentsModal(lesson, isArchive = false, archIdx = null){
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;flex-wrap:wrap;gap:8px">'
           + '<div>'
           +   '<div style="font-weight:700;font-size:13.5px">' + (i + 1) + '. ' + esc(st.name) + '</div>'
-          +   '<div style="font-size:11px;color:var(--muted);margin-top:2px">📱 ' + esc(localPhone(st.phone)) + ' · نسبة الحضور الكلية عبر الشهور: <b style="color:' + (stats.pct >= 50 ? '#15803d' : '#b91c1c') + '">' + stats.pct + '% (' + stats.totalAttended + '/' + stats.totalSessions + ')</b></div>'
+          +   '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + appIcon('phone', 11) + ' ' + esc(localPhone(st.phone)) + ' · نسبة الحضور الكلية عبر الشهور: <b style="color:' + (stats.pct >= 50 ? '#15803d' : '#b91c1c') + '">' + stats.pct + '% (' + stats.totalAttended + '/' + stats.totalSessions + ')</b></div>'
           + '</div>'
-          + '<button class="btn btn-outline btn-sm unhide-st-btn" data-id="' + st.id + '" style="color:#15803d;border-color:#86efac;font-weight:700">✅ استعادة للجدول</button>'
+          + '<button class="btn btn-outline btn-sm unhide-st-btn" data-id="' + st.id + '" style="color:#15803d;border-color:#86efac;font-weight:700">' + appIcon('check', 13) + ' استعادة للجدول</button>'
           + '</div>';
       }).join('')
       + '</div>';
@@ -1477,11 +1610,11 @@ function openHiddenStudentsModal(lesson, isArchive = false, archIdx = null){
 
   const modalHtml = '<div style="text-align:right;direction:rtl">'
     + '<p class="muted" style="margin-top:0;font-size:12.5px;line-height:1.6">'
-    +   '💡 الطلاب المحجوبون يتم إخفاؤهم من جدول الحضور والمراسلة الجماعية حتى لا يشغلوا مساحة أو يتم إرسال رسائل لهم بالخطأ، مع إمكانية استعادتهم في أي وقت.'
+    +   'الطلاب المحجوبون يتم إخفاؤهم من جدول الحضور والمراسلة الجماعية حتى لا يشغلوا مساحة أو يتم إرسال رسائل لهم بالخطأ، مع إمكانية استعادتهم في أي وقت.'
     + '</p>'
     + '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">'
-    +   '<button class="btn btn-primary btn-sm" id="btn_smart_dropout_hide" style="font-size:12px;font-weight:700">⚡ حجب ذكي للمنقطعين عن الشهور السابقة</button>'
-    +   (hiddenStudents.length > 0 ? '<button class="btn btn-outline btn-sm" id="btn_unhide_all" style="font-size:12px;font-weight:700;color:#15803d">✅ استعادة الكل للجدول</button>' : '')
+    +   '<button class="btn btn-primary btn-sm" id="btn_smart_dropout_hide" style="font-size:12px;font-weight:700">' + appIcon('zap', 13) + ' حجب ذكي للمنقطعين عن الشهور السابقة</button>'
+    +   (hiddenStudents.length > 0 ? '<button class="btn btn-outline btn-sm" id="btn_unhide_all" style="font-size:12px;font-weight:700;color:#15803d">' + appIcon('check-square', 13) + ' استعادة الكل للجدول</button>' : '')
     + '</div>'
     + listHtml
     + '<div class="modal-actions" style="margin-top:14px">'
@@ -1556,7 +1689,7 @@ function openSmartDropoutHidingModal(lesson, isArchive = false, archIdx = null){
           +   '<input type="checkbox" class="dropout-chk" value="' + c.student.id + '" checked>'
           +   '<div>'
           +     '<span style="font-weight:700;font-size:13px">' + esc(c.student.name) + '</span>'
-          +     '<span style="font-size:11px;color:var(--muted);margin-right:8px">📱 ' + esc(localPhone(c.student.phone)) + '</span>'
+          +     '<span style="font-size:11px;color:var(--muted);margin-right:8px">' + appIcon('phone', 11) + ' ' + esc(localPhone(c.student.phone)) + '</span>'
           +   '</div>'
           + '</div>'
           + '<span style="font-size:11.5px;font-weight:800;color:#b91c1c;background:#fee2e2;padding:2px 8px;border-radius:999px">' + c.stats.pct + '% حضور (' + c.stats.totalAttended + '/' + c.stats.totalSessions + ' حصة)</span>'
@@ -1574,7 +1707,7 @@ function openSmartDropoutHidingModal(lesson, isArchive = false, archIdx = null){
 
   const modalHtml = '<div style="text-align:right;direction:rtl">'
     + '<p style="font-size:13px;line-height:1.6;color:var(--text);margin-top:0">'
-    +   '⚡ يقوم الحجب الذكي بحساب نسبة حضور كل طالب <b>عبر كافة الشهور الماضية والحالية</b> لعزل الطلاب المنقطعين عن الحضور نهائياً.'
+    +   'يقوم الحجب الذكي بحساب نسبة حضور كل طالب <b>عبر كافة الشهور الماضية والحالية</b> لعزل الطلاب المنقطعين عن الحضور نهائياً.'
     + '</p>'
     + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 10px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;flex-wrap:wrap">'
     +   '<label style="font-size:12px;font-weight:700">حجب الطلاب بنسبة حضور أقل من أو تساوي:</label>'
@@ -1587,7 +1720,7 @@ function openSmartDropoutHidingModal(lesson, isArchive = false, archIdx = null){
     + '</div>'
     + '<div id="dropout_candidates_list" style="max-height:300px;overflow-y:auto;padding:2px"></div>'
     + '<div class="modal-actions" style="margin-top:16px">'
-    +   '<button class="btn btn-primary" id="btn_apply_smart_hide" style="background:#b91c1c;border-color:#b91c1c">🚫 حجب الطلاب المحددين</button>'
+    +   '<button class="btn btn-primary" id="btn_apply_smart_hide" style="background:#b91c1c;border-color:#b91c1c">' + appIcon('user-x', 13) + ' حجب الطلاب المحددين</button>'
     +   '<button class="btn btn-outline" id="btn_cancel_smart_hide">إلغاء</button>'
     + '</div>'
     + '</div>';
@@ -1635,20 +1768,19 @@ function openBulkAttendanceModal(container, session, isArch = false, archIdx = n
   const eff = effectiveStatuses(container);
 
   const statusBtns = eff.map(s => {
-    const icon = s.type === 'present' ? '🟢' : s.type === 'apology' ? '🟡' : '🔴';
-    const bg = s.type === 'present' ? '#15803d' : s.type === 'apology' ? '#b45309' : '#b91c1c';
-    return '<button class="btn" data-bulk-st="' + esc(s.id) + '" style="background:' + (s.color || bg) + ';color:#fff;justify-content:center">' + icon + ' تعيين الكل: ' + esc(s.label) + '</button>';
+    const bg = s.color || (s.type === 'present' ? '#15803d' : s.type === 'apology' ? '#b45309' : '#b91c1c');
+    return '<button class="btn" data-bulk-st="' + esc(s.id) + '" style="background:' + bg + ';color:#fff;justify-content:center">' + appIcon('check', 14) + ' تعيين الكل: ' + esc(s.label) + '</button>';
   }).join('');
 
   const html = '<div style="text-align:center;padding:8px">'
     + '<p style="font-size:14px;font-weight:700;margin-bottom:14px">تعيين حالة لجميع طلاب الحصة:<br><b style="color:var(--primary);font-size:15px">' + esc(session.label) + (session.dateLabel ? ' (' + esc(session.dateLabel) + ')' : '') + '</b></p>'
     + '<div style="display:flex;flex-direction:column;gap:10px;max-width:300px;margin:0 auto" id="bulk_btns_wrap">'
     +   statusBtns
-    +   '<button class="btn btn-outline" id="bulk_set_clear" style="justify-content:center">🔄 تفريغ سجلات الحصة للجميع</button>'
+    +   '<button class="btn btn-outline" id="bulk_set_clear" style="justify-content:center">' + appIcon('refresh', 14) + ' تفريغ سجلات الحصة للجميع</button>'
     + '</div>'
     + '</div>';
 
-  openModal('⚡ التحضير السريع الجماعي', html);
+  openModal('التحضير السريع الجماعي', html);
 
   function applyStatus(stCode){
     let targetStudents = Array.isArray(container.students) && container.students.length ? container.students : archiveStudents(container);
@@ -2379,7 +2511,7 @@ function renderExamsTable(lesson, filteredStudents){
     h += '<th><div style="font-size:12px;font-weight:800">' + esc(ex.name) + '</div>'
       + '<span class="exam-max-badge">الدرجة: ' + ex.maxScore + ' (' + esc(ex.date) + ')</span>'
       + '<div style="display:flex;gap:4px;justify-content:center;margin-top:3px">'
-      +   '<button class="mini-btn mini-edit" data-act="edit-exam" data-id="' + ex.id + '" title="تعديل الاختبار">✏️</button>'
+      +   '<button class="mini-btn mini-edit" data-act="edit-exam" data-id="' + ex.id + '" title="تعديل الاختبار">' + appIcon('edit', 11) + '</button>'
       +   '<button class="mini-btn mini-del" data-act="del-exam" data-id="' + ex.id + '" title="حذف الاختبار">✕</button>'
       + '</div>'
       + '</th>';
@@ -2461,15 +2593,15 @@ function renderExamsTable(lesson, filteredStudents){
 function buildExamCellHTML(sid, eid, scoreVal, isExcluded, noteText, maxScore, pct){
   if(isExcluded){
     return '<div class="exam-cell-wrap">'
-      + '<span class="exam-excluded-badge" data-act="exam-note" data-sid="' + sid + '" data-eid="' + eid + '" title="اضغط لتعديل الملاحظة أو إلغاء الاستبعاد">🚫 لم يدخل</span>'
-      + (noteText ? '<span class="exam-note-text-preview" title="' + esc(noteText) + '">📝 ' + esc(noteText) + '</span>' : '')
+      + '<span class="exam-excluded-badge" data-act="exam-note" data-sid="' + sid + '" data-eid="' + eid + '" title="اضغط لتعديل الملاحظة أو إلغاء الاستبعاد">' + appIcon('user-x', 11) + ' لم يدخل</span>'
+      + (noteText ? '<span class="exam-note-text-preview" title="' + esc(noteText) + '">' + appIcon('file-text', 11) + ' ' + esc(noteText) + '</span>' : '')
       + '</div>';
   }
 
   return '<div class="exam-cell-wrap">'
     + '<div class="exam-input-row">'
     +   '<input type="number" step="0.5" min="0" max="' + maxScore + '" value="' + (scoreVal !== '' ? scoreVal : '') + '" class="exam-input" data-sid="' + sid + '" data-eid="' + eid + '" placeholder="-">'
-    +   '<button type="button" class="exam-note-btn ' + (noteText ? 'has-note' : '') + '" data-act="exam-note" data-sid="' + sid + '" data-eid="' + eid + '" title="' + (noteText ? esc(noteText) : 'إضافة ملاحظة / استبعاد') + '">📝</button>'
+    +   '<button type="button" class="exam-note-btn ' + (noteText ? 'has-note' : '') + '" data-act="exam-note" data-sid="' + sid + '" data-eid="' + eid + '" title="' + (noteText ? esc(noteText) : 'إضافة ملاحظة / استبعاد') + '">' + appIcon('edit-2', 12) + '</button>'
     + '</div>'
     + (pct !== null ? '<span class="exam-pct" style="color:' + (pct >= 50 ? '#15803d' : '#b91c1c') + '">' + pct + '%</span>' : '')
     + (noteText ? '<span class="exam-note-text-preview" title="' + esc(noteText) + '">' + esc(noteText) + '</span>' : '')
@@ -2749,11 +2881,11 @@ function openExamGroupsModal(lesson){
       const studentCount = (lesson.students || []).filter(st => st.examGroupId === g.id).length;
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#fff;border:1px solid var(--border);border-radius:8px;gap:8px">'
         + '<div style="font-weight:700;font-size:13px">'
-        +   '🏷️ ' + esc(g.name) + ' <small class="muted">(' + studentCount + ' طالب)</small>'
+        +   appIcon('tag', 12) + ' ' + esc(g.name) + ' <small class="muted">(' + studentCount + ' طالب)</small>'
         + '</div>'
         + '<div style="display:flex;gap:6px">'
-        +   '<button type="button" class="btn btn-sm btn-outline" data-act="assign-eg" data-gid="' + g.id + '" style="font-size:11px;padding:3px 8px">👥 تخصيص الطلاب</button>'
-        +   '<button type="button" class="btn btn-sm btn-outline" data-act="edit-eg" data-gid="' + g.id + '" style="font-size:11px;padding:3px 8px">✏️</button>'
+        +   '<button type="button" class="btn btn-sm btn-outline" data-act="assign-eg" data-gid="' + g.id + '" style="font-size:11px;padding:3px 8px">' + appIcon('users', 11) + ' تخصيص الطلاب</button>'
+        +   '<button type="button" class="btn btn-sm btn-outline" data-act="edit-eg" data-gid="' + g.id + '" style="font-size:11px;padding:3px 8px">' + appIcon('edit', 11) + '</button>'
         +   '<button type="button" class="btn btn-sm btn-outline" data-act="del-eg" data-gid="' + g.id + '" style="font-size:11px;padding:3px 8px;color:#b91c1c;border-color:#fca5a5">✕</button>'
         + '</div>'
         + '</div>';
@@ -2766,7 +2898,7 @@ function openExamGroupsModal(lesson){
     + '</p>'
     + '<div style="display:flex;gap:8px;margin-bottom:14px">'
     +   '<input type="text" id="new_exam_group_name" placeholder="اسم مجموعة الاختبار الجديدة (مثال: مجموعة أ)..." style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-weight:700">'
-    +   '<button type="button" class="btn btn-primary" id="btn_add_exam_group">➕ إضافة</button>'
+    +   '<button type="button" class="btn btn-primary" id="btn_add_exam_group">' + appIcon('plus', 12) + ' إضافة</button>'
     + '</div>'
     + '<div id="exam_groups_list" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;background:var(--bg);padding:8px;border-radius:8px;border:1px solid var(--border)"></div>'
     + '<div class="modal-actions" style="margin-top:14px">'
@@ -3210,7 +3342,7 @@ function bulkMoveStudentsModal(sourceContainer, isCopy, isFromArchive = false, a
     +   '</label>'
     + '</div>'
     + '<div class="modal-actions">'
-    +   '<button class="btn btn-primary" id="bm_submit">' + (isCopy ? '📋 نسخ الطلاب للوجهة المحددة' : '🔄 نقل الطلاب وحذفهم من الحالي') + '</button>'
+    +   '<button class="btn btn-primary" id="bm_submit">' + (isCopy ? appIcon('copy', 13) + ' نسخ الطلاب للوجهة المحددة' : appIcon('refresh', 13) + ' نقل الطلاب وحذفهم من الحالي') + '</button>'
     +   '<button class="btn btn-outline" id="bm_cancel">إلغاء</button>'
     + '</div>';
 
@@ -3450,8 +3582,8 @@ async function telegramBackup(){
   if(bots.length > 0){
     botSelectorHTML = '<div class="form-row" style="margin-bottom:12px">'
       + '<label style="font-weight:800;font-size:12.5px;display:flex;justify-content:space-between;align-items:center">'
-      +   '<span>🤖 إرسال عبر البوت / المحادثة:</span>'
-      +   '<button type="button" class="btn btn-sm btn-outline" id="tg_modal_add_bot" style="font-size:11px;padding:2px 8px">➕ إضافة بوت آخر</button>'
+      +   '<span>' + appIcon('bot', 14) + ' إرسال عبر البوت / المحادثة:</span>'
+      +   '<button type="button" class="btn btn-sm btn-outline" id="tg_modal_add_bot" style="font-size:11px;padding:2px 8px">' + appIcon('plus', 11) + ' إضافة بوت آخر</button>'
       + '</label>'
       + '<select id="tg_modal_bot_select" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-weight:700">'
       +   bots.map(b => '<option value="' + b.id + '"' + (b.id === (activeBot ? activeBot.id : '') ? ' selected' : '') + '>' + esc(b.name) + ' (Chat ID: ' + esc(b.chatId) + ')</option>').join('')
@@ -3464,7 +3596,7 @@ async function telegramBackup(){
     + botSelectorHTML
     + '<div class="form-row" style="margin-bottom:12px">'
     +   '<label style="font-weight:800;font-size:12.5px;display:block;margin-bottom:4px">'
-    +     '👤 اسم المُصدِّر / المعلم (يظهر في رسالة تيليجرام):'
+    +     appIcon('user', 13) + ' اسم المُصدِّر / المعلم (يظهر في رسالة تيليجرام):'
     +   '</label>'
     +   '<input type="text" id="tg_exporter_name" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-weight:700" placeholder="مثال: أ/ أحمد صابر" value="' + esc(expName) + '">'
     + '</div>'
@@ -3475,21 +3607,21 @@ async function telegramBackup(){
     +   '<label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px">'
     +     '<input type="radio" name="tg_scope" value="all" checked id="tg_scope_all" style="margin-top:3px">'
     +     '<div>'
-    +       '<div style="font-weight:800;font-size:13px;color:var(--text)">📦 النسخة الكاملة للتطبيق</div>'
+    +       '<div style="font-weight:800;font-size:13px;color:var(--text)">' + appIcon('archive', 13) + ' النسخة الكاملة للتطبيق</div>'
     +       '<div class="muted" style="font-size:11px;margin-top:2px">تشمل كل الدروس (' + lessons.length + ')، وجميع الطلاب (' + totalStudents + ')، والأرشيف، والإعدادات.</div>'
     +     '</div>'
     +   '</label>'
     +   '<label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px">'
     +     '<input type="radio" name="tg_scope" value="selected" id="tg_scope_selected" style="margin-top:3px">'
     +     '<div>'
-    +       '<div style="font-weight:800;font-size:13px;color:var(--text)">📚 تحديد درس أو دروس حالية معينة</div>'
+    +       '<div style="font-weight:800;font-size:13px;color:var(--text)">' + appIcon('book', 13) + ' تحديد درس أو دروس حالية معينة</div>'
     +       '<div class="muted" style="font-size:11px;margin-top:2px">اختر درساً محدداً أو عدة دروس مع خيار تصدير الشهر الحالي فقط أو مع الأرشيف.</div>'
     +     '</div>'
     +   '</label>'
     +   '<label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px">'
     +     '<input type="radio" name="tg_scope" value="archive" id="tg_scope_archive" style="margin-top:3px">'
     +     '<div>'
-    +       '<div style="font-weight:800;font-size:13px;color:var(--text)">📁 تصدير شهر مؤرشف معين (من الأرشيف)</div>'
+    +       '<div style="font-weight:800;font-size:13px;color:var(--text)">' + appIcon('folder', 13) + ' تصدير شهر مؤرشف معين (من الأرشيف)</div>'
     +       '<div class="muted" style="font-size:11px;margin-top:2px">اختر شهراً مؤرشفاً مستقلاً لإرساله كملف .daftar-month عبر بوت تيليجرام.</div>'
     +     '</div>'
     +   '</label>'
@@ -3514,15 +3646,15 @@ async function telegramBackup(){
                 }).join('')
             + '</div>'
             + '<div style="margin-top:10px;padding:8px 10px;background:#fff;border:1px solid var(--border);border-radius:8px">'
-            +   '<div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px">📦 خيارات الشهور المؤرشفة للدروس المحددة:</div>'
+            +   '<div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px">' + appIcon('archive', 13) + ' خيارات الشهور المؤرشفة للدروس المحددة:</div>'
             +   '<div style="display:flex;flex-direction:column;gap:6px">'
             +     '<label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;cursor:pointer">'
             +       '<input type="radio" name="tg_lesson_archive_choice" value="current_only" checked style="accent-color:var(--primary)">'
-            +       '<span>📄 تصدير الشهر الحالي فقط (ملف خفيف بدون الشهور المؤرشفة)</span>'
+            +       '<span>' + appIcon('file-text', 13) + ' تصدير الشهر الحالي فقط (ملف خفيف بدون الشهور المؤرشفة)</span>'
             +     '</label>'
             +     '<label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;cursor:pointer">'
             +       '<input type="radio" name="tg_lesson_archive_choice" value="with_archives" style="accent-color:var(--primary)">'
-            +       '<span>📦 تصدير شامل (الشهر الحالي + كافة الشهور المؤرشفة المتاحة)</span>'
+            +       '<span>' + appIcon('archive', 13) + ' تصدير شامل (الشهر الحالي + كافة الشهور المؤرشفة المتاحة)</span>'
             +     '</label>'
             +   '</div>'
             + '</div>'
@@ -3537,13 +3669,13 @@ async function telegramBackup(){
             + '<div style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;padding-right:4px">'
             +   archives.map((a, aIdx) => '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;cursor:pointer;background:#fff;padding:8px 10px;border-radius:6px;border:1px solid var(--border)">'
                   + '<input type="radio" name="tg_arch_radio" value="' + aIdx + '"' + (aIdx === 0 ? ' checked' : '') + ' style="accent-color:var(--primary)">'
-                  + '<span>📁 ' + esc(a.lessonName || 'درس') + ' — شهر ' + a.monthNumber + '/' + a.year + ' (' + (a.students ? a.students.length : 0) + ' طالب · ' + (a.sessions ? a.sessions.length : 0) + ' حصص)</span>'
+                  + '<span>' + appIcon('folder', 13) + ' ' + esc(a.lessonName || 'درس') + ' — شهر ' + a.monthNumber + '/' + a.year + ' (' + (a.students ? a.students.length : 0) + ' طالب · ' + (a.sessions ? a.sessions.length : 0) + ' حصص)</span>'
                   + '</label>').join('')
             + '</div>'
         )
     + '</div>'
     + '<div class="modal-actions">'
-    +   '<button class="btn btn-primary" id="tg_btn_proceed">🚀 إرسال إلى تيليجرام الآن</button>'
+    +   '<button class="btn btn-primary" id="tg_btn_proceed">' + appIcon('send', 13) + ' إرسال إلى تيليجرام الآن</button>'
     +   '<button class="btn btn-outline" id="tg_btn_cancel">إلغاء</button>'
     + '</div>'
     + '</div>';
@@ -3761,7 +3893,7 @@ function openResetModal(){
     // 1. ريست كلمة سر الدخل
     + '<div class="reset-opt-card">'
     +   '<div class="reset-opt-head">'
-    +     '<div class="reset-opt-title">🔑 تصفير كلمة سر قسم الدخل والأمان</div>'
+    +     '<div class="reset-opt-title">' + appIcon('key', 14) + ' تصفير كلمة سر قسم الدخل والأمان</div>'
     +     '<button class="btn btn-sm btn-outline" id="btnResetPassword">تصفير كلمة السر</button>'
     +   '</div>'
     +   '<div class="reset-opt-desc">يتطلب إدخال كود التفعيل المعتمد (من المطور) لمحو كلمة سر الدخل الحالية وسؤال الأمان، دون المساس بأي من الدروس أو الطلاب.</div>'
@@ -3769,7 +3901,7 @@ function openResetModal(){
 
     // 2. ريست درس محدد
     + '<div class="reset-opt-card">'
-    +   '<div class="reset-opt-title">📚 تصفير درس محدد بالكامل</div>'
+    +   '<div class="reset-opt-title">' + appIcon('book', 14) + ' تصفير درس محدد بالكامل</div>'
     +   '<div class="reset-opt-desc">يمحو طلاب الدرس وسجل حضورهم وغيابهم ودرجات الاختبارات وسجل المدفوعات، مع الإبقاء على اسم ومواعيد الدرس.</div>'
     +   (lessons.length > 0
           ? '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
@@ -3784,7 +3916,7 @@ function openResetModal(){
     // 3. ريست الإعدادات فقط
     + '<div class="reset-opt-card">'
     +   '<div class="reset-opt-head">'
-    +     '<div class="reset-opt-title">⚙️ إعادة ضبط الإعدادات فقط</div>'
+    +     '<div class="reset-opt-title">' + appIcon('settings', 14) + ' إعادة ضبط الإعدادات فقط</div>'
     +     '<button class="btn btn-sm btn-outline" id="btnResetSettings">استرجاع الإعدادات الافتراضية</button>'
     +   '</div>'
     +   '<div class="reset-opt-desc">يسترجع الحالات الافتراضية والألوان ومؤشرات الغياب وعناوين الأعمدة الأصلية، مع الحفاظ الكامل على كافة الدروس والطلاب والأرشيف.</div>'
@@ -3793,7 +3925,7 @@ function openResetModal(){
     // 4. ريست شامل للتطبيق
     + '<div class="reset-opt-card" style="border-color:#fca5a5;background:#fff5f5">'
     +   '<div class="reset-opt-head">'
-    +     '<div class="reset-opt-title" style="color:#b91c1c">💥 إعادة ضبط المصنع الشاملة</div>'
+    +     '<div class="reset-opt-title" style="color:#b91c1c">' + appIcon('alert', 14) + ' إعادة ضبط المصنع الشاملة</div>'
     +     '<button class="btn btn-sm btn-danger" id="btnResetAll">تصفير كل شيء</button>'
     +   '</div>'
     +   '<div class="reset-opt-desc" style="color:#7f1d1d">يمحو كل البيانات والدروس والأرشيف والإعدادات ويبدأ التطبيق من الصفر تماماً كما لو تم تثبيته لأول مرة.</div>'
@@ -3956,7 +4088,7 @@ function renderLessonDetail(){
         }
       });
       const total = cnt * L.price;
-      incEl.innerHTML = '💰 التحصيل: <b>' + moneyDisplay(totalCollected) + ' / ' + moneyDisplay(total) + ' ج.م</b>';
+      incEl.innerHTML = appIcon('wallet', 13) + ' التحصيل: <b>' + moneyDisplay(totalCollected) + ' / ' + moneyDisplay(total) + ' ج.م</b>';
       incEl.style.display = '';
     } else {
       incEl.style.display = 'none';
@@ -4026,7 +4158,7 @@ function renderLessonDetail(){
   const bulkBar = $('#bulkActionBar');
   const bulkBtn = $('#bulkSelectBtn');
   if(bulkBtn){
-    bulkBtn.textContent = isBulkSelecting ? '☑️ إنهاء التحديد' : '☑️ تحديد متعدد';
+    bulkBtn.innerHTML = isBulkSelecting ? (appIcon('check-square', 13) + ' إنهاء التحديد') : (appIcon('check-square', 13) + ' تحديد متعدد');
     bulkBtn.className = isBulkSelecting ? 'btn btn-primary' : 'btn btn-outline';
   }
   if(bulkBar){
@@ -4071,14 +4203,14 @@ function renderLessonDetail(){
     h += '<th class="session-col-drag" draggable="true" data-session-id="'+s.id+'" data-idx="'+sIdx+'"><div class="week-head">'
        + '<span class="week-title" title="اضغط لتعديل مسمى الحصة" data-act="edit-session-label" data-id="'+s.id+'">' + esc(s.label) + '</span>'
        + '<span class="week-date" title="اضغط لتعديل التاريخ والترتيب الزمني" data-act="edit-session-date" data-id="'+s.id+'">' + (s.dateLabel ? esc(s.dateLabel) : 'بدون تاريخ') + '</span>'
-       + (s.event ? '<span class="week-event" title="اضغط لتعديل الحدث" data-act="edit-session-event" data-id="'+s.id+'">📝 ' + esc(s.event) + '</span>' : '')
+       + (s.event ? '<span class="week-event" title="اضغط لتعديل الحدث" data-act="edit-session-event" data-id="'+s.id+'">' + appIcon('file-text', 11) + ' ' + esc(s.event) + '</span>' : '')
        + '<div class="week-tools">'
-       + (sIdx > 0 ? '<button class="mini-btn" data-act="shift-session-left" data-id="'+s.id+'" title="تحريك لليمين (سابق)">◀</button>' : '')
-       + (sIdx < L.sessions.length - 1 ? '<button class="mini-btn" data-act="shift-session-right" data-id="'+s.id+'" title="تحريك لليسار (تالي)">▶</button>' : '')
-       + '<button class="mini-btn" data-act="bulk-attendance" data-id="'+s.id+'" title="⚡ التحضير السريع الجماعي للحصة">⚡</button>'
-       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-id="'+s.id+'" title="حدث الحصة">📝</button>'
-       + '<button class="mini-btn mini-wa" data-act="session-summary" data-id="'+s.id+'" title="ملخص واتساب">📤</button>'
-       + '<button class="del-week" data-act="del-session" data-id="'+s.id+'" title="حذف الحصة">✕</button>'
+       + (sIdx > 0 ? '<button class="mini-btn" data-act="shift-session-left" data-id="'+s.id+'" title="تحريك لليمين (سابق)">' + appIcon('chevron-right', 11) + '</button>' : '')
+       + (sIdx < L.sessions.length - 1 ? '<button class="mini-btn" data-act="shift-session-right" data-id="'+s.id+'" title="تحريك لليسار (تالي)">' + appIcon('chevron-left', 11) + '</button>' : '')
+       + '<button class="mini-btn" data-act="bulk-attendance" data-id="'+s.id+'" title="التحضير السريع الجماعي للحصة">' + appIcon('zap', 11) + '</button>'
+       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-id="'+s.id+'" title="حدث الحصة">' + appIcon('file-text', 11) + '</button>'
+       + '<button class="mini-btn mini-wa" data-act="session-summary" data-id="'+s.id+'" title="ملخص واتساب">' + appIcon('share', 11) + '</button>'
+       + '<button class="del-week" data-act="del-session" data-id="'+s.id+'" title="حذف الحصة">' + appIcon('x', 11) + '</button>'
        + '</div>'
        + '</div></th>';
   });
@@ -4099,13 +4231,13 @@ function renderLessonDetail(){
       const payments = st.payments || [];
       const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) + (st.paid && payments.length === 0 ? subPrice : 0);
       const remaining = Math.max(0, subPrice - totalPaid);
-      let pillClass = 'pay-pill-none', pillText = '❌ غير مسدد';
+      let pillClass = 'pay-pill-none', pillText = appIcon('x', 11) + ' غير مسدد';
       if(totalPaid >= subPrice && subPrice > 0){
         pillClass = 'pay-pill-full';
-        pillText = '✅ مسدد (' + totalPaid + ')';
+        pillText = appIcon('check', 11) + ' مسدد (' + totalPaid + ')';
       } else if(totalPaid > 0){
         pillClass = 'pay-pill-part';
-        pillText = '⏳ مدفوع ' + totalPaid + (remaining > 0 ? ' (باقي ' + remaining + ')' : '');
+        pillText = appIcon('clock', 11) + ' مدفوع ' + totalPaid + (remaining > 0 ? ' (باقي ' + remaining + ')' : '');
       }
       payPillHTML = '<div class="pay-pill ' + pillClass + '" data-act="open-payments" data-id="' + st.id + '" title="اضغط لفتح سجل المدفوعات والمصروفات">' + pillText + '</div>';
     }
@@ -4123,18 +4255,18 @@ function renderLessonDetail(){
        +     (ind ? ' <span class="badge-indicator" style="background:'+ind.color+'" title="'+esc(ind.label)+' ('+stPct+'%)">'+esc(ind.label)+'</span>' : '')
        +   '</div>'
        +   '<div class="student-phone">' + esc(st.phone) + '</div>'
-       +   (L.subscription && st.guardianPhone ? '<div class="student-phone">👨 ولي الأمر: ' + esc(st.guardianPhone) + ' <a class="mini-btn mini-call" href="tel:'+esc(st.guardianPhone)+'">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(st.guardianPhone)+'">واتساب</button></div>' : '')
-       +   ((st.guardianExtraPhones||[]).map(p => '<div class="student-phone">👨 ' + esc(p) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(p)+'">واتساب</button></div>').join(''))
-       +   ((st.extraPhones||[]).map(p => '<div class="student-phone">📱 ' + esc(p) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(p)+'">واتساب</button></div>').join(''))
+       +   (L.subscription && st.guardianPhone ? '<div class="student-phone">ولي الأمر: ' + esc(st.guardianPhone) + ' <a class="mini-btn mini-call" href="tel:'+esc(st.guardianPhone)+'">' + appIcon('phone', 11) + ' اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(st.guardianPhone)+'">' + appIcon('whatsapp', 11) + ' واتساب</button></div>' : '')
+       +   ((st.guardianExtraPhones||[]).map(p => '<div class="student-phone">' + esc(p) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">' + appIcon('phone', 11) + ' اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(p)+'">' + appIcon('whatsapp', 11) + ' واتساب</button></div>').join(''))
+       +   ((st.extraPhones||[]).map(p => '<div class="student-phone">' + esc(p) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">' + appIcon('phone', 11) + ' اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'" data-phone="'+esc(p)+'">' + appIcon('whatsapp', 11) + ' واتساب</button></div>').join(''))
        +   '<div class="student-actions">'
-       +     '<button class="mini-btn mini-move" data-act="move-student" data-id="'+st.id+'" data-dir="up"'+(realIdx===0?' disabled':'')+' title="تحريك لأعلى">▲</button>'
-       +     '<button class="mini-btn mini-move" data-act="move-student" data-id="'+st.id+'" data-dir="down"'+(realIdx===L.students.length-1?' disabled':'')+' title="تحريك لأسفل">▼</button>'
-       +     (st.phone ? '<a class="mini-btn mini-call" href="tel:' + esc(st.phone) + '">📞 اتصال</a>' : '')
-       +     (st.phone ? '<button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'">واتساب</button>' : '')
-       +     '<button class="mini-btn mini-wa" data-act="student-summary" data-id="'+st.id+'" title="ملخص حضور الطالب وإرساله له">📤 ملخص</button>'
-       +     (L.subscription ? '<button class="mini-btn" data-act="open-payments" data-id="'+st.id+'" title="سجل مدفوعات ومصروفات الطالب">💰 المصروفات</button>' : '')
-       +     '<button class="mini-btn mini-edit" data-act="edit-student" data-id="'+st.id+'" title="تعديل بيانات الطالب">✏️</button>'
-       +     '<button class="mini-btn mini-del" data-act="del-student" data-id="'+st.id+'" title="حذف الطالب">🗑️</button>'
+       +     '<button class="mini-btn mini-move" data-act="move-student" data-id="'+st.id+'" data-dir="up"'+(realIdx===0?' disabled':'')+' title="تحريك لأعلى">' + appIcon('chevron-down', 11, 'rotate-180') + '</button>'
+       +     '<button class="mini-btn mini-move" data-act="move-student" data-id="'+st.id+'" data-dir="down"'+(realIdx===L.students.length-1?' disabled':'')+' title="تحريك لأسفل">' + appIcon('chevron-down', 11) + '</button>'
+       +     (st.phone ? '<a class="mini-btn mini-call" href="tel:' + esc(st.phone) + '">' + appIcon('phone', 11) + ' اتصال</a>' : '')
+       +     (st.phone ? '<button class="mini-btn mini-wa" data-act="wa" data-id="'+st.id+'">' + appIcon('whatsapp', 11) + ' واتساب</button>' : '')
+       +     '<button class="mini-btn mini-wa" data-act="student-summary" data-id="'+st.id+'" title="ملخص حضور الطالب وإرساله له">' + appIcon('share', 11) + ' ملخص</button>'
+       +     (L.subscription ? '<button class="mini-btn" data-act="open-payments" data-id="'+st.id+'" title="سجل مدفوعات ومصروفات الطالب">' + appIcon('wallet', 11) + ' المصروفات</button>' : '')
+       +     '<button class="mini-btn mini-edit" data-act="edit-student" data-id="'+st.id+'" title="تعديل بيانات الطالب">' + appIcon('edit', 11) + '</button>'
+       +     '<button class="mini-btn mini-del" data-act="del-student" data-id="'+st.id+'" title="حذف الطالب">' + appIcon('trash', 11) + '</button>'
        +   '</div>'
        +   payPillHTML
        +   (L.subscription ? '<label class="paid-toggle"><input type="checkbox" data-act="paid" data-id="'+st.id+'"'+(st.paid?' checked':'')+'> دفع كامل الاشتراك</label>' : '')
@@ -4192,7 +4324,7 @@ function statusSelectHTML(studentId, sessionId, current, archIdx, statuses){
   let inlineStyle = '';
   if(current){
     const sObj = sd ? sd.find(x => x.id === current) : null;
-    if(sObj && sObj.color && sObj.color !== '#15803d' && sObj.color !== '#b45309' && sObj.color !== '#dc2626'){
+    if(sObj && sObj.color){
       cls = 'status-select s-custom';
       inlineStyle = ' style="background:' + hexToRgba(sObj.color, 0.15) + ';border-color:' + hexToRgba(sObj.color, 0.4) + ';color:' + sObj.color + ';"';
     } else if(isPresentStatus(current, sd)){
@@ -4216,7 +4348,7 @@ function statusSelectHTML(studentId, sessionId, current, archIdx, statuses){
 function dayNoteHTML(studentId, sessionId, note, archIdx){
   const has = note && note.trim();
   const archAttr = (archIdx !== undefined && archIdx !== null) ? ' data-arch="'+archIdx+'"' : '';
-  return '<button class="day-note-btn' + (has ? ' has-note' : '') + '" data-act="day-note"'+archAttr+' data-sid="'+studentId+'" data-ssid="'+sessionId+'" title="' + (has ? 'عرض/تعديل ملاحظة اليوم' : 'إضافة ملاحظة لهذا اليوم') + '">' + (has ? '💬 ملاحظة' : '📝 ملاحظة') + '</button>';
+  return '<button class="day-note-btn' + (has ? ' has-note' : '') + '" data-act="day-note"'+archAttr+' data-sid="'+studentId+'" data-ssid="'+sessionId+'" title="' + (has ? 'عرض/تعديل ملاحظة اليوم' : 'إضافة ملاحظة لهذا اليوم') + '">' + (has ? (appIcon('message', 13) + ' ملاحظة') : (appIcon('file-text', 13) + ' ملاحظة')) + '</button>';
 }
 
 /* ---------- الأرشيف ---------- */
@@ -4405,7 +4537,7 @@ function renderArchive(){
 
   // شريط فلترة الشهور حسب الدرس + زر الترتيب الزمني التلقائي
   let filterBarHTML = '<div class="archive-filter-bar" style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;background:var(--card-bg,#fff);border:1px solid var(--border);border-radius:10px">';
-  filterBarHTML += '<span style="font-size:12px;font-weight:800;color:var(--text)">📚 تصفية حسب الدرس:</span>';
+  filterBarHTML += '<span style="font-size:12px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:4px">' + appIcon('book', 14) + ' تصفية حسب الدرس:</span>';
   filterBarHTML += '<button class="btn btn-sm ' + (archiveLessonFilter === '__all__' ? 'btn-primary' : 'btn-outline') + '" data-arch-filter="__all__">كل الدروس (' + state.archive.length + ')</button>';
   
   lessonMap.forEach(item => {
@@ -4413,7 +4545,7 @@ function renderArchive(){
     filterBarHTML += '<button class="btn btn-sm ' + (isActive ? 'btn-primary' : 'btn-outline') + '" data-arch-filter="' + esc(item.id) + '">' + esc(item.name) + ' (' + item.count + ')</button>';
   });
 
-  filterBarHTML += '<button id="btnSortArchiveAuto" class="btn btn-outline btn-sm" style="margin-right:auto" title="ترتيب كل الشهور المؤرشفة تلقائياً من الأحدث إلى الأقدم">🔄 ترتيب زمني تلقائي</button>';
+  filterBarHTML += '<button id="btnSortArchiveAuto" class="btn btn-outline btn-sm" style="margin-right:auto" title="ترتيب كل الشهور المؤرشفة تلقائياً من الأحدث إلى الأقدم">' + appIcon('refresh', 13) + ' ترتيب زمني تلقائي</button>';
   filterBarHTML += '</div>';
 
   // تصفية الشهور المعروضة
@@ -4436,15 +4568,15 @@ function renderArchive(){
         + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
         +   '<div class="m-title" style="margin:0;font-weight:800;font-size:15px">' + esc(a.lessonName) + (a.subscription ? ' <span class="badge-sub">اشتراك</span>' : '') + '</div>'
         +   '<div style="display:flex;gap:4px" onclick="event.stopPropagation()">'
-        +     '<button class="btn btn-icon btn-sm" style="padding:2px 6px;font-size:11px" title="تحريك لأعلى" onclick="moveArchiveItem(' + idx + ',' + (idx - 1) + ')"' + (canMoveUp ? '' : ' disabled') + '>▲</button>'
-        +     '<button class="btn btn-icon btn-sm" style="padding:2px 6px;font-size:11px" title="تحريك لأسفل" onclick="moveArchiveItem(' + idx + ',' + (idx + 1) + ')"' + (canMoveDown ? '' : ' disabled') + '>▼</button>'
+        +     '<button class="btn btn-icon btn-sm" style="padding:2px 6px;font-size:11px" title="تحريك لأعلى" onclick="moveArchiveItem(' + idx + ',' + (idx - 1) + ')"' + (canMoveUp ? '' : ' disabled') + '>' + appIcon('chevron-down', 11, 'rotate-180') + '</button>'
+        +     '<button class="btn btn-icon btn-sm" style="padding:2px 6px;font-size:11px" title="تحريك لأسفل" onclick="moveArchiveItem(' + idx + ',' + (idx + 1) + ')"' + (canMoveDown ? '' : ' disabled') + '>' + appIcon('chevron-down', 11) + '</button>'
         +   '</div>'
         + '</div>'
         + '<div class="m-meta" style="margin-top:6px;font-size:12.5px;font-weight:700;color:var(--primary)">' + esc(buildMonthTitle(a.monthNumber)) + ' - شهر ' + a.monthNumber + '/' + a.year + '</div>'
-        + '<div style="display:flex;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted);flex-wrap:wrap">'
-        +   '<span>📅 ' + sessCount + ' حصة</span>'
-        +   '<span>👥 ' + stCount + ' طالب</span>'
-        +   (exCount > 0 ? '<span style="color:#2563eb;font-weight:700">📝 ' + exCount + ' اختبار</span>' : '')
+        + '<div style="display:flex;gap:12px;margin-top:8px;font-size:11.5px;color:var(--muted);flex-wrap:wrap">'
+        +   '<span style="display:flex;align-items:center;gap:4px">' + appIcon('calendar', 12) + ' ' + sessCount + ' حصة</span>'
+        +   '<span style="display:flex;align-items:center;gap:4px">' + appIcon('users', 12) + ' ' + stCount + ' طالب</span>'
+        +   (exCount > 0 ? '<span style="color:#2563eb;font-weight:700;display:flex;align-items:center;gap:4px">' + appIcon('file-text', 12) + ' ' + exCount + ' اختبار</span>' : '')
         + '</div>'
         + '</div>';
     }).join('');
@@ -4736,7 +4868,7 @@ function renderArchiveDetail(idx){
   }
 
   let html = '<div class="detail-top">'
-    + '<button id="backToArchiveListBtn" class="btn btn-outline btn-sm">→ رجوع لقائمة الأرشيف</button>'
+    + '<button id="backToArchiveListBtn" class="btn btn-outline btn-sm">' + appIcon('arrow-right', 14) + ' رجوع لقائمة الأرشيف</button>'
     + '<div class="lesson-head">'
     +   '<h2>' + esc(a.lessonName) + ' - ' + esc(buildMonthTitle(a.monthNumber)) + ' (' + a.monthNumber + '/' + a.year + ')</h2>'
     +   '<div class="lesson-meta">' + a.sessions.length + ' حصة · ' + a.students.length + ' طالب · أُرشف في ' + new Date(a.archivedAt).toLocaleString('ar-EG') + (a.subscription ? ' · اشتراك' : '') + '</div>'
@@ -4745,43 +4877,43 @@ function renderArchiveDetail(idx){
 
   // التابات الفرعية
   html += '<div class="lesson-subtabs">'
-    + '<button id="subtabArchAttendance" class="subtab-btn' + (currentArchiveSubtab === 'attendance' ? ' active' : '') + '">📅 جدول الحضور</button>'
-    + '<button id="subtabArchExams" class="subtab-btn' + (currentArchiveSubtab === 'exams' ? ' active' : '') + '">📝 درجات الاختبارات</button>'
+    + '<button id="subtabArchAttendance" class="subtab-btn' + (currentArchiveSubtab === 'attendance' ? ' active' : '') + '">' + appIcon('calendar', 14) + ' جدول الحضور</button>'
+    + '<button id="subtabArchExams" class="subtab-btn' + (currentArchiveSubtab === 'exams' ? ' active' : '') + '">' + appIcon('file-text', 14) + ' درجات الاختبارات</button>'
     + '</div>';
 
   // شريط الأدوات
   html += '<div class="toolbar">'
-    + '<button id="archAddStudentBtn" class="btn btn-primary">➕ عضو جديد</button>'
-    + '<button id="archBulkSelectBtn" class="btn ' + (isBulkSelecting ? 'btn-primary' : 'btn-outline') + '">' + (isBulkSelecting ? '☑️ إنهاء التحديد' : '☑️ تحديد متعدد') + '</button>'
-    + '<button id="archSeqMsgBtn" class="btn btn-outline" title="مراسلة تسلسلية عبر واتساب">📲 مراسلة جماعية</button>'
-    + (hiddenArchList.length > 0 ? '<button id="archHiddenStudentsBtn" class="btn btn-outline" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">🚫 المحجوبون (' + hiddenArchList.length + ')</button>' : '')
+    + '<button id="archAddStudentBtn" class="btn btn-primary">' + appIcon('plus', 14) + ' عضو جديد</button>'
+    + '<button id="archBulkSelectBtn" class="btn ' + (isBulkSelecting ? 'btn-primary' : 'btn-outline') + '">' + appIcon('check-square', 14) + (isBulkSelecting ? ' إنهاء التحديد' : ' تحديد متعدد') + '</button>'
+    + '<button id="archSeqMsgBtn" class="btn btn-outline" title="مراسلة تسلسلية عبر واتساب">' + appIcon('whatsapp', 14) + ' مراسلة جماعية</button>'
+    + (hiddenArchList.length > 0 ? '<button id="archHiddenStudentsBtn" class="btn btn-outline" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">' + appIcon('user-x', 14) + ' المحجوبون (' + hiddenArchList.length + ')</button>' : '')
     + '<div class="toolbar-dropdown">'
-    +   '<button class="btn btn-outline" id="archReportsMenuBtn">📊 التقارير ▾</button>'
+    +   '<button class="btn btn-outline" id="archReportsMenuBtn">' + appIcon('chart', 14) + ' التقارير ' + appIcon('chevron-down', 11) + '</button>'
     +   '<div class="dropdown-menu" id="archReportsMenu" hidden>'
-    +     '<button id="archRepMonthBtn" class="dropdown-item">📊 تقرير الشهر</button>'
-    +     '<button id="archRepExamsBtn" class="dropdown-item">📝 تقرير درجات الاختبارات</button>'
-    +     '<button id="archRepExamMsgBtn" class="dropdown-item">📨 تقرير الاختبار كرسالة</button>'
-    +     '<button id="archRepMsgBtn" class="dropdown-item">📨 تقرير كرسالة</button>'
-    +     '<button id="archRepCompBtn" class="dropdown-item">📊 تقرير شامل (كل الشهور)</button>'
-    +     '<button id="archBlankSheetBtn" class="dropdown-item">📄 ورقة حضور</button>'
-    +     '<button id="archExportCsvBtn" class="dropdown-item">⬇️ Excel (CSV)</button>'
-    +     '<button id="archPrintPdfBtn" class="dropdown-item">🖨️ PDF (A4)</button>'
+    +     '<button id="archRepMonthBtn" class="dropdown-item">' + appIcon('chart', 14) + ' تقرير الشهر</button>'
+    +     '<button id="archRepExamsBtn" class="dropdown-item">' + appIcon('file-text', 14) + ' تقرير درجات الاختبارات</button>'
+    +     '<button id="archRepExamMsgBtn" class="dropdown-item">' + appIcon('message', 14) + ' تقرير الاختبار كرسالة</button>'
+    +     '<button id="archRepMsgBtn" class="dropdown-item">' + appIcon('message', 14) + ' تقرير كرسالة</button>'
+    +     '<button id="archRepCompBtn" class="dropdown-item">' + appIcon('chart', 14) + ' تقرير شامل (كل الشهور)</button>'
+    +     '<button id="archBlankSheetBtn" class="dropdown-item">' + appIcon('file-text', 14) + ' ورقة حضور</button>'
+    +     '<button id="archExportCsvBtn" class="dropdown-item">' + appIcon('download', 14) + ' Excel (CSV)</button>'
+    +     '<button id="archPrintPdfBtn" class="dropdown-item">' + appIcon('printer', 14) + ' PDF (A4)</button>'
     +   '</div>'
     + '</div>'
     + '<div class="toolbar-dropdown">'
-    +   '<button class="btn btn-outline" id="archManageMenuBtn">⚙️ إدارة ▾</button>'
+    +   '<button class="btn btn-outline" id="archManageMenuBtn">' + appIcon('settings', 14) + ' إدارة ' + appIcon('chevron-down', 11) + '</button>'
     +   '<div class="dropdown-menu" id="archManageMenu" hidden>'
-    +     '<button id="archAddSessionBtn" class="dropdown-item">➕ حصة</button>'
-    +     '<button id="archAddExamBtn" class="dropdown-item">➕ اختبار جديد</button>'
-    +     '<button id="archExamGroupsBtn" class="dropdown-item">👥 مجموعات الاختبار</button>'
-    +     '<button id="archSortAttendanceBtn" class="dropdown-item">📈 ترتيب حسب الحضور</button>'
-    +     '<button id="archHiddenStudentsMenuBtn" class="dropdown-item">🚫 إدارة الطلاب المحجوبين' + (hiddenArchList.length > 0 ? ' (' + hiddenArchList.length + ')' : '') + '</button>'
-    +     '<button id="archSmartDropoutHideBtn" class="dropdown-item">⚡ حجب المنقطعين ذكياً</button>'
-    +     '<button id="archMergeAttendanceMenuBtn" class="dropdown-item">🔄 دمج ومشاركة الحضور</button>'
-    +     '<button id="archEditMonthBtn" class="dropdown-item">🗓️ تعديل بيانات الشهر</button>'
-    +     '<button id="archExportSingleMonthBtn" class="dropdown-item">⬇️ تصدير الشهر</button>'
-    +     '<button id="archRestoreBtn" class="dropdown-item">♻️ استعادة الشهر للرئيسية</button>'
-    +     '<button id="archDeleteBtn" class="dropdown-item" style="color:var(--danger)">🗑️ حذف الشهر من الأرشيف</button>'
+    +     '<button id="archAddSessionBtn" class="dropdown-item">' + appIcon('plus', 14) + ' حصة جديدة</button>'
+    +     '<button id="archAddExamBtn" class="dropdown-item">' + appIcon('plus', 14) + ' اختبار جديد</button>'
+    +     '<button id="archExamGroupsBtn" class="dropdown-item">' + appIcon('users', 14) + ' مجموعات الاختبار</button>'
+    +     '<button id="archSortAttendanceBtn" class="dropdown-item">' + appIcon('chart', 14) + ' ترتيب حسب الحضور</button>'
+    +     '<button id="archHiddenStudentsMenuBtn" class="dropdown-item">' + appIcon('user-x', 14) + ' إدارة الطلاب المحجوبين' + (hiddenArchList.length > 0 ? ' (' + hiddenArchList.length + ')' : '') + '</button>'
+    +     '<button id="archSmartDropoutHideBtn" class="dropdown-item">' + appIcon('zap', 14) + ' حجب المنقطعين ذكياً</button>'
+    +     '<button id="archMergeAttendanceMenuBtn" class="dropdown-item">' + appIcon('refresh', 14) + ' دمج ومشاركة الحضور</button>'
+    +     '<button id="archEditMonthBtn" class="dropdown-item">' + appIcon('calendar', 14) + ' تعديل بيانات الشهر</button>'
+    +     '<button id="archExportSingleMonthBtn" class="dropdown-item">' + appIcon('download', 14) + ' تصدير الشهر</button>'
+    +     '<button id="archRestoreBtn" class="dropdown-item">' + appIcon('refresh', 14) + ' استعادة الشهر للرئيسية</button>'
+    +     '<button id="archDeleteBtn" class="dropdown-item" style="color:var(--danger)">' + appIcon('trash', 14) + ' حذف الشهر من الأرشيف</button>'
     +   '</div>'
     + '</div>'
     + '</div>';
@@ -4789,8 +4921,8 @@ function renderArchiveDetail(idx){
   // شريط البحث والفلتر
   html += '<div class="detail-filters">'
     + '<div class="search-input-wrap" style="position:relative;flex:1;display:flex;align-items:center">'
-    +   '<input type="text" id="archiveSearch" class="lesson-search" placeholder="🔍 بحث بالاسم أو الهاتف أو رقم الترتيب (#)…" value="' + esc(archiveFilterQuery) + '" style="padding-left:32px;width:100%">'
-    +   '<button id="clearArchiveSearch" type="button" class="search-clear-btn" style="position:absolute;left:8px;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;display:' + (archiveFilterQuery ? 'block' : 'none') + '" title="مسح البحث">✕</button>'
+    +   '<input type="text" id="archiveSearch" class="lesson-search" placeholder="بحث بالاسم أو الهاتف أو رقم الترتيب (#)…" value="' + esc(archiveFilterQuery) + '" style="padding-left:32px;width:100%">'
+    +   '<button id="clearArchiveSearch" type="button" class="search-clear-btn" style="position:absolute;left:8px;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;display:' + (archiveFilterQuery ? 'block' : 'none') + '" title="مسح البحث">' + appIcon('x', 14) + '</button>'
     + '</div>'
     + (groups.length ? '<select id="archGroupFilter" class="group-filter" title="تصفية حسب المجموعة"><option value="">كل المجموعات</option>' + groups.map(g => '<option value="' + esc(g.id) + '"' + (archiveGroupFilterQuery === g.id ? ' selected' : '') + '>' + esc(g.name) + '</option>').join('') + '<option value="__none__"' + (archiveGroupFilterQuery === '__none__' ? ' selected' : '') + '>بدون مجموعة</option></select>' : '')
     + '</div>';
@@ -4799,8 +4931,8 @@ function renderArchiveDetail(idx){
   html += '<div id="archBulkActionBar" class="bulk-action-bar" style="display:' + (isBulkSelecting ? 'flex' : 'none') + ';margin-bottom:12px">'
     + '<div class="bulk-info"><span id="archBulkSelectedCount">' + selectedStudentIds.size + '</span> طالب محدد</div>'
     + '<div class="bulk-btns">'
-    +   '<button id="archBulkMoveBtn" class="btn btn-primary btn-sm">🔄 نقل إلى درس/شهر...</button>'
-    +   '<button id="archBulkCopyBtn" class="btn btn-outline btn-sm">📋 نسخ إلى درس/شهر...</button>'
+    +   '<button id="archBulkMoveBtn" class="btn btn-primary btn-sm">' + appIcon('refresh', 12) + ' نقل إلى درس/شهر...</button>'
+    +   '<button id="archBulkCopyBtn" class="btn btn-outline btn-sm">' + appIcon('copy', 12) + ' نسخ إلى درس/شهر...</button>'
     +   '<button id="archBulkCancelBtn" class="btn btn-outline btn-sm">إلغاء التحديد</button>'
     + '</div>'
     + '</div>';
@@ -4941,7 +5073,7 @@ function renderArchiveDetail(idx){
       message: 'هل أنت متأكد تماماً من حذف شهر (' + a.monthNumber + '/' + a.year + ') لـ «' + esc(a.lessonName) + '» من الأرشيف نهائياً؟',
       itemName: a.lessonName + ' - شهر ' + a.monthNumber + '/' + a.year,
       dangerNote: 'سيتم مسح سجلات هذا الشهر ودرجاته وطلابه بالأرشيف نهائياً ولا يمكن استرجاعها.',
-      confirmText: 'نعم، احذف الشهر 🗑️',
+      confirmText: 'نعم، احذف الشهر',
       onConfirm: () => {
         state.archive.splice(idx, 1);
         saveState();
@@ -5036,12 +5168,12 @@ function archiveTableHTML(a, idx, statuses, displayStudents){
     h += '<th><div class="week-head">'
        + '<span>' + esc(s.label) + '</span>'
        + '<span class="week-date" title="اضغط لتعديل التاريخ" data-act="edit-session-date" data-arch="' + idx + '" data-id="' + s.id + '">' + esc(s.dateLabel || 'بدون تاريخ') + '</span>'
-       + (s.event ? '<span class="week-event" data-act="edit-session-event" data-arch="' + idx + '" data-id="' + s.id + '">📝 ' + esc(s.event) + '</span>' : '')
-       + '<button class="del-week" data-act="del-session" data-arch="' + idx + '" data-id="' + s.id + '" title="حذف الحصة">✕</button>'
+       + (s.event ? '<span class="week-event" data-act="edit-session-event" data-arch="' + idx + '" data-id="' + s.id + '">' + appIcon('file-text', 11) + ' ' + esc(s.event) + '</span>' : '')
+       + '<button class="del-week" data-act="del-session" data-arch="' + idx + '" data-id="' + s.id + '" title="حذف الحصة">' + appIcon('x', 11) + '</button>'
        + '<div class="week-tools">'
-       + '<button class="mini-btn" data-act="bulk-attendance" data-arch="' + idx + '" data-id="' + s.id + '" title="⚡ التحضير السريع الجماعي للحصة">⚡</button>'
-       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-arch="' + idx + '" data-id="' + s.id + '" title="حدث الحصة">📝</button>'
-       + '<button class="mini-btn mini-wa" data-act="session-summary" data-arch="' + idx + '" data-id="' + s.id + '" title="ملخص واتساب">📤</button>'
+       + '<button class="mini-btn" data-act="bulk-attendance" data-arch="' + idx + '" data-id="' + s.id + '" title="التحضير السريع الجماعي للحصة">' + appIcon('zap', 11) + '</button>'
+       + '<button class="mini-btn mini-edit" data-act="edit-session-event" data-arch="' + idx + '" data-id="' + s.id + '" title="حدث الحصة">' + appIcon('file-text', 11) + '</button>'
+       + '<button class="mini-btn mini-wa" data-act="session-summary" data-arch="' + idx + '" data-id="' + s.id + '" title="ملخص واتساب">' + appIcon('share', 11) + '</button>'
        + '</div></div></th>';
   });
   h += '<th>' + esc(sd.notesLabel) + '</th>';
@@ -5068,15 +5200,15 @@ function archiveTableHTML(a, idx, statuses, displayStudents){
        +     (ind ? ' <span class="badge-indicator" style="background:' + ind.color + '" title="' + esc(ind.label) + ' (' + stPct + '%)">' + esc(ind.label) + '</span>' : '')
        +   '</div>'
        +   '<div class="student-phone">' + esc(st.phone) + '</div>'
-       +   ((st.extraPhones||[]).map(p => '<div class="student-phone">📱 ' + esc(p) + ' <a class="mini-btn mini-call" href="tel:' + esc(p) + '">📞 اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-arch="' + idx + '" data-id="' + st.id + '" data-phone="' + esc(p) + '">واتساب</button></div>').join(''))
+       +   ((st.extraPhones||[]).map(p => '<div class="student-phone">' + esc(p) + ' <a class="mini-btn mini-call" href="tel:' + esc(p) + '">' + appIcon('phone', 11) + ' اتصال</a> <button class="mini-btn mini-wa" data-act="wa" data-arch="' + idx + '" data-id="' + st.id + '" data-phone="' + esc(p) + '">' + appIcon('whatsapp', 11) + ' واتساب</button></div>').join(''))
        +   '<div class="student-actions">'
-       +     '<button class="mini-btn mini-move" data-act="move-student" data-arch="' + idx + '" data-id="' + st.id + '" data-dir="up"' + (i === 0 ? ' disabled' : '') + ' title="تحريك لأعلى">▲</button>'
-       +     '<button class="mini-btn mini-move" data-act="move-student" data-arch="' + idx + '" data-id="' + st.id + '" data-dir="down"' + (i === students.length - 1 ? ' disabled' : '') + ' title="تحريك لأسفل">▼</button>'
-       +     (st.phone ? '<a class="mini-btn mini-call" href="tel:' + esc(st.phone) + '">📞 اتصال</a>' : '')
-       +     (st.phone ? '<button class="mini-btn mini-wa" data-act="wa" data-arch="' + idx + '" data-id="' + st.id + '">واتساب</button>' : '')
-       +     '<button class="mini-btn mini-wa" data-act="student-summary" data-arch="' + idx + '" data-id="' + st.id + '" title="ملخص حضور واختبارات الطالب عبر واتساب">📤 ملخص</button>'
-       +     '<button class="mini-btn mini-edit" data-act="view-arch-student" data-arch="' + idx + '" data-id="' + st.id + '" title="تعديل بيانات الطالب">✏️</button>'
-       +     '<button class="mini-btn mini-del" data-act="del-arch-student" data-arch="' + idx + '" data-id="' + st.id + '" title="حذف الطالب من هذا الشهر المؤرشف فقط">🗑️</button>'
+       +     '<button class="mini-btn mini-move" data-act="move-student" data-arch="' + idx + '" data-id="' + st.id + '" data-dir="up"' + (i === 0 ? ' disabled' : '') + ' title="تحريك لأعلى">' + appIcon('chevron-down', 11, 'rotate-180') + '</button>'
+       +     '<button class="mini-btn mini-move" data-act="move-student" data-arch="' + idx + '" data-id="' + st.id + '" data-dir="down"' + (i === students.length - 1 ? ' disabled' : '') + ' title="تحريك لأسفل">' + appIcon('chevron-down', 11) + '</button>'
+       +     (st.phone ? '<a class="mini-btn mini-call" href="tel:' + esc(st.phone) + '">' + appIcon('phone', 11) + ' اتصال</a>' : '')
+       +     (st.phone ? '<button class="mini-btn mini-wa" data-act="wa" data-arch="' + idx + '" data-id="' + st.id + '">' + appIcon('whatsapp', 11) + ' واتساب</button>' : '')
+       +     '<button class="mini-btn mini-wa" data-act="student-summary" data-arch="' + idx + '" data-id="' + st.id + '" title="ملخص حضور واختبارات الطالب عبر واتساب">' + appIcon('share', 11) + ' ملخص</button>'
+       +     '<button class="mini-btn mini-edit" data-act="view-arch-student" data-arch="' + idx + '" data-id="' + st.id + '" title="تعديل بيانات الطالب">' + appIcon('edit', 11) + '</button>'
+       +     '<button class="mini-btn mini-del" data-act="del-arch-student" data-arch="' + idx + '" data-id="' + st.id + '" title="حذف الطالب من هذا الشهر المؤرشف فقط">' + appIcon('trash', 11) + '</button>'
        +   '</div>'
        + '</td>';
 
@@ -5118,9 +5250,9 @@ function renderArchExamsTable(a, idx, displayStudents){
 
   if(exams.length === 0){
     return '<div class="empty-state" style="padding:24px;text-align:center;background:var(--card);border-radius:12px;margin-top:12px">'
-      + '<h3>📝 لا توجد اختبارات مسجلة في هذا الشهر المؤرشف</h3>'
+      + '<h3>' + appIcon('file-text', 18) + ' لا توجد اختبارات مسجلة في هذا الشهر المؤرشف</h3>'
       + '<p class="muted">يمكنك إضافة اختبارات ورصد درجاتها مباشرة لهذا الشهر دون الحاجة لاستعادته.</p>'
-      + '<button class="btn btn-primary" onclick="addExamModal(state.archive[' + idx + '], null, true, ' + idx + ')" style="margin-top:10px">➕ إضافة اختبار جديد</button>'
+      + '<button class="btn btn-primary" onclick="addExamModal(state.archive[' + idx + '], null, true, ' + idx + ')" style="margin-top:10px">' + appIcon('plus', 13) + ' إضافة اختبار جديد</button>'
       + '</div>';
   }
 
@@ -5130,7 +5262,7 @@ function renderArchExamsTable(a, idx, displayStudents){
     h += '<th><div style="font-size:12px;font-weight:800">' + esc(ex.name) + '</div>'
       + '<span class="exam-max-badge">الدرجة: ' + ex.maxScore + (ex.date ? ' (' + esc(ex.date) + ')' : '') + '</span>'
       + '<div style="display:flex;gap:4px;justify-content:center;margin-top:3px">'
-      +   '<button class="mini-btn mini-edit" data-act="edit-exam" data-arch="' + idx + '" data-id="' + ex.id + '" title="تعديل الاختبار">✏️</button>'
+      +   '<button class="mini-btn mini-edit" data-act="edit-exam" data-arch="' + idx + '" data-id="' + ex.id + '" title="تعديل الاختبار">' + appIcon('edit', 11) + '</button>'
       +   '<button class="mini-btn mini-del" data-act="del-exam" data-arch="' + idx + '" data-id="' + ex.id + '" title="حذف الاختبار">✕</button>'
       + '</div>'
       + '</th>';
@@ -5276,16 +5408,8 @@ function requestNotifications(){
   Notification.requestPermission().then(() => { updateNotifStatus(); scheduleReminders(); });
 }
 function maybePromptNotifications(){
-  if(!notifSupported()) return;
-  if(Notification.permission !== 'default') return;
-  try{ if(sessionStorage.getItem('notif_prompted')) return; sessionStorage.setItem('notif_prompted','1'); }catch(e){}
-  setTimeout(() => {
-    openModal('🔔 فعّل الإشعارات',
-      '<p class="muted" style="margin-top:0">ليصلك تذكير بموعد الدرس في شريط الإشعارات وشاشة القفل، فعّل الإشعارات.</p>'
-      + '<div class="modal-actions"><button class="btn" id="np_yes">🔔 تفعيل</button><button class="btn btn-outline" id="np_no">لاحقاً</button></div>');
-    $('#np_yes').onclick = () => { closeModal(); requestNotifications(); };
-    $('#np_no').onclick = closeModal;
-  }, 900);
+  // تم إيقاف المطالبة المنبثقة التلقائية عند فتح التطبيق مع بقاء إمكانية التفعيل اليدوي من الإعدادات
+  return;
 }
 function versionNum(v){ return parseInt(String(v).replace(/[^0-9]/g,''),10) || 0; }
 /* ---------- سجل "ما الجديد" داخل شريط الإشعارات ---------- */
@@ -5467,7 +5591,37 @@ function showToastMessage(msg){
   const toast = $('#toast');
   if(!toast) return;
   const body = $('#toastBody');
-  if(body) body.innerHTML = msg;
+  if(body) {
+    let cleanMsg = String(msg || '');
+    if (cleanMsg.startsWith('✅')) {
+      cleanMsg = appIcon('check-circle', 16, 'toast-icon') + ' ' + cleanMsg.slice(2).trim();
+    } else if (cleanMsg.startsWith('⚠️')) {
+      cleanMsg = appIcon('alert', 16, 'toast-icon') + ' ' + cleanMsg.slice(2).trim();
+    } else if (cleanMsg.startsWith('🗑️') || cleanMsg.startsWith('🗑')) {
+      cleanMsg = appIcon('trash', 16, 'toast-icon') + ' ' + cleanMsg.replace(/^🗑️?/, '').trim();
+    } else if (cleanMsg.startsWith('💾')) {
+      cleanMsg = appIcon('save', 16, 'toast-icon') + ' ' + cleanMsg.slice(2).trim();
+    } else if (cleanMsg.startsWith('❌')) {
+      cleanMsg = appIcon('x-circle', 16, 'toast-icon') + ' ' + cleanMsg.slice(2).trim();
+    } else if (cleanMsg.startsWith('🚫')) {
+      cleanMsg = appIcon('user-x', 16, 'toast-icon') + ' ' + cleanMsg.slice(2).trim();
+    } else if (cleanMsg.startsWith('⚡') || cleanMsg.startsWith('✨')) {
+      cleanMsg = appIcon('zap', 16, 'toast-icon') + ' ' + cleanMsg.slice(cleanMsg.startsWith('⚡') ? 1 : 2).trim();
+    } else if (cleanMsg.startsWith('📦')) {
+      cleanMsg = appIcon('archive', 16, 'toast-icon') + ' ' + cleanMsg.slice(2).trim();
+    } else if (cleanMsg.startsWith('🔔')) {
+      cleanMsg = appIcon('bell', 16, 'toast-icon') + ' ' + cleanMsg.slice(2).trim();
+    } else if (cleanMsg.startsWith('📱')) {
+      cleanMsg = appIcon('smartphone', 16, 'toast-icon') + ' ' + cleanMsg.slice(2).trim();
+    } else if (cleanMsg.startsWith('🚀')) {
+      cleanMsg = appIcon('send', 16, 'toast-icon') + ' ' + cleanMsg.slice(2).trim();
+    } else if (cleanMsg.startsWith('📋')) {
+      cleanMsg = appIcon('copy', 16, 'toast-icon') + ' ' + cleanMsg.slice(2).trim();
+    } else if (cleanMsg.startsWith('💡') || cleanMsg.startsWith('ℹ️')) {
+      cleanMsg = appIcon('info', 16, 'toast-icon') + ' ' + cleanMsg.replace(/^(💡|ℹ️)/, '').trim();
+    }
+    body.innerHTML = cleanMsg;
+  }
   toast.hidden = false;
   clearTimeout(toastHideTimer);
   toastHideTimer = setTimeout(() => {
@@ -5541,12 +5695,12 @@ function lessonStatusesEditor(lesson, isArchive = false, archIdx = null){
     container.innerHTML = localStatuses.map((s, idx) => {
       const type = s.type || (s.id === 'st_done' ? 'present' : s.id === 'st_apology' ? 'apology' : 'absent');
       return '<div class="status-edit-row" data-idx="' + idx + '" style="background:#f8fafc;padding:8px 10px;border-radius:8px;border:1px solid var(--border);margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-        + '<input type="color" class="ls-color" value="' + esc(s.color || '#2563eb') + '" title="لون الحالة" style="width:40px;height:36px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px">'
+        + '<input type="color" class="ls-color" value="' + esc(s.color || '#2563eb') + '" title="اختر لون الزر بحرية" style="width:40px;height:36px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px">'
         + '<input type="text" class="ls-label" value="' + esc(s.label) + '" placeholder="اسم الحالة (مثال: استماع صوتي)" style="flex:2;min-width:130px;font-weight:700;padding:6px 10px;border-radius:6px;border:1px solid var(--border)">'
         + '<select class="ls-type" style="flex:1.5;min-width:140px;font-size:12px;font-weight:700;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:#fff">'
-        +   '<option value="present"' + (type === 'present' ? ' selected' : '') + '>🟢 حاضر (يُحسب حضور)</option>'
-        +   '<option value="apology"' + (type === 'apology' ? ' selected' : '') + '>🟡 اعتذار (غياب بعذر)</option>'
-        +   '<option value="absent"' + (type === 'absent' ? ' selected' : '') + '>🔴 غائب (غياب بدون عذر)</option>'
+        +   '<option value="present"' + (type === 'present' ? ' selected' : '') + '>حاضر (يُحسب حضور)</option>'
+        +   '<option value="apology"' + (type === 'apology' ? ' selected' : '') + '>اعتذار (غياب بعذر)</option>'
+        +   '<option value="absent"' + (type === 'absent' ? ' selected' : '') + '>غائب (غياب بدون عذر)</option>'
         + '</select>'
         + (localStatuses.length > 1 ? '<button class="del-status ls-del" data-idx="' + idx + '" title="حذف الحالة" style="padding:6px 10px;font-size:12px;border:none;border-radius:6px;background:#fee2e2;color:#991b1b;cursor:pointer;font-weight:700">✕</button>' : '')
         + '</div>';
@@ -5574,19 +5728,19 @@ function lessonStatusesEditor(lesson, isArchive = false, archIdx = null){
 
   const modalHtml = '<div style="text-align:right;direction:rtl">'
     + '<p class="muted" style="margin-top:0;font-size:12.5px;line-height:1.6">'
-    +   '💡 يمكنك إضافة أو تعديل حالات الحضور لهذا الدرس وتحديد معنى كل حالة (هل تُحسب كـ <b>حاضر</b> أم <b>غائب</b> أم <b>اعتذار</b>) ليتم احتساب نسب الحضور والإحصائيات والتقارير بدقة.'
+    +   'يمكنك إضافة أو تعديل حالات الحضور واختيار لون الزر بحرية كاملة، مع تحديد معنى كل حالة حسابياً (حاضر أم غائب أم اعتذار) دون أن يتغير لون الزر الذي اخترته للأخضر.'
     + '</p>'
     + '<div id="ls_rows_container" style="max-height:340px;overflow-y:auto;padding:2px"></div>'
-    + '<button class="btn btn-outline btn-sm" id="ls_add_btn" style="margin-top:6px;width:100%;justify-content:center;font-weight:700">➕ إضافة حالة جديدة للدرس</button>'
+    + '<button class="btn btn-outline btn-sm" id="ls_add_btn" style="margin-top:6px;width:100%;justify-content:center;font-weight:700">' + appIcon('plus', 14) + ' إضافة حالة جديدة للدرس</button>'
     + '<div class="modal-actions" style="margin-top:16px">'
-    +   '<button class="btn btn-primary" id="ls_save_btn">💾 حفظ التخصيص للدرس</button>'
-    +   '<button class="btn btn-outline" id="ls_reset_btn">🔄 استخدام العام (الافتراضي)</button>'
+    +   '<button class="btn btn-primary" id="ls_save_btn">' + appIcon('save', 14) + ' حفظ التخصيص للدرس</button>'
+    +   '<button class="btn btn-outline" id="ls_reset_btn">' + appIcon('refresh', 14) + ' استخدام العام (الافتراضي)</button>'
     +   '<button class="btn btn-outline" id="ls_cancel_btn">إلغاء</button>'
     + '</div>'
     + '</div>';
 
   const lessonDisplayName = lesson.lessonName || lesson.name || 'الدرس';
-  openModal('🏷️ تخصيص حالات الحضور لدرس «' + esc(lessonDisplayName) + '»', modalHtml);
+  openModal('تخصيص حالات الحضور لدرس «' + esc(lessonDisplayName) + '»', modalHtml);
   renderRows();
 
   $('#ls_add_btn').onclick = () => {
@@ -6005,21 +6159,21 @@ function showComprehensiveReport(lesson, initialMode){
   let compCustomStudentIds = new Set(allLessonStudents.map(st => st.id));
 
   const filterHTML = hasDates
-    ? '<div class="range-filter"><span>📅 فترة التقرير:</span>'
+    ? '<div class="range-filter"><span>' + appIcon('calendar', 13) + ' فترة التقرير:</span>'
       + '<label>من <input type="date" id="compRangeFrom" value="'+minDate+'"></label>'
       + '<label>إلى <input type="date" id="compRangeTo" value="'+maxDate+'"></label>'
       + '</div>'
     : '';
 
   const modeTabsHTML = '<div class="comp-mode-tabs">'
-    + '<button type="button" class="comp-mode-btn' + (currentCompMode === 'attendance' ? ' active' : '') + '" data-mode="attendance">📅 نسب الحضور</button>'
-    + '<button type="button" class="comp-mode-btn' + (currentCompMode === 'exams' ? ' active' : '') + '" data-mode="exams">📝 درجات الاختبارات</button>'
-    + '<button type="button" class="comp-mode-btn' + (currentCompMode === 'combined' ? ' active' : '') + '" data-mode="combined">📊 عرض مدمج (حضور + اختبارات)</button>'
+    + '<button type="button" class="comp-mode-btn' + (currentCompMode === 'attendance' ? ' active' : '') + '" data-mode="attendance">' + appIcon('calendar', 13) + ' نسب الحضور</button>'
+    + '<button type="button" class="comp-mode-btn' + (currentCompMode === 'exams' ? ' active' : '') + '" data-mode="exams">' + appIcon('file-text', 13) + ' درجات الاختبارات</button>'
+    + '<button type="button" class="comp-mode-btn' + (currentCompMode === 'combined' ? ' active' : '') + '" data-mode="combined">' + appIcon('bar-chart-2', 13) + ' عرض مدمج (حضور + اختبارات)</button>'
     + '</div>';
 
   const studentFilterHTML = '<div style="background:var(--card-bg,#f8fafc);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:8px 0">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-    +   '<label style="font-size:12px;font-weight:700">👥 تضمين الطلاب في التقرير الشامل:</label>'
+    +   '<label style="font-size:12px;font-weight:700">' + appIcon('users', 13) + ' تضمين الطلاب في التقرير الشامل:</label>'
     +   '<select id="comp_student_scope" style="padding:4px 8px;font-size:12px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer">'
     +     '<option value="all">جميع طلاب الدرس (' + allLessonStudents.length + ')</option>'
     +     '<option value="attended">الطلاب الحاضرون فقط (نسبة > 0%)</option>'
@@ -6046,7 +6200,7 @@ function showComprehensiveReport(lesson, initialMode){
     ? '<div style="margin:8px 0;padding:6px 10px;background:var(--card-bg,#f8fafc);border:1px solid var(--border);border-radius:8px">'
       + '<label class="switch-row" style="font-size:12px;font-weight:700;display:flex;align-items:center;cursor:pointer">'
       +   '<input type="checkbox" id="comp_group_by_groups" style="margin-left:6px">'
-      +   '<span>🗂️ تقسيم وترتيب الطلاب حسب مجموعات الدرس في ورقة واحدة (PDF / Excel)</span>'
+      +   '<span>' + appIcon('folder', 13) + ' تقسيم وترتيب الطلاب حسب مجموعات الدرس في ورقة واحدة (PDF / Excel)</span>'
       + '</label>'
       + '</div>'
     : '';
@@ -6054,7 +6208,7 @@ function showComprehensiveReport(lesson, initialMode){
   openModal('📊 تقرير شامل - ' + esc(lesson.name), filterHTML + modeTabsHTML + studentFilterHTML + groupToggleHTML + '<div id="compTableWrap"></div>');
   const actions = document.createElement('div');
   actions.className = 'modal-actions';
-  actions.innerHTML = '<button class="btn btn-outline" id="compCsv">⬇️ Excel (CSV)</button><button class="btn btn-primary" id="compPdf">📄 حفظ كـ PDF / طباعة A4</button><button class="btn btn-outline" id="compDownloadHtml" title="تنزيل نسخة ويب للطباعة جاهزة للمطبعة">📥 تنزيل للطباعة (للمطبعة)</button><button class="btn" id="compClose">إغلاق</button>';
+  actions.innerHTML = '<button class="btn btn-outline" id="compCsv">' + appIcon('download', 14) + ' Excel (CSV)</button><button class="btn btn-primary" id="compPdf">' + appIcon('printer', 14) + ' حفظ كـ PDF / طباعة A4</button><button class="btn btn-outline" id="compDownloadHtml" title="تنزيل نسخة ويب للطباعة جاهزة للمطبعة">' + appIcon('download', 14) + ' تنزيل للطباعة (للمطبعة)</button><button class="btn" id="compClose">إغلاق</button>';
   $('#modalBody').appendChild(actions);
 
   let curData = null;
@@ -6643,24 +6797,24 @@ function openExamReportModal(lesson){
     + '<p style="font-size:13px;font-weight:700;margin-bottom:12px">اختر صيغة أو نوع التقرير المطلوب لدرجات الاختبارات:</p>'
     + '<div style="display:flex;flex-direction:column;gap:10px">'
     +   '<button class="btn btn-outline" id="ex_rep_pdf" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;font-weight:800">'
-    +     '<span>🖨️ طباعة تقرير الاختبارات (PDF منفرد)</span>'
+    +     '<span>' + appIcon('printer', 14) + ' طباعة تقرير الاختبارات (PDF منفرد)</span>'
     +     '<span class="muted" style="font-size:11px;font-weight:400">ورقي A4 مضغوط</span>'
     +   '</button>'
     +   '<button class="btn btn-outline" id="ex_rep_csv" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;font-weight:800">'
-    +     '<span>⬇️ تصدير درجات الاختبارات (Excel CSV منفرد)</span>'
+    +     '<span>' + appIcon('download', 14) + ' تصدير درجات الاختبارات (Excel CSV منفرد)</span>'
     +     '<span class="muted" style="font-size:11px;font-weight:400">ملف جاهز للتعديل</span>'
     +   '</button>'
     +   '<button class="btn btn-outline" id="ex_rep_comp" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;font-weight:800">'
-    +     '<span>📊 التقرير الشامل لدرجات الاختبارات (عبر كل الشهور)</span>'
+    +     '<span>' + appIcon('bar-chart-2', 14) + ' التقرير الشامل لدرجات الاختبارات (عبر كل الشهور)</span>'
     +     '<span class="muted" style="font-size:11px;font-weight:400">تفاعلي + تصدير</span>'
     +   '</button>'
     +   '<button class="btn btn-outline" id="ex_rep_msg" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;font-weight:800">'
-    +     '<span>📨 تقرير درجات الاختبار كرسالة (واتساب / نسخ)</span>'
+    +     '<span>' + appIcon('message', 14) + ' تقرير درجات الاختبار كرسالة (واتساب / نسخ)</span>'
     +     '<span class="muted" style="font-size:11px;font-weight:400">للحاضرين فقط</span>'
     +   '</button>'
     + '</div>'
     + '<div style="margin-top:14px;padding:10px 12px;background:var(--card-bg,#f8fafc);border:1px solid var(--border);border-radius:8px">'
-    +   '<label style="font-size:12px;font-weight:800;display:block;margin-bottom:6px">🗂️ خيار تقسيم وترتيب المجموعات (في PDF و Excel):</label>'
+    +   '<label style="font-size:12px;font-weight:800;display:block;margin-bottom:6px">' + appIcon('folder', 13) + ' خيار تقسيم وترتيب المجموعات (في PDF و Excel):</label>'
     +   '<select id="ex_rep_group_mode" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-weight:700">'
     +     '<option value="none">بدون تقسيم (ترتيب عام)</option>'
     +     (lessonGroups.length > 0 ? '<option value="lesson" selected>تقسيم حسب مجموعات الدرس الأساسية (' + lessonGroups.length + ')</option>' : '')
@@ -6755,19 +6909,19 @@ function exportCSV(students, sessions, records, title, statuses, groupByGroups){
 function showSavePdfGuide(printCallback, reportTitle, reportHTML){
   openModal('💾 حفظ التقرير كملف PDF / مستند',
     '<div style="text-align:right;direction:rtl">'
-    + '<p style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--primary)">📄 اختر الطريقة المفضلة لحفظ أو طباعة التقرير:</p>'
+    + '<p style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--primary)">' + appIcon('file-text', 15) + ' اختر الطريقة المفضلة لحفظ أو طباعة التقرير:</p>'
     + '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">'
     +   (reportHTML ? '<button class="btn btn-primary" id="pdf_saveDirectBtn" style="font-size:14px;padding:12px 14px;justify-content:space-between;display:flex;align-items:center">'
-    +     '<span>💾 حفظ واختيار مكان الملف (مستند للطباعة)</span>'
+    +     '<span>' + appIcon('save', 14) + ' حفظ واختيار مكان الملف (مستند للطباعة)</span>'
     +     '<span style="font-size:11px;opacity:0.9;font-weight:400">تحديد المجلد وحفظه</span>'
     +   '</button>' : '')
     +   '<button class="btn ' + (reportHTML ? 'btn-outline' : 'btn-primary') + '" id="pdf_printNow" style="font-size:14px;padding:12px 14px;justify-content:space-between;display:flex;align-items:center;font-weight:800">'
-    +     '<span>🖨️ طباعة / حفظ بتنسيق PDF عبر المتصفح</span>'
+    +     '<span>' + appIcon('printer', 14) + ' طباعة / حفظ بتنسيق PDF عبر المتصفح</span>'
     +     '<span class="muted" style="font-size:11px;font-weight:400">A4 للمطبعة والورق</span>'
     +   '</button>'
     + '</div>'
     + '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:12px;color:#166534;line-height:1.6">'
-    +   '💡 <b>ملاحظة:</b> يمكنك اختيار مكان حفظ الملف على جهازك وتحديد المجلد المناسب، أو اختيار الطباعة والحفظ كـ PDF مباشرة.'
+    +   '<b>ملاحظة:</b> يمكنك اختيار مكان حفظ الملف على جهازك وتحديد المجلد المناسب، أو اختيار الطباعة والحفظ كـ PDF مباشرة.'
     + '</div>'
     + '<div class="modal-actions" style="margin-top:16px">'
     +   '<button class="btn btn-outline" id="pdf_cancel">إلغاء</button>'
@@ -6820,9 +6974,9 @@ function showBlankSheetOptions(){
   const body = '<div style="text-align:center;padding:8px 0">'
     + '<p style="margin-bottom:12px;font-size:14px">اختر صيغة ورقة الحضور الفارغة:</p>'
     + '<div class="modal-actions" style="justify-content:center;gap:12px">'
-    + '<button class="btn btn-primary" id="blankPdfBtn">📄 حفظ كـ PDF / طباعة A4</button>'
-    + '<button class="btn btn-outline" id="blankDownloadHtml">📥 تنزيل للطباعة (للمطبعة)</button>'
-    + '<button class="btn btn-outline" id="blankExcelBtn">⬇️ Excel (A4)</button>'
+    + '<button class="btn btn-primary" id="blankPdfBtn">' + appIcon('printer', 14) + ' حفظ كـ PDF / طباعة A4</button>'
+    + '<button class="btn btn-outline" id="blankDownloadHtml">' + appIcon('download', 14) + ' تنزيل للطباعة (للمطبعة)</button>'
+    + '<button class="btn btn-outline" id="blankExcelBtn">' + appIcon('download', 14) + ' Excel (A4)</button>'
     + '<button class="btn" id="blankCloseBtn">إغلاق</button>'
     + '</div></div>';
   openModal('📄 ورقة حضور فارغة', body);
@@ -7143,8 +7297,8 @@ function openExportShareModal(content, filename, mime, opts = {}) {
 
   const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
     + '<div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">'
-    +   '<div style="width:42px;height:42px;border-radius:10px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">'
-    +     '📄'
+    +   '<div style="width:42px;height:42px;border-radius:10px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;color:var(--primary);flex-shrink:0">'
+    +     appIcon('file-text', 22)
     +   '</div>'
     +   '<div style="flex:1;min-width:0">'
     +     '<div style="font-size:13px;font-weight:800;color:var(--text);word-break:break-all;line-height:1.4">'
@@ -7162,23 +7316,23 @@ function openExportShareModal(content, filename, mime, opts = {}) {
     + '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">'
     +   '<button type="button" class="btn btn-primary" id="btn_modal_share_direct" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:10px;text-align:right;cursor:pointer">'
     +     '<div style="display:flex;align-items:center;gap:10px">'
-    +       '<span style="font-size:22px">📤</span>'
+    +       appIcon('share-2', 22)
     +       '<div>'
     +         '<div style="font-size:14px;font-weight:800">مشاركة مباشرة عبر التطبيقات</div>'
     +         '<div style="font-size:11.5px;opacity:0.92;font-weight:600">واتساب، تيليجرام، مسنجر، البريد، البلوتوث...</div>'
     +       '</div>'
     +     '</div>'
-    +     '<span style="font-size:16px">◀</span>'
+    +     appIcon('chevron-left', 16)
     +   '</button>'
     +   '<button type="button" class="btn btn-outline" id="btn_modal_save_local" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:10px;text-align:right;border-width:2px;cursor:pointer">'
     +     '<div style="display:flex;align-items:center;gap:10px">'
-    +       '<span style="font-size:22px">⬇️</span>'
+    +       appIcon('download', 22)
     +       '<div>'
     +         '<div style="font-size:14px;font-weight:800;color:var(--text)">حفظ وتنزيل في الهاتف</div>'
     +         '<div style="font-size:11.5px;color:var(--muted);font-weight:600">تنزيل الملف في مجلد التنزيلات بالجهاز (Downloads)</div>'
     +       '</div>'
     +     '</div>'
-    +     '<span style="font-size:16px;color:var(--muted)">◀</span>'
+    +     appIcon('chevron-left', 16)
     +   '</button>'
     + '</div>'
     + '<div class="modal-actions" style="margin-top:10px">'
@@ -7373,11 +7527,11 @@ function openLessonExportModal(lesson, lessonArchives){
     + '</p>'
     + '<div style="display:flex;flex-direction:column;gap:10px;margin:16px 0">'
     +   '<button type="button" class="btn btn-outline" id="btn_export_current_only" style="padding:12px 14px;text-align:right;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-width:2px;border-color:var(--primary);background:var(--card-bg,#f8fafc);cursor:pointer;border-radius:8px">'
-    +     '<span style="font-size:14px;font-weight:800;color:var(--primary)">📄 تصدير الشهر الحالي فقط (بدون الأرشيف)</span>'
+    +     '<span style="font-size:14px;font-weight:800;color:var(--primary)">' + appIcon('file-text', 14) + ' تصدير الشهر الحالي فقط (بدون الأرشيف)</span>'
     +     '<span style="font-size:12px;color:var(--muted)">تصدير بيانات الشهر الجاري والطلاب والحصص فقط في ملف خفيف وسريع وصغير الحجم.</span>'
     +   '</button>'
     +   '<button type="button" class="btn btn-outline" id="btn_export_with_archives" style="padding:12px 14px;text-align:right;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-width:2px;border-color:var(--border);background:#fff;cursor:pointer;border-radius:8px">'
-    +     '<span style="font-size:14px;font-weight:800;color:var(--text)">📦 تصدير شامل (الشهر الحالي + كافة الشهور المؤرشفة ' + archCount + ' شهر)</span>'
+    +     '<span style="font-size:14px;font-weight:800;color:var(--text)">' + appIcon('archive', 14) + ' تصدير شامل (الشهر الحالي + كافة الشهور المؤرشفة ' + archCount + ' شهر)</span>'
     +     '<span style="font-size:12px;color:var(--muted)">تصدير نسخة كاملة تشمل الشهر الجاري وكافة الشهور السابقة المحفوظة في الأرشيف لهذا الدرس.</span>'
     +   '</button>'
     + '</div>'
@@ -7528,7 +7682,7 @@ function handleGlobalImportAttendanceFile(payload){
     +   '</select>'
     + '</div>'
     + '<div class="modal-actions" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">'
-    +   '<button class="btn btn-primary" id="btn_confirm_global_merge" style="font-weight:700">⚡ دمج الحضور الآن</button>'
+    +   '<button class="btn btn-primary" id="btn_confirm_global_merge" style="font-weight:700">' + appIcon('zap', 13) + ' دمج الحضور الآن</button>'
     +   '<button class="btn btn-outline" id="btn_cancel_global_merge">إلغاء</button>'
     + '</div>'
     + '</div>';
@@ -7607,11 +7761,11 @@ function openImportArchiveChoiceModal(norm, incomingArchives, existingArchives, 
     + '</p>'
     + '<div style="display:flex;flex-direction:column;gap:10px;margin:12px 0">'
     +   '<button type="button" class="btn btn-outline" id="btn_import_merge_archives" style="padding:12px 14px;text-align:right;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-width:2px;border-color:var(--primary);background:var(--card-bg,#f8fafc);cursor:pointer;border-radius:8px">'
-    +     '<span style="font-size:13.5px;font-weight:800;color:var(--primary)">📥 استيراد الشهر الحالي + دمج الشهور المؤرشفة (موصى به)</span>'
+    +     '<span style="font-size:13.5px;font-weight:800;color:var(--primary)">' + appIcon('download', 14) + ' استيراد الشهر الحالي + دمج الشهور المؤرشفة (موصى به)</span>'
     +     '<span style="font-size:11.5px;color:var(--muted)">إضافة الشهور المؤرشفة الجديدة وتحديث المتطابق مع الحفاظ الكامل على كافة الشهور القديمة في جهازك.</span>'
     +   '</button>'
     +   '<button type="button" class="btn btn-outline" id="btn_import_current_only" style="padding:12px 14px;text-align:right;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-width:2px;border-color:var(--border);background:#fff;cursor:pointer;border-radius:8px">'
-    +     '<span style="font-size:13.5px;font-weight:800;color:var(--text)">📄 استيراد الشهر الحالي فقط (وتجاهل أرشيف الملف)</span>'
+    +     '<span style="font-size:13.5px;font-weight:800;color:var(--text)">' + appIcon('file-text', 14) + ' استيراد الشهر الحالي فقط (وتجاهل أرشيف الملف)</span>'
     +     '<span style="font-size:11.5px;color:var(--muted)">تحديث الشهر الحالي فقط والإبقاء على الـ ' + existingArchives.length + ' شهر مؤرشف المحفوظة في هذا الجهاز دون أي تعديل.</span>'
     +   '</button>'
     + '</div>'
@@ -8717,7 +8871,7 @@ function updateStatusCellUI(sel, statuses){
     return;
   }
   const sObj = list ? list.find(x => x.id === cur) : null;
-  if(sObj && sObj.color && sObj.color !== '#15803d' && sObj.color !== '#b45309' && sObj.color !== '#dc2626'){
+  if(sObj && sObj.color){
     sel.className = 'status-select s-custom';
     sel.style.background = hexToRgba(sObj.color, 0.15);
     sel.style.borderColor = hexToRgba(sObj.color, 0.4);
@@ -9512,8 +9666,8 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
 
   const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
     + '<div class="lesson-subtabs" style="margin-bottom:14px">'
-    +   '<button type="button" class="subtab-btn active" id="tab_att_share">📤 مشاركة حضور (تصدير / QR)</button>'
-    +   '<button type="button" class="subtab-btn" id="tab_att_merge">📥 استيراد ودمج من جهاز آخر</button>'
+    +   '<button type="button" class="subtab-btn active" id="tab_att_share">' + appIcon('share-2', 13) + ' مشاركة حضور (تصدير / QR)</button>'
+    +   '<button type="button" class="subtab-btn" id="tab_att_merge">' + appIcon('download', 13) + ' استيراد ودمج من جهاز آخر</button>'
     + '</div>'
     + '<div id="panel_att_share">'
     +   '<div class="form-row" style="margin-bottom:10px">'
@@ -9525,7 +9679,7 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
     +   '<div class="form-row" style="margin-bottom:12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px">'
     +     '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
     +       '<label style="font-size:12.5px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px">'
-    +         '🧩 تقسيم الطلاب لكل كود QR:'
+    +         appIcon('qr', 14) + ' تقسيم الطلاب لكل كود QR:'
     +       '</label>'
     +       '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">'
     +         '<span style="font-size:11.5px;color:var(--muted)">العدد بالكود:</span>'
@@ -9542,20 +9696,20 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
     +   '</div>'
     +   '<div id="att_qr_wrap" style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px;margin:10px 0">'
     +     '<div id="att_qr_nav_bar" style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:320px;margin-bottom:8px;gap:6px">'
-    +       '<button type="button" class="btn btn-outline btn-sm" id="btn_qr_prev_part" style="padding:4px 12px;font-weight:700">▶ السابق</button>'
+    +       '<button type="button" class="btn btn-outline btn-sm" id="btn_qr_prev_part" style="padding:4px 12px;font-weight:700">' + appIcon('chevron-right', 12) + ' السابق</button>'
     +       '<div style="text-align:center;flex:1">'
     +         '<span id="qr_part_badge" style="font-size:12.5px;font-weight:800;background:var(--primary);color:#fff;padding:3px 12px;border-radius:20px;display:inline-block">الجزء 1 من 1</span>'
     +       '</div>'
-    +       '<button type="button" class="btn btn-outline btn-sm" id="btn_qr_next_part" style="padding:4px 12px;font-weight:700">التالي ◀</button>'
+    +       '<button type="button" class="btn btn-outline btn-sm" id="btn_qr_next_part" style="padding:4px 12px;font-weight:700">التالي ' + appIcon('chevron-left', 12) + '</button>'
     +     '</div>'
     +     '<div id="att_qr_parts_pills" style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-bottom:8px"></div>'
     +     '<div id="att_qr_box" style="width:220px;height:220px;max-width:82vw;max-height:82vw;background:#fff;padding:8px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center"></div>'
     +     '<div id="att_qr_summary" style="font-size:12px;font-weight:700;color:var(--text);margin-top:10px;text-align:center"></div>'
-    +     '<p class="muted" style="font-size:11.5px;margin:4px 0 0;text-align:center" id="att_qr_hint">💡 افتح تطبيق دفتر على الهاتف الآخر، واضغط "دمج الحضور" ثم امسح هذا الكود بالكاميرا. ثم اضغط "التالي" لمسح الجزء التالي.</p>'
+    +     '<p class="muted" style="font-size:11.5px;margin:4px 0 0;text-align:center" id="att_qr_hint">افتح تطبيق دفتر على الهاتف الآخر، واضغط "دمج الحضور" ثم امسح هذا الكود بالكاميرا. ثم اضغط "التالي" لمسح الجزء التالي.</p>'
     +   '</div>'
     +   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
-    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_download_att_file" style="flex:1;min-width:140px">📤 تصدير / مشاركة ملف الحضور (.daftar-att)</button>'
-    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_copy_att_payload" style="flex:1;min-width:130px">📋 نسخ كود هذا الجزء</button>'
+    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_download_att_file" style="flex:1;min-width:140px">' + appIcon('share-2', 13) + ' تصدير / مشاركة ملف الحضور (.daftar-att)</button>'
+    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_copy_att_payload" style="flex:1;min-width:130px">' + appIcon('copy', 13) + ' نسخ كود هذا الجزء</button>'
     +   '</div>'
     + '</div>'
     + '<div id="panel_att_merge" style="display:none">'
@@ -9564,17 +9718,17 @@ function openAttendanceMergeModal(lesson, defaultSessionId = null, isArchive = f
     +   '</p>'
     +   '<div style="display:flex;flex-direction:column;gap:10px;margin:14px 0">'
     +     '<button type="button" class="btn btn-primary" id="btn_open_qr_camera" style="padding:12px 14px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:800">'
-    +       '📷 مسح كود QR من شاشة الهاتف الآخر (كاميرا)'
+    +       appIcon('camera', 16) + ' مسح كود QR من شاشة الهاتف الآخر (كاميرا)'
     +     '</button>'
     +     '<button type="button" class="btn btn-outline" id="btn_pick_att_file" style="padding:12px 14px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:700">'
-    +       '📂 اختيار ملف حضور (.daftar-att / .json)'
+    +       appIcon('folder', 16) + ' اختيار ملف حضور (.daftar-att / .json)'
     +     '</button>'
     +     '<input type="file" id="inp_att_merge_file" accept=".daftar-att,application/json,.json" style="display:none">'
     +   '</div>'
     +   '<div style="border-top:1px dashed var(--border);padding-top:12px;margin-top:12px">'
     +     '<label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">أو الصق كود الحضور المنسوخ هنا:</label>'
     +     '<textarea id="txt_paste_att_payload" rows="3" placeholder="الصق كود الحضور المنسوخ هنا..." style="width:100%;font-size:11.5px;padding:6px;border-radius:6px;border:1px solid var(--border);font-family:monospace" dir="ltr"></textarea>'
-    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_apply_pasted_att" style="margin-top:6px;width:100%">⚡ دمج الكود المنسوخ الآن</button>'
+    +     '<button type="button" class="btn btn-outline btn-sm" id="btn_apply_pasted_att" style="margin-top:6px;width:100%">' + appIcon('zap', 13) + ' دمج الكود المنسوخ الآن</button>'
     +   '</div>'
     + '</div>'
     + '<div class="modal-actions" style="margin-top:14px">'
@@ -9874,34 +10028,34 @@ function processIncomingAttendancePayload(lesson, payload, isArchive = false, ar
 function showMergeSuccessModal(lesson, result) {
   const partsNotice = (result.partsCount && result.partsCount > 1)
     ? '<div style="background:#e0f2fe;border:1px solid #bae6fd;border-radius:8px;padding:8px;font-size:12px;color:#0369a1;margin-bottom:12px;text-align:center;font-weight:700">'
-      + '🧩 تم دمج ' + result.partsCount + ' أجزاء بنجاح عبر الكاميرا.'
+      + appIcon('qr', 13) + ' تم دمج ' + result.partsCount + ' أجزاء بنجاح عبر الكاميرا.'
       + '</div>'
     : (result.chunk
         ? '<div style="background:#e0f2fe;border:1px solid #bae6fd;border-radius:8px;padding:8px;font-size:12px;color:#0369a1;margin-bottom:12px;text-align:center;font-weight:700">'
-          + '🧩 تم دمج الجزء (' + result.chunk.part + ' من ' + result.chunk.totalParts + ') بنجاح.'
+          + appIcon('qr', 13) + ' تم دمج الجزء (' + result.chunk.part + ' من ' + result.chunk.totalParts + ') بنجاح.'
           + '</div>'
         : '');
 
   const addedNotice = (result.newStudentsAddedCount && result.newStudentsAddedCount > 0)
     ? '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:8px 12px;font-size:12px;color:#065f46;margin-bottom:12px;text-align:center;font-weight:700">'
-      + '➕ تم إضافة <b>' + result.newStudentsAddedCount + '</b> طالب جديد إلى قائمة طلاب الدرس تلقائياً ورصد حضورهم.'
+      + appIcon('plus', 13) + ' تم إضافة <b>' + result.newStudentsAddedCount + '</b> طالب جديد إلى قائمة طلاب الدرس تلقائياً ورصد حضورهم.'
       + '</div>'
     : '';
 
   const modalHTML = '<div style="text-align:right;direction:rtl;line-height:1.6">'
     + '<div style="text-align:center;margin-bottom:14px">'
-    +   '<div style="font-size:38px;margin-bottom:4px">✅</div>'
+    +   '<div style="margin-bottom:8px;color:#15803d">' + appIcon('check-circle', 42) + '</div>'
     +   '<h3 style="margin:0;color:var(--primary);font-size:17px">تم دمج الحضور بنجاح!</h3>'
     + '</div>'
     + partsNotice
     + addedNotice
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
     +   '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;text-align:center">'
-    +     '<div style="font-size:11.5px;color:#166534;font-weight:700">🟢 حاضرون جدد تم اعتمادهم</div>'
+    +     '<div style="font-size:11.5px;color:#166534;font-weight:700">' + appIcon('check', 13) + ' حاضرون جدد تم اعتمادهم</div>'
     +     '<div style="font-size:20px;font-weight:800;color:#15803d;margin-top:2px">' + result.newPresentCount + '</div>'
     +   '</div>'
     +   '<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">'
-    +     '<div style="font-size:11.5px;color:var(--text);font-weight:700">🔄 إجمالي السجلات المحدثة</div>'
+    +     '<div style="font-size:11.5px;color:var(--text);font-weight:700">' + appIcon('refresh', 13) + ' إجمالي السجلات المحدثة</div>'
     +     '<div style="font-size:20px;font-weight:800;color:var(--primary);margin-top:2px">' + result.updatedCount + '</div>'
     +   '</div>'
     + '</div>'
@@ -9910,15 +10064,15 @@ function showMergeSuccessModal(lesson, result) {
     + '</p>'
     + (result.unmatchedStudents && result.unmatchedStudents.length > 0
         ? '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px;font-size:11px;color:#92400e;margin-bottom:10px">'
-          + '⚠️ يوجد ' + result.unmatchedStudents.length + ' طالب في الملف لم يُعثر على أسمائهم في هذا الدرس: ' + esc(result.unmatchedStudents.slice(0, 5).join('، '))
+          + appIcon('alert', 12) + ' يوجد ' + result.unmatchedStudents.length + ' طالب في الملف لم يُعثر على أسمائهم في هذا الدرس: ' + esc(result.unmatchedStudents.slice(0, 5).join('، '))
           + '</div>'
         : '')
     + '<div class="modal-actions" style="margin-top:14px">'
-    +   '<button class="btn btn-primary" id="btn_ack_merge_done">ممتاز، حسناً 👍</button>'
+    +   '<button class="btn btn-primary" id="btn_ack_merge_done">تم ومتابعة</button>'
     + '</div>'
     + '</div>';
 
-  openModal('🎉 نتيجة دمج الحضور', modalHTML);
+  openModal('نتيجة دمج الحضور', modalHTML);
   if ($('#btn_ack_merge_done')) $('#btn_ack_merge_done').onclick = closeModal;
 }
 
@@ -9939,7 +10093,7 @@ function openCameraQRScannerModal(lesson, isArchive = false, archIdx = null) {
     +   '<div id="qr_parts_chips" style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-top:6px"></div>'
     + '</div>'
     + '<div class="modal-actions" style="margin-top:12px;display:flex;gap:8px;justify-content:center">'
-    +   '<button class="btn btn-primary" id="btn_finish_qr_camera" style="font-weight:700">✅ إنهاء وعرض التقرير</button>'
+    +   '<button class="btn btn-primary" id="btn_finish_qr_camera" style="font-weight:700">' + appIcon('check', 13) + ' إنهاء وعرض التقرير</button>'
     +   '<button class="btn btn-outline" id="btn_cancel_qr_camera">إلغاء</button>'
     + '</div>'
     + '</div>';
@@ -10222,7 +10376,7 @@ function openCameraQRScannerModal(lesson, isArchive = false, archIdx = null) {
 function openModal(title, bodyHTML){
   $$('.dropdown-menu').forEach(m => { m.hidden = true; });
   pushAppHistory({ modal: true });
-  $('#modalTitle').textContent = title;
+  $('#modalTitle').innerHTML = formatTitleWithIcon(title);
   $('#modalBody').innerHTML = bodyHTML;
   $('#modalOverlay').hidden = false;
 }
@@ -10243,7 +10397,7 @@ function editingGroupsHTML(){
     + groupReminderHTML(g, gi)
     + '<button class="mini-btn mini-del" type="button" onclick="removeEditingGroup('+gi+')">✕</button>'
     + '</div>'
-    + '<input type="text" class="g-wa" value="'+esc(g.waGroup||'')+'" placeholder="🔗 رابط جروب واتساب خاص بالمجموعة (اختياري)" dir="ltr" oninput="editingGroups['+gi+'].waGroup=this.value">'
+    + '<input type="text" class="g-wa" value="'+esc(g.waGroup||'')+'" placeholder="رابط جروب واتساب خاص بالمجموعة (اختياري)" dir="ltr" oninput="editingGroups['+gi+'].waGroup=this.value">'
     + '</div>'
   ).join('') + '</div>';
 }
@@ -10272,7 +10426,7 @@ function addEditingGroup(){
 const CONTACTS_API_SUPPORTED = ('contacts' in navigator) && typeof navigator.contacts.select === 'function';
 function contactPickerBtn(inputId){
   if(!CONTACTS_API_SUPPORTED) return '';
-  return '<button type="button" class="btn btn-outline btn-picker" data-pick="'+inputId+'" title="اختيار رقم من جهات الاتصال">📖 جهات الاتصال</button>';
+  return '<button type="button" class="btn btn-outline btn-picker" data-pick="'+inputId+'" title="اختيار رقم من جهات الاتصال">' + appIcon('book-open', 12) + ' جهات الاتصال</button>';
 }
 function bindContactPickers(){
   if(!CONTACTS_API_SUPPORTED) return;
@@ -10311,36 +10465,36 @@ function openStudentProfile(student, lesson){
 
   let contactsHTML = '';
   if(student.phone){
-    contactsHTML += '<div class="profile-row"><span class="profile-label">📱 هاتف الطالب</span><span class="profile-val">' + esc(localPhone(student.phone)) + ' <a class="mini-btn mini-call" href="tel:'+esc(student.phone)+'">📞</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(student.phone)+'">واتساب</button></span></div>';
+    contactsHTML += '<div class="profile-row"><span class="profile-label">' + appIcon('smartphone', 13) + ' هاتف الطالب</span><span class="profile-val">' + esc(localPhone(student.phone)) + ' <a class="mini-btn mini-call" href="tel:'+esc(student.phone)+'">' + appIcon('phone', 11) + '</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(student.phone)+'">' + appIcon('whatsapp', 11) + ' واتساب</button></span></div>';
   }
   (student.extraPhones || []).forEach(p => {
-    contactsHTML += '<div class="profile-row"><span class="profile-label">📱 هاتف إضافي</span><span class="profile-val">' + esc(localPhone(p)) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">📞</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(p)+'">واتساب</button></span></div>';
+    contactsHTML += '<div class="profile-row"><span class="profile-label">' + appIcon('smartphone', 13) + ' هاتف إضافي</span><span class="profile-val">' + esc(localPhone(p)) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">' + appIcon('phone', 11) + '</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(p)+'">' + appIcon('whatsapp', 11) + ' واتساب</button></span></div>';
   });
   if(student.guardianPhone){
-    contactsHTML += '<div class="profile-row"><span class="profile-label">👨 ولي الأمر</span><span class="profile-val">' + esc(localPhone(student.guardianPhone)) + ' <a class="mini-btn mini-call" href="tel:'+esc(student.guardianPhone)+'">📞</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(student.guardianPhone)+'">واتساب</button></span></div>';
+    contactsHTML += '<div class="profile-row"><span class="profile-label">' + appIcon('user', 13) + ' ولي الأمر</span><span class="profile-val">' + esc(localPhone(student.guardianPhone)) + ' <a class="mini-btn mini-call" href="tel:'+esc(student.guardianPhone)+'">' + appIcon('phone', 11) + '</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(student.guardianPhone)+'">' + appIcon('whatsapp', 11) + ' واتساب</button></span></div>';
   }
   (student.guardianExtraPhones || []).forEach(p => {
-    contactsHTML += '<div class="profile-row"><span class="profile-label">👨 هاتف إضافي لولي الأمر</span><span class="profile-val">' + esc(localPhone(p)) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">📞</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(p)+'">واتساب</button></span></div>';
+    contactsHTML += '<div class="profile-row"><span class="profile-label">' + appIcon('phone', 13) + ' هاتف إضافي لولي الأمر</span><span class="profile-val">' + esc(localPhone(p)) + ' <a class="mini-btn mini-call" href="tel:'+esc(p)+'">' + appIcon('phone', 11) + '</a> <button class="mini-btn mini-wa" data-act="wa" data-id="'+student.id+'" data-phone="'+esc(p)+'">' + appIcon('whatsapp', 11) + ' واتساب</button></span></div>';
   });
 
   let personalHTML = '';
-  if(student.job) personalHTML += '<div class="profile-row"><span class="profile-label">💼 المهنة / الوظيفة</span><span class="profile-val">' + esc(student.job) + '</span></div>';
-  if(student.age) personalHTML += '<div class="profile-row"><span class="profile-label">🎂 العمر</span><span class="profile-val">' + esc(student.age) + ' سنة</span></div>';
-  if(student.address) personalHTML += '<div class="profile-row"><span class="profile-label">📍 السكن / العنوان</span><span class="profile-val">' + esc(student.address) + '</span></div>';
+  if(student.job) personalHTML += '<div class="profile-row"><span class="profile-label">' + appIcon('briefcase', 13) + ' المهنة / الوظيفة</span><span class="profile-val">' + esc(student.job) + '</span></div>';
+  if(student.age) personalHTML += '<div class="profile-row"><span class="profile-label">' + appIcon('calendar', 13) + ' العمر</span><span class="profile-val">' + esc(student.age) + ' سنة</span></div>';
+  if(student.address) personalHTML += '<div class="profile-row"><span class="profile-label">' + appIcon('map-pin', 13) + ' السكن / العنوان</span><span class="profile-val">' + esc(student.address) + '</span></div>';
   const isHidden = (lesson.hiddenStudents || []).includes(student.id);
-  personalHTML += '<div class="profile-row"><span class="profile-label">🚫 حالة الطالب</span><span class="profile-val">'
+  personalHTML += '<div class="profile-row"><span class="profile-label">' + appIcon('user-x', 13) + ' حالة الطالب</span><span class="profile-val">'
     + '<button class="btn btn-outline btn-sm" id="prof_toggle_hide" style="font-size:11.5px;font-weight:700;' + (isHidden ? 'color:#15803d;border-color:#86efac' : 'color:#b91c1c;border-color:#fca5a5') + '">'
-    +   (isHidden ? '✅ إلغاء الحجب واستعادة للجدول' : '🚫 حجب الطالب من الجدول والمراسلة')
+    +   (isHidden ? appIcon('check', 11) + ' إلغاء الحجب واستعادة للجدول' : appIcon('user-x', 11) + ' حجب الطالب من الجدول والمراسلة')
     + '</button></span></div>';
-  if(student.email) personalHTML += '<div class="profile-row"><span class="profile-label">✉️ البريد الإلكتروني</span><span class="profile-val"><a href="mailto:'+esc(student.email)+'" dir="ltr">' + esc(student.email) + '</a></span></div>';
+  if(student.email) personalHTML += '<div class="profile-row"><span class="profile-label">' + appIcon('mail', 13) + ' البريد الإلكتروني</span><span class="profile-val"><a href="mailto:'+esc(student.email)+'" dir="ltr">' + esc(student.email) + '</a></span></div>';
   (state.settings.customFields || []).forEach(cf => {
     const v = (student.fields || {})[cf.id];
-    if(v) personalHTML += '<div class="profile-row"><span class="profile-label">📋 ' + esc(cf.label) + '</span><span class="profile-val">' + esc(v) + '</span></div>';
+    if(v) personalHTML += '<div class="profile-row"><span class="profile-label">' + appIcon('clipboard', 13) + ' ' + esc(cf.label) + '</span><span class="profile-val">' + esc(v) + '</span></div>';
   });
 
   let notesHTML = '';
   if(student.profileNotes){
-    notesHTML = '<div class="profile-section"><div class="profile-sec-title">📝 ملاحظات خاصة بالطالب</div><div style="font-size:13px;line-height:1.6;white-space:pre-wrap">' + esc(student.profileNotes) + '</div></div>';
+    notesHTML = '<div class="profile-section"><div class="profile-sec-title">' + appIcon('file-text', 13) + ' ملاحظات خاصة بالطالب</div><div style="font-size:13px;line-height:1.6;white-space:pre-wrap">' + esc(student.profileNotes) + '</div></div>';
   }
 
   let paymentsHTML = '';
@@ -10354,13 +10508,13 @@ function openStudentProfile(student, lesson){
 
     paymentsHTML = '<div class="profile-section">'
       + '<div class="profile-sec-title" style="display:flex;justify-content:space-between;align-items:center">'
-      +   '<span>💰 سجل المدفوعات والاشتراكات</span>'
-      +   '<button class="btn btn-sm btn-primary" id="prof_add_payment" style="font-size:11px;padding:3px 8px">➕ إضافة دفعة</button>'
+      +   '<span>' + appIcon('wallet', 13) + ' سجل المدفوعات والاشتراكات</span>'
+      +   '<button class="btn btn-sm btn-primary" id="prof_add_payment" style="font-size:11px;padding:3px 8px">' + appIcon('plus', 11) + ' إضافة دفعة</button>'
       + '</div>'
       + '<div class="pay-summary-box">'
       +   '<div class="ps-row"><span>سعر الاشتراك الشهري:</span><span>' + moneyDisplay(subPrice) + ' ج.م</span></div>'
       +   '<div class="ps-row" style="color:#15803d"><span>إجمالي المدفوع:</span><span>' + moneyDisplay(totalPaid) + ' ج.م</span></div>'
-      +   '<div class="ps-row" style="color:' + (remaining > 0 ? '#b91c1c' : '#15803d') + '"><span>المتبقي:</span><span>' + (remaining > 0 ? moneyDisplay(remaining) + ' ج.م' : 'تم السداد بالكامل ✅') + '</span></div>'
+      +   '<div class="ps-row" style="color:' + (remaining > 0 ? '#b91c1c' : '#15803d') + '"><span>المتبقي:</span><span>' + (remaining > 0 ? moneyDisplay(remaining) + ' ج.م' : 'تم السداد بالكامل ' + appIcon('check-circle', 12)) + '</span></div>'
       + '</div>'
       + '<div class="payments-ledger">';
 
@@ -10375,7 +10529,7 @@ function openStudentProfile(student, lesson){
           +   '<span class="muted" style="font-size:11px">(' + esc(p.date) + ')</span>'
           +   (p.note ? '<span style="font-size:11px;color:var(--muted)">- ' + esc(p.note) + '</span>' : '')
           + '</div>'
-          + '<button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px" data-del-pay="' + p.id + '" title="حذف هذه الدفعة">🗑️</button>'
+          + '<button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px" data-del-pay="' + p.id + '" title="حذف هذه الدفعة">' + appIcon('trash', 11) + '</button>'
           + '</div>';
       });
     }
@@ -10387,11 +10541,11 @@ function openStudentProfile(student, lesson){
     + '<div class="profile-name">' + esc(student.name) + '</div>'
     + '<div class="profile-badges">'
     +   (g ? '<span class="badge-group">' + esc(g.name) + '</span>' : '')
-    +   (lesson.subscription ? '<span class="paid-toggle" style="margin:0">' + (student.paid ? '✅ مسدد الاشتراك' : '❌ لم يسدد') + '</span>' : '')
+    +   (lesson.subscription ? '<span class="paid-toggle" style="margin:0">' + (student.paid ? appIcon('check', 11) + ' مسدد الاشتراك' : appIcon('x', 11) + ' لم يسدد') + '</span>' : '')
     +   (ind ? '<span class="badge-indicator" style="background:'+ind.color+'">' + esc(ind.label) + ' (' + pct + '%)</span>' : '')
     + '</div>'
     + '<div class="profile-section">'
-    +   '<div class="profile-sec-title">📊 إحصائيات الحضور (الشهر الحالي)</div>'
+    +   '<div class="profile-sec-title">' + appIcon('bar-chart-2', 13) + ' إحصائيات الحضور (الشهر الحالي)</div>'
     +   '<div class="profile-stats-grid">'
     +     '<div class="profile-stat-box"><div class="ps-num">' + ps.length + '</div><div class="ps-lbl">الحصص</div></div>'
     +     '<div class="profile-stat-box"><div class="ps-num" style="color:#15803d">' + doneCount + '</div><div class="ps-lbl">حضور</div></div>'
@@ -10399,13 +10553,13 @@ function openStudentProfile(student, lesson){
     +     '<div class="profile-stat-box"><div class="ps-num" style="color:#b91c1c">' + noansCount + '</div><div class="ps-lbl">غياب</div></div>'
     +   '</div>'
     + '</div>'
-    + (contactsHTML ? '<div class="profile-section"><div class="profile-sec-title">📞 معلومات الاتصال</div>' + contactsHTML + '</div>' : '')
-    + (personalHTML ? '<div class="profile-section"><div class="profile-sec-title">👤 البيانات الشخصية</div>' + personalHTML + '</div>' : '')
+    + (contactsHTML ? '<div class="profile-section"><div class="profile-sec-title">' + appIcon('phone', 13) + ' معلومات الاتصال</div>' + contactsHTML + '</div>' : '')
+    + (personalHTML ? '<div class="profile-section"><div class="profile-sec-title">' + appIcon('user', 13) + ' البيانات الشخصية</div>' + personalHTML + '</div>' : '')
     + paymentsHTML
     + notesHTML
     + '</div>'
     + '<div class="modal-actions">'
-    +   '<button class="btn btn-primary" id="prof_edit">✏️ تعديل بيانات الطالب</button>'
+    +   '<button class="btn btn-primary" id="prof_edit">' + appIcon('edit', 13) + ' تعديل بيانات الطالب</button>'
     +   '<button class="btn btn-outline" id="prof_close">إغلاق</button>'
     + '</div>';
 
@@ -10476,19 +10630,19 @@ function studentForm(lesson, student, isArchive, archIdx){
     ? phoneRow('رقم ولي الأمر', 'f_guardian', student ? student.guardianPhone : '')
       + '<div class="form-row"><label>أرقام إضافية لولي الأمر (اختياري)</label>'
       + '<div id="guardianExtraWrap"></div>'
-      + '<button type="button" class="btn btn-outline" id="addGuardianExtra" style="margin-top:6px">➕ إضافة رقم آخر لولي الأمر</button>'
+      + '<button type="button" class="btn btn-outline" id="addGuardianExtra" style="margin-top:6px">' + appIcon('plus', 12) + ' إضافة رقم آخر لولي الأمر</button>'
       + '</div>'
     : '';
   const extrasHTML = '<div class="form-row"><label>أرقام إضافية للطالب (اختياري)</label>'
       + '<div id="extraPhonesWrap"></div>'
-      + '<button type="button" class="btn btn-outline" id="addExtraPhone" style="margin-top:6px">➕ إضافة رقم آخر للطالب</button>'
+      + '<button type="button" class="btn btn-outline" id="addExtraPhone" style="margin-top:6px">' + appIcon('plus', 12) + ' إضافة رقم آخر للطالب</button>'
       + '</div>';
 
   const photoHTML = '<div class="form-row"><label>صورة الطالب (اختياري - تُضغط كرمز شخصي)'
     + '<div class="photo-picker-wrap">'
     + '<input type="file" id="f_photo" accept="image/*" style="display:none">'
     + '<div id="photoPreviewWrap">' + (photoBase64 ? '<img src="'+photoBase64+'" class="photo-preview">' : '<div class="photo-preview-empty">👤</div>') + '</div>'
-    + '<button type="button" class="btn btn-outline btn-sm" id="btnPickPhoto">📷 اختيار صورة</button>'
+    + '<button type="button" class="btn btn-outline btn-sm" id="btnPickPhoto">' + appIcon('camera', 13) + ' اختيار صورة</button>'
     + '<button type="button" class="btn btn-danger btn-sm" id="btnRemovePhoto" style="display:'+(photoBase64?'':'none')+'">حذف الصورة</button>'
     + '</div></label></div>';
 
@@ -10553,7 +10707,7 @@ function studentForm(lesson, student, isArchive, archIdx){
     const row = document.createElement('div');
     row.className = 'phone-row extra-phone-row';
     row.innerHTML = '<input id="'+id+'" type="text" class="extra-phone-input" value="'+esc(val||'')+'" dir="ltr" placeholder="+20...">'
-      + '<button type="button" class="btn btn-danger btn-picker" data-del-row title="حذف الرقم">🗑️</button>'
+      + '<button type="button" class="btn btn-danger btn-picker" data-del-row title="حذف الرقم">' + appIcon('trash', 12) + '</button>'
       + contactPickerBtn(id);
     wrap.appendChild(row);
     row.querySelector('[data-del-row]').onclick = () => row.remove();
@@ -10566,7 +10720,7 @@ function studentForm(lesson, student, isArchive, archIdx){
     const row = document.createElement('div');
     row.className = 'phone-row extra-phone-row';
     row.innerHTML = '<input id="'+id+'" type="text" class="guardian-extra-input" value="'+esc(val||'')+'" dir="ltr" placeholder="+20...">'
-      + '<button type="button" class="btn btn-danger btn-picker" data-del-row title="حذف الرقم">🗑️</button>'
+      + '<button type="button" class="btn btn-danger btn-picker" data-del-row title="حذف الرقم">' + appIcon('trash', 12) + '</button>'
       + contactPickerBtn(id);
     wrap.appendChild(row);
     row.querySelector('[data-del-row]').onclick = () => row.remove();
@@ -10717,7 +10871,7 @@ function lessonForm(lesson){
     +   '<label>رابط/رقم جروب الواتساب<input id="l_waGroup" type="text" dir="ltr" value="'+esc(waGroup)+'" placeholder="https://chat.whatsapp.com/..."></label>'
     + '</div>'
     + '<div class="form-row"><label>المجموعات (لتقسيم عدد كبير إلى مجموعات صغيرة)<div id="groupsBox">'+editingGroupsHTML()+'</div>'
-    +   '<button class="btn btn-sm btn-outline" id="addGroupBtn" type="button" style="margin-top:8px">➕ إضافة مجموعة</button></label></div>'
+    +   '<button class="btn btn-sm btn-outline" id="addGroupBtn" type="button" style="margin-top:8px">' + appIcon('plus', 12) + ' إضافة مجموعة</button></label></div>'
     + '<div class="switch-row" style="margin-top:10px;margin-bottom:8px">'
     +   '<label class="switch"><input type="checkbox" id="l_sub"'+(subscription?' checked':'')+'><span class="switch-slider"></span></label>'
     +   '<span class="switch-label">هذا الدرس باشتراك شهري (يظهر حالة الدفع وسعر الاشتراك)</span>'
